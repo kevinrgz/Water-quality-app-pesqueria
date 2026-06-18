@@ -1,5 +1,5 @@
 import streamlit as st
-import pickle, json, tempfile, os, zipfile, warnings
+import pickle, tempfile, os, zipfile, warnings
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -8,137 +8,68 @@ from scipy.interpolate import RBFInterpolator, griddata
 from scipy import stats
 import geopandas as gpd
 from shapely.geometry import Point
-import io
+import io, base64
 warnings.filterwarnings("ignore")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# FOTO DEL INVESTIGADOR — leer desde archivo en el repo
-# ─────────────────────────────────────────────────────────────────────────────
-def get_photo_b64():
-    p = os.path.join(os.path.dirname(__file__), "photo_researcher.png")
-    if os.path.exists(p):
-        import base64
-        with open(p, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    return ""
+# ── Cargar logos y foto desde archivos del repositorio ────────────────────────
+def _b64(filename):
+    p = os.path.join(os.path.dirname(__file__), filename)
+    if not os.path.exists(p):
+        return ""
+    with open(p, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CONFIGURACIÓN DE PÁGINA
-# ─────────────────────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Water Quality RF — Río Pesquería",
-    page_icon="💧",
-    layout="wide",
-)
+GEO_B64   = _b64("logo_geomatica.png")
+UANL_B64  = _b64("logo_uanl.png")
+FIC_B64   = _b64("logo_fic.png")
+PHOTO_B64 = _b64("photo_researcher.png")
 
-st.markdown("""
-<style>
-body, .stApp { background-color: #0D1117 !important; }
-section[data-testid="stSidebar"] { background-color: #161B22 !important; }
-
-.header-banner {
-    background: linear-gradient(135deg, #1A4F7A 0%, #0D1117 65%);
-    border-bottom: 2px solid #2E8B8B;
-    padding: 1.5rem 2rem 1rem 2rem;
-    margin-bottom: 1.5rem;
-    border-radius: 0 0 14px 14px;
-}
-.app-title {
-    font-size: 2.2rem; font-weight: 800;
-    color: #FFFFFF; letter-spacing: -0.5px;
-    margin: 0; line-height: 1.1;
-}
-.app-subtitle { font-size: 0.92rem; color: #8EAAC8; margin: 0.3rem 0 0 0; }
-
-.logo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 0.7rem; flex-wrap: wrap; }
-.logo-box {
-    background: #FFFFFF10; border: 1px solid #2E8B8B55;
-    border-radius: 8px; padding: 5px 14px;
-    font-size: 0.72rem; color: #8EAAC8;
-    font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-}
-
-.metric-row { display: flex; gap: 12px; margin: 1rem 0; flex-wrap: wrap; }
-.metric-card {
-    flex: 1; min-width: 130px;
-    background: linear-gradient(145deg, #161B22, #1A2030);
-    border: 1px solid #2E8B8B44; border-radius: 14px; padding: 1rem;
-    text-align: center;
-}
-.metric-value { font-size: 1.9rem; font-weight: 700; color: #2E8B8B; }
-.metric-label { font-size: 0.70rem; color: #8EAAC8;
-                text-transform: uppercase; letter-spacing: .06em; margin-top: 4px; }
-.badge-good {
-    display: inline-block; margin-top: 8px;
-    background: #1A3A2A; color: #3DBA7A;
-    border: 1px solid #3DBA7A55;
-    padding: 2px 12px; border-radius: 20px;
-    font-size: 0.70rem; font-weight: 700;
-}
-
-.researcher-card {
-    background: linear-gradient(145deg, #161B22, #1A2030);
-    border: 1px solid #2E8B8B55;
-    border-radius: 16px; padding: 1.4rem 1.8rem;
-    display: flex; gap: 22px; align-items: center;
-    margin: 0.5rem 0 1rem 0;
-}
-.researcher-photo {
-    width: 92px; height: 92px; border-radius: 50%;
-    object-fit: cover; border: 3px solid #2E8B8B; flex-shrink: 0;
-}
-.researcher-name { font-size: 1.05rem; font-weight: 700; color: #FFFFFF; margin: 0 0 2px 0; }
-.researcher-title { font-size: 0.82rem; color: #2E8B8B; font-weight: 600; margin: 0 0 3px 0; }
-.researcher-dept  { font-size: 0.78rem; color: #8EAAC8; margin: 0 0 10px 0; }
-.researcher-links { display: flex; gap: 10px; flex-wrap: wrap; }
-.researcher-link {
-    font-size: 0.72rem; color: #8EAAC8;
-    background: #FFFFFF0D; border: 1px solid #FFFFFF22;
-    border-radius: 20px; padding: 3px 12px; text-decoration: none;
-}
-
-.step-box {
-    background: #161B22; border: 1px solid #FFFFFF12;
-    border-left: 3px solid #2E8B8B;
-    border-radius: 0 10px 10px 0; padding: 1rem 1.2rem;
-}
-.step-title { font-size: 0.9rem; font-weight: 700; color: #FFFFFF; margin-bottom: 0.5rem; }
-.step-body  { font-size: 0.78rem; color: #8EAAC8; line-height: 1.6; }
-
-.divider { border: 0; border-top: 1px solid #FFFFFF12; margin: 1.2rem 0; }
-.section-title {
-    font-size: 0.82rem; font-weight: 700; color: #8EAAC8;
-    letter-spacing: .08em; text-transform: uppercase; margin: 1.2rem 0 0.6rem 0;
-}
-.sidebar-label {
-    font-size: 0.70rem; color: #8EAAC8;
-    text-transform: uppercase; letter-spacing: .08em;
-    font-weight: 700; margin-bottom: 0.3rem;
-}
-.footer {
-    text-align: center; font-size: 0.70rem; color: #3A4A5C;
-    margin-top: 2rem; padding-top: 1rem;
-    border-top: 1px solid #FFFFFF0D;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CONSTANTES
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Constantes ────────────────────────────────────────────────────────────────
 PARAMS = {
-    "P_TOT" : dict(label="Fósforo Total",   unidad="mg/L", vmin=0,  vmax=6,
-                   pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], oob=0.684,
-                   desc="Indicador de contaminación por aguas residuales y fertilizantes."),
-    "N_NH3" : dict(label="N-Amoniaco",       unidad="mg/L", vmin=0,  vmax=25,
-                   pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], oob=0.645,
-                   desc="Indicador de descargas de aguas residuales domésticas e industriales."),
-    "N_TOT" : dict(label="N-Total",          unidad="mg/L", vmin=0,  vmax=35,
-                   pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], oob=0.615,
-                   desc="Nitrógeno total disuelto, incluye todas las formas."),
-    "N_TOTK": dict(label="N-Total Kjeldahl", unidad="mg/L", vmin=0,  vmax=35,
-                   pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], oob=0.662,
-                   desc="Nitrógeno orgánico + amoniaco, indicador de carga orgánica."),
+    "P_TOT": dict(
+        label="Fósforo Total", unidad="mg/L", vmin=0, vmax=6, oob=0.684,
+        icon="🧪",
+        pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"],
+        desc=(
+            "Nutriente clave en procesos de eutrofización. Concentraciones elevadas "
+            "indican descargas de aguas residuales domésticas, efluentes industriales "
+            "y escorrentía agrícola con fertilizantes. Referencia NOM-001-SEMARNAT: "
+            "límite de 5 mg/L para uso en riego agrícola."
+        ),
+    ),
+    "N_NH3": dict(
+        label="N-Amoniaco", unidad="mg/L", vmin=0, vmax=25, oob=0.645,
+        icon="⚗️",
+        pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"],
+        desc=(
+            "Forma reducida del nitrógeno, indicador directo de contaminación "
+            "orgánica reciente y presencia de aguas residuales sin tratar. "
+            "Tóxico para organismos acuáticos incluso a bajas concentraciones. "
+            "Referencia NOM-001: 25 mg/L promedio mensual para uso en riego."
+        ),
+    ),
+    "N_TOT": dict(
+        label="N-Total", unidad="mg/L", vmin=0, vmax=35, oob=0.615,
+        icon="🔬",
+        pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"],
+        desc=(
+            "Suma de todas las fracciones de nitrógeno disuelto: orgánico, "
+            "amoniaco, nitritos y nitratos. Indicador integral de la carga "
+            "nitrogenada total en el cuerpo de agua y del riesgo de "
+            "eutrofización y deterioro del ecosistema acuático."
+        ),
+    ),
+    "N_TOTK": dict(
+        label="N-Total Kjeldahl", unidad="mg/L", vmin=0, vmax=35, oob=0.662,
+        icon="🧫",
+        pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"],
+        desc=(
+            "Nitrógeno orgánico + amoniaco determinado por el método Kjeldahl, "
+            "estándar internacional para evaluar la carga orgánica en aguas "
+            "residuales. Determina el potencial de demanda bioquímica de oxígeno "
+            "y la capacidad de autodepuración del río."
+        ),
+    ),
 }
 
 COORDS = {
@@ -158,22 +89,87 @@ FECHAS = [
 def make_cmap(pal):
     return LinearSegmentedColormap.from_list("wq", pal, N=256)
 
-def inv_transform(y_t, method, lam=None):
-    if method == "none": return y_t.copy()
-    if method == "log1": return np.expm1(y_t)
-    if method == "sqrt": return np.clip(y_t, 0, None)**2
-    if method == "yeoj": return stats.yeojohnson(y_t, lmbda=lam)
+# ── Configuración de página ───────────────────────────────────────────────────
+st.set_page_config(
+    page_title="Water Quality RF — Río Pesquería",
+    page_icon="💧", layout="wide",
+)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CARGAR MODELO Y CSV
-# ─────────────────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+body,.stApp{background-color:#0D1117!important}
+section[data-testid="stSidebar"]{background-color:#161B22!important}
+
+/* Header */
+.hdr{background:linear-gradient(135deg,#1A4F7A 0%,#0D1117 65%);
+     border-bottom:2px solid #2E8B8B;padding:1.2rem 2rem .9rem;
+     margin-bottom:1.2rem;border-radius:0 0 14px 14px}
+.hdr-logos{display:flex;align-items:center;gap:16px;margin-bottom:.8rem;flex-wrap:wrap}
+.hdr-logo-img{height:54px;object-fit:contain}
+.hdr-sep{width:1px;height:46px;background:#2E8B8B55;flex-shrink:0}
+.app-title{font-size:2.1rem;font-weight:800;color:#fff;margin:0;letter-spacing:-.5px;line-height:1.1}
+.app-sub{font-size:.88rem;color:#8EAAC8;margin:.3rem 0 0}
+
+/* Métricas */
+.metric-row{display:flex;gap:12px;margin:1rem 0;flex-wrap:wrap}
+.metric-card{flex:1;min-width:130px;background:linear-gradient(145deg,#161B22,#1A2030);
+             border:1px solid #2E8B8B44;border-radius:14px;padding:1rem;text-align:center}
+.metric-value{font-size:1.85rem;font-weight:700;color:#2E8B8B}
+.metric-label{font-size:.68rem;color:#8EAAC8;text-transform:uppercase;letter-spacing:.07em;margin-top:4px}
+.badge-ok{display:inline-block;margin-top:8px;background:#1A3A2A;color:#3DBA7A;
+          border:1px solid #3DBA7A55;padding:2px 12px;border-radius:20px;font-size:.68rem;font-weight:700}
+
+/* Tarjetas de parámetros */
+.param-card{background:#161B22;border:1px solid #FFFFFF12;
+            border-left:3px solid #2E8B8B;border-radius:0 12px 12px 0;
+            padding:1.1rem 1.4rem;margin-bottom:.75rem}
+.param-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.55rem;flex-wrap:wrap;gap:8px}
+.param-name{font-size:.95rem;font-weight:700;color:#FFFFFF}
+.param-oob{font-size:.68rem;color:#2E8B8B;background:#0D1F2D;border:1px solid #2E8B8B44;
+           border-radius:20px;padding:2px 10px;white-space:nowrap}
+.param-desc{font-size:.78rem;color:#8EAAC8;line-height:1.65;margin-bottom:.65rem}
+.param-meta{display:flex;gap:20px;flex-wrap:wrap}
+.pmi{font-size:.72rem;color:#8EAAC8}
+.pmv{color:#2E8B8B;font-weight:600}
+
+/* Pasos */
+.step-box{background:#161B22;border:1px solid #FFFFFF0F;border-left:3px solid #2E8B8B;
+          border-radius:0 10px 10px 0;padding:1rem 1.2rem}
+.step-t{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:.5rem}
+.step-b{font-size:.76rem;color:#8EAAC8;line-height:1.65}
+
+/* Investigador */
+.researcher-card{background:linear-gradient(145deg,#161B22,#1A2030);
+                 border:1px solid #2E8B8B44;border-radius:16px;
+                 padding:1.3rem 1.7rem;display:flex;gap:20px;align-items:center}
+.rphoto{width:88px;height:88px;border-radius:50%;object-fit:cover;
+        border:3px solid #2E8B8B;flex-shrink:0}
+.rname{font-size:1rem;font-weight:700;color:#fff;margin:0 0 2px}
+.rtitle{font-size:.8rem;color:#2E8B8B;font-weight:600;margin:0 0 3px}
+.rdept{font-size:.76rem;color:#8EAAC8;margin:0 0 9px}
+.rlinks{display:flex;gap:9px;flex-wrap:wrap}
+.rlink{font-size:.70rem;color:#8EAAC8;background:#FFFFFF0D;border:1px solid #FFFFFF22;
+       border-radius:20px;padding:3px 11px;text-decoration:none}
+
+/* Utilidades */
+.divider{border:0;border-top:1px solid #FFFFFF0F;margin:1.1rem 0}
+.sec-t{font-size:.73rem;font-weight:700;color:#8EAAC8;letter-spacing:.09em;
+       text-transform:uppercase;margin:1.1rem 0 .6rem}
+.slabel{font-size:.68rem;color:#8EAAC8;text-transform:uppercase;
+        letter-spacing:.08em;font-weight:700;margin-bottom:.3rem}
+.footer{text-align:center;font-size:.68rem;color:#3A4A5C;margin-top:2rem;
+        padding-top:1rem;border-top:1px solid #FFFFFF0D}
+</style>
+""", unsafe_allow_html=True)
+
+# ── Cargar modelo y CSV ───────────────────────────────────────────────────────
 @st.cache_resource(show_spinner="Cargando modelo RF v3...")
 def load_model():
     p = os.path.join(os.path.dirname(__file__), "modelos_rf_v3.pkl")
     if not os.path.exists(p): return None
     with open(p, "rb") as f: return pickle.load(f)
 
-@st.cache_data(show_spinner="Cargando datos de muestreo...")
+@st.cache_data(show_spinner="Cargando datos...")
 def load_csv():
     p = os.path.join(os.path.dirname(__file__), "INDICES_completo.csv")
     if not os.path.exists(p): return None
@@ -183,175 +179,167 @@ def load_csv():
 
 model_data = load_model()
 df_global  = load_csv()
-photo_b64  = get_photo_b64()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# HEADER BANNER
-# ─────────────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="header-banner">
-  <div class="logo-row">
-    <div class="logo-box">🎓 UANL</div>
-    <div class="logo-box">🗺️ Depto. Geomática</div>
-    <div class="logo-box">🛰️ Sentinel-2 SR</div>
-    <div class="logo-box">🤖 Random Forest v3</div>
+# ── HEADER ────────────────────────────────────────────────────────────────────
+logo_uanl = f'<img class="hdr-logo-img" src="data:image/png;base64,{UANL_B64}" alt="UANL">' if UANL_B64 else '<span style="color:#8EAAC8;font-size:.8rem">UANL</span>'
+logo_fic  = f'<img class="hdr-logo-img" src="data:image/png;base64,{FIC_B64}"  alt="FIC">'  if FIC_B64  else '<span style="color:#8EAAC8;font-size:.8rem">FIC</span>'
+logo_geo  = f'<img class="hdr-logo-img" src="data:image/png;base64,{GEO_B64}"  alt="Geomática">' if GEO_B64 else '<span style="color:#8EAAC8;font-size:.8rem">Geomática</span>'
+
+st.markdown(f"""
+<div class="hdr">
+  <div class="hdr-logos">
+    {logo_uanl}
+    <div class="hdr-sep"></div>
+    {logo_fic}
+    <div class="hdr-sep"></div>
+    {logo_geo}
   </div>
   <div class="app-title">💧 Water Quality Mapping</div>
-  <div class="app-subtitle">
+  <div class="app-sub">
     Río Pesquería, Nuevo León, México &nbsp;·&nbsp;
-    Modelo entrenado con imágenes Sentinel-2 SR 2016–2019 &nbsp;·&nbsp;
-    Universidad Autónoma de Nuevo León
+    Random Forest v3 · Sentinel-2 SR 2016–2019 &nbsp;·&nbsp;
+    Universidad Autónoma de Nuevo León · FIC · Depto. Geomática
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# MÉTRICAS OOB
-# ─────────────────────────────────────────────────────────────────────────────
-metric_html = '<div class="metric-row">'
+# ── MÉTRICAS ──────────────────────────────────────────────────────────────────
+mh = '<div class="metric-row">'
 for col, cfg in PARAMS.items():
-    metric_html += f"""
-    <div class="metric-card">
-      <div class="metric-value">{cfg["oob"]:.3f}</div>
-      <div class="metric-label">OOB R² &nbsp;·&nbsp; {cfg["label"]}</div>
-      <span class="badge-good">✓ Validado</span>
-    </div>"""
-metric_html += "</div>"
-st.markdown(metric_html, unsafe_allow_html=True)
+    mh += (f'<div class="metric-card">'
+           f'<div class="metric-value">{cfg["oob"]:.3f}</div>'
+           f'<div class="metric-label">OOB R² &nbsp;·&nbsp; {cfg["label"]}</div>'
+           f'<span class="badge-ok">✓ Validado</span></div>')
+mh += "</div>"
+st.markdown(mh, unsafe_allow_html=True)
 
-# Estado
-if model_data is None:
-    st.error("⚠️ Modelo `modelos_rf_v3.pkl` no encontrado."); st.stop()
-if df_global is None:
-    st.error("⚠️ Archivo `INDICES_completo.csv` no encontrado."); st.stop()
-
+if model_data is None: st.error("⚠️ modelos_rf_v3.pkl no encontrado"); st.stop()
+if df_global  is None: st.error("⚠️ INDICES_completo.csv no encontrado"); st.stop()
 st.success("✅  Modelo RF v3 cargado  ·  Datos de muestreo 2016–2019 listos")
 st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# SIDEBAR
-# ─────────────────────────────────────────────────────────────────────────────
+# ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown('<div class="sidebar-label">📍 Área de estudio</div>', unsafe_allow_html=True)
+    st.markdown('<div class="slabel">📍 Área de estudio</div>', unsafe_allow_html=True)
     st.caption("Comprime tu shapefile: .shp + .dbf + .prj + .cpg → ZIP")
     wmask_zip = st.file_uploader("Sube wmask.zip", type=["zip"])
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-label">📅 Fecha Sentinel-2</div>', unsafe_allow_html=True)
+    st.markdown('<div class="slabel">📅 Fecha Sentinel-2</div>', unsafe_allow_html=True)
     fecha_sel = st.selectbox("", FECHAS, index=16,
         format_func=lambda f: pd.to_datetime(f, format="%m/%d/%Y").strftime("%d %b %Y"))
     mes = pd.to_datetime(fecha_sel, format="%m/%d/%Y").month
-    st.info("🌵 Temporada Seca" if mes in [11, 12, 1, 2, 3] else "🌧️ Temporada Lluviosa")
+    st.info("🌵 Temporada Seca" if mes in [11,12,1,2,3] else "🌧️ Temporada Lluviosa")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-label">🔬 Parámetros</div>', unsafe_allow_html=True)
+    st.markdown('<div class="slabel">🔬 Parámetros</div>', unsafe_allow_html=True)
     params_sel = st.multiselect("", list(PARAMS.keys()), default=list(PARAMS.keys()),
         format_func=lambda p: f"{PARAMS[p]['label']} ({PARAMS[p]['unidad']})")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-label">🎯 Resolución de grilla</div>', unsafe_allow_html=True)
-    resolucion = st.select_slider("", options=[200, 300, 400, 500], value=400,
+    st.markdown('<div class="slabel">🎯 Resolución</div>', unsafe_allow_html=True)
+    resolucion = st.select_slider("", options=[200,300,400,500], value=400,
         format_func=lambda v: f"{v}×{v} celdas")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    correr = st.button("🗺️  Generar Mapas", type="primary",
-                       use_container_width=True,
+    correr = st.button("🗺️  Generar Mapas", type="primary", use_container_width=True,
                        disabled=(wmask_zip is None or not params_sel))
     if wmask_zip is None:
         st.warning("⬆️  Sube tu wmask.zip para continuar")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PANTALLA INICIAL
-# ─────────────────────────────────────────────────────────────────────────────
+# ── PANTALLA INICIAL ──────────────────────────────────────────────────────────
 if not correr:
 
     # Pasos
     c1, c2, c3 = st.columns(3)
-    steps = [
+    for col, (t, b) in zip([c1,c2,c3], [
         ("① Shapefile",
-         "Comprime los 4 archivos de tu wmask en un ZIP y súbelos en el panel izquierdo.<br>"
-         "<code>wmask.shp · .dbf · .prj · .cpg</code>"),
+         "Comprime tu wmask en un ZIP:<br><code>.shp · .dbf · .prj · .cpg</code><br>"
+         "Sube el archivo en el panel izquierdo."),
         ("② Configura",
          "Elige la fecha de la imagen Sentinel-2 y los parámetros a visualizar.<br>"
-         "El modelo RF v3 está integrado — no necesitas subir nada más."),
+         "El modelo RF v3 ya está integrado — no necesitas subir nada más."),
         ("③ Descarga",
          "Clic en <b>Generar Mapas</b> y descarga:<br>"
-         "📊 Panel PNG (tesis/artículo)<br>🗺️ Mapas individuales ZIP<br>📈 Estadísticas espaciales"),
-    ]
-    for col, (title, body) in zip([c1, c2, c3], steps):
+         "📊 Panel PNG para tesis / artículo<br>"
+         "🗺️ Mapas individuales ZIP<br>"
+         "📈 Estadísticas espaciales"),
+    ]):
         with col:
             st.markdown(
-                f'<div class="step-box">'
-                f'<div class="step-title">{title}</div>'
-                f'<div class="step-body">{body}</div>'
-                f'</div>', unsafe_allow_html=True)
+                f'<div class="step-box"><div class="step-t">{t}</div>'
+                f'<div class="step-b">{b}</div></div>',
+                unsafe_allow_html=True)
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    # Tarjeta del investigador
-    st.markdown('<div class="section-title">👨‍🔬 Investigador Principal</div>', unsafe_allow_html=True)
-
-    if photo_b64:
-        photo_src = f"data:image/png;base64,{photo_b64}"
-    else:
-        # Avatar placeholder si no hay foto
-        photo_src = "https://via.placeholder.com/92/2E8B8B/FFFFFF?text=KR"
-
-    st.markdown(f"""
-    <div class="researcher-card">
-      <img class="researcher-photo" src="{photo_src}" alt="Kevin Rodriguez">
-      <div>
-        <div class="researcher-name">Kevin David Rodríguez González</div>
-        <div class="researcher-title">PhD Student · Environmental Water Quality &amp; Remote Sensing</div>
-        <div class="researcher-dept">Departamento de Geomática · Universidad Autónoma de Nuevo León</div>
-        <div class="researcher-links">
-          <a class="researcher-link" href="mailto:krodriguezge@uanl.edu.mx">✉ krodriguezge@uanl.edu.mx</a>
-          <a class="researcher-link" href="https://orcid.org/0009-0004-3060-8575" target="_blank">🔗 ORCID</a>
-        </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Parámetros — tarjetas con descripción técnica (SIN OOB redundante)
+    st.markdown('<div class="sec-t">📊 Parámetros Fisicoquímicos del Modelo</div>',
+                unsafe_allow_html=True)
+    for col, cfg in PARAMS.items():
+        st.markdown(f"""
+        <div class="param-card">
+          <div class="param-hdr">
+            <div class="param-name">{cfg["icon"]} &nbsp;{cfg["label"]}</div>
+            <span class="param-oob">OOB R² = {cfg["oob"]:.3f} · Modelo validado ✓</span>
+          </div>
+          <div class="param-desc">{cfg["desc"]}</div>
+          <div class="param-meta">
+            <div class="pmi">Unidad: <span class="pmv">{cfg["unidad"]}</span></div>
+            <div class="pmi">Rango típico: <span class="pmv">{cfg["vmin"]}–{cfg["vmax"]} {cfg["unidad"]}</span></div>
+            <div class="pmi">Estado: <span class="pmv">🟢 Bueno</span></div>
+          </div>
+        </div>""", unsafe_allow_html=True)
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    # Parámetros disponibles
-    st.markdown('<div class="section-title">📊 Parámetros del Modelo</div>', unsafe_allow_html=True)
-    for param, cfg in PARAMS.items():
-        with st.expander(f"🔬 {cfg['label']} — OOB R² = {cfg['oob']:.3f}"):
-            col_e1, col_e2 = st.columns([2, 1])
-            with col_e1:
-                st.write(cfg["desc"])
-                st.progress(cfg["oob"])
-            with col_e2:
-                st.metric("OOB R²", f"{cfg['oob']:.3f}")
-                st.metric("Rango",  f"{cfg['vmin']}–{cfg['vmax']} {cfg['unidad']}")
-                st.metric("Estado", "✅ Bueno")
-
-    st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">📍 Puntos de Muestreo — Río Pesquería</div>', unsafe_allow_html=True)
-    df_pts = pd.DataFrame([{"lat": c[1], "lon": c[0], "Punto": p} for p, c in COORDS.items()])
+    # Mapa de puntos
+    st.markdown('<div class="sec-t">📍 Puntos de Muestreo — Río Pesquería</div>',
+                unsafe_allow_html=True)
+    df_pts = pd.DataFrame([{"lat": c[1], "lon": c[0], "Punto": p}
+                            for p, c in COORDS.items()])
     st.map(df_pts)
 
-    st.info("ℹ️ **pH y OD excluidos** — OOB R² negativo: Sentinel-2 no captura señal óptica suficiente para esos parámetros.")
+    st.info("ℹ️ **pH y OD excluidos del modelo** — su OOB R² resultó negativo, "
+            "indicando que Sentinel-2 no captura señal óptica suficiente para "
+            "estimar esos parámetros en este río.")
 
-    st.markdown("""
-    <div class="footer">
-      Kevin D. Rodríguez González · PhD Student · Depto. Geomática · UANL &nbsp;·&nbsp;
-      RF v3 · Sentinel-2 SR · KFold-5 + OOB score &nbsp;·&nbsp;
-      <a href="https://orcid.org/0009-0004-3060-8575" style="color:#3A4A5C">ORCID</a>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
+
+    # Investigador — AL FINAL
+    st.markdown('<div class="sec-t">👨‍🔬 Investigador Principal</div>',
+                unsafe_allow_html=True)
+    photo_src = (f"data:image/png;base64,{PHOTO_B64}"
+                 if PHOTO_B64 else "https://via.placeholder.com/88/2E8B8B/fff?text=KR")
+    st.markdown(f"""
+    <div class="researcher-card">
+      <img class="rphoto" src="{photo_src}" alt="Kevin Rodriguez">
+      <div>
+        <div class="rname">Kevin David Rodríguez González</div>
+        <div class="rtitle">PhD Student · Environmental Water Quality &amp; Remote Sensing</div>
+        <div class="rdept">Departamento de Geomática · Facultad de Ingeniería Civil · UANL</div>
+        <div class="rlinks">
+          <a class="rlink" href="mailto:krodriguezge@uanl.edu.mx">✉ krodriguezge@uanl.edu.mx</a>
+          <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">
+            🔗 ORCID: 0009-0004-3060-8575</a>
+        </div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+    st.markdown("""<div class="footer">
+      Random Forest v3 · Sentinel-2 SR · Universidad Autónoma de Nuevo León ·
+      Facultad de Ingeniería Civil · Departamento de Geomática ·
+      Validado con KFold-5 y OOB score
+    </div>""", unsafe_allow_html=True)
     st.stop()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PROCESAMIENTO
-# ─────────────────────────────────────────────────────────────────────────────
+# ── PROCESAMIENTO ─────────────────────────────────────────────────────────────
 progress = st.progress(0)
 status   = st.empty()
 
-modelos   = model_data["models"]
-transforms= model_data["transforms"]
-lambdas   = model_data["lambdas"]
+modelos    = model_data["models"]
+transforms = model_data["transforms"]
+lambdas    = model_data["lambdas"]
 
 puntos_uniq = sorted(COORDS.keys())
 lons = np.array([COORDS[p][0] for p in puntos_uniq])
@@ -369,14 +357,14 @@ with tempfile.TemporaryDirectory() as tmpdir:
     wmask = gpd.read_file(os.path.join(tmpdir, shp[0]))
     if wmask.crs is None or wmask.crs.to_epsg() != 4326: wmask = wmask.to_crs(4326)
     union_geom = wmask.geometry.unary_union
-    bounds = wmask.total_bounds
+    bounds     = wmask.total_bounds
 progress.progress(30)
 
 status.text("Generando grilla de interpolación...")
 lon_min, lat_min, lon_max, lat_max = bounds
-RES = resolucion
-lon_vec  = np.linspace(lon_min, lon_max, RES)
-lat_vec  = np.linspace(lat_min, lat_max, RES)
+RES     = resolucion
+lon_vec = np.linspace(lon_min, lon_max, RES)
+lat_vec = np.linspace(lat_min, lat_max, RES)
 lon_grid, lat_grid = np.meshgrid(lon_vec, lat_vec)
 pts_grid = np.column_stack([lon_grid.ravel(), lat_grid.ravel()])
 extent   = [lon_min, lon_max, lat_min, lat_max]
@@ -396,7 +384,8 @@ for col in params_sel:
     vals = np.array(vals); ok = np.isfinite(vals)
     if ok.sum() < 3: continue
     try:
-        rbf = RBFInterpolator(pts_known[ok], vals[ok], kernel="thin_plate_spline", smoothing=0.1)
+        rbf    = RBFInterpolator(pts_known[ok], vals[ok],
+                                  kernel="thin_plate_spline", smoothing=0.1)
         z_flat = rbf(pts_grid)
     except Exception:
         z_flat = griddata(pts_known[ok], vals[ok], pts_grid, method="linear")
@@ -410,13 +399,13 @@ status.text("Generando visualizaciones...")
 n = len(mapas); ncols = min(n, 2); nrows = (n + ncols - 1) // ncols
 fig, axes = plt.subplots(nrows, ncols, figsize=(ncols*7, nrows*5.5))
 fig.patch.set_facecolor("#0D1117")
-if n == 1:   axes_flat = [axes]
+if n == 1:       axes_flat = [axes]
 elif nrows == 1: axes_flat = list(axes)
-else:        axes_flat = axes.flatten().tolist()
+else:            axes_flat = axes.flatten().tolist()
 
 buf_ind = {}
 for i, (col, info) in enumerate(mapas.items()):
-    ax = axes_flat[i]; ax.set_facecolor("#161B22")
+    ax   = axes_flat[i]; ax.set_facecolor("#161B22")
     data = info["data"]; vmin, vmax = info["vmin"], info["vmax"]
     cmap = make_cmap(info["pal"])
 
@@ -437,8 +426,7 @@ for i, (col, info) in enumerate(mapas.items()):
     plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="white", fontsize=8)
 
     d = data[np.isfinite(data)]
-    ax.set_title(f"{info['label']} | OOB R² = {info['oob']:.3f}",
-                 color="white", fontsize=11, fontweight="bold")
+    ax.set_title(info["label"], color="white", fontsize=11, fontweight="bold")
     ax.text(0.01, 0.99,
             f"Min: {d.min():.2f}\nMáx: {d.max():.2f}\nMedia: {d.mean():.2f}",
             transform=ax.transAxes, fontsize=8, color="white", va="top",
@@ -468,7 +456,7 @@ for i, (col, info) in enumerate(mapas.items()):
         f"{info['label']} | Río Pesquería | {fecha_dt.strftime('%d/%m/%Y')} | RF v3",
         color="white", fontsize=11, fontweight="bold")
     ai.text(0.99, 0.01,
-            f"OOB R² = {info['oob']:.3f}  |  Kevin D. Rodríguez G. · UANL Geomática",
+            "Kevin D. Rodríguez G. · UANL · Depto. Geomática · RF v3",
             transform=ai.transAxes, fontsize=7, color="#8EAAC8", ha="right", va="bottom")
     ai.tick_params(colors="#8EAAC8", labelsize=7)
     for sp in ai.spines.values(): sp.set_edgecolor("#2E8B8B44")
@@ -478,24 +466,23 @@ for i, (col, info) in enumerate(mapas.items()):
 
 for k in range(n, len(axes_flat)): axes_flat[k].set_visible(False)
 mes2 = fecha_dt.month
-temp = "Temporada Seca 🌵" if mes2 in [11, 12, 1, 2, 3] else "Temporada Lluviosa 🌧️"
+temp = "Temporada Seca 🌵" if mes2 in [11,12,1,2,3] else "Temporada Lluviosa 🌧️"
 fig.suptitle(
     f"Calidad de Agua — Río Pesquería\n"
-    f"{fecha_dt.strftime('%d/%m/%Y')} | {temp} | RF v3 | UANL Geomática",
-    fontsize=14, fontweight="bold", color="white", y=1.01)
+    f"{fecha_dt.strftime('%d/%m/%Y')} | {temp} | RF v3 | UANL · FIC · Geomática",
+    fontsize=13, fontweight="bold", color="white", y=1.01)
 plt.tight_layout()
 buf_panel = io.BytesIO()
 fig.savefig(buf_panel, dpi=150, bbox_inches="tight", facecolor="#0D1117")
 plt.close(fig)
 progress.progress(100); status.empty()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# RESULTADOS
-# ─────────────────────────────────────────────────────────────────────────────
+# ── RESULTADOS ────────────────────────────────────────────────────────────────
 st.success(f"✅  {n} mapas generados — {fecha_dt.strftime('%d/%m/%Y')} · {temp}")
-st.image(buf_panel, caption="Panel de calidad de agua · Río Pesquería · UANL", use_column_width=True)
+st.image(buf_panel, caption="Panel de calidad de agua · Río Pesquería · UANL",
+         use_column_width=True)
 
-st.markdown('<div class="section-title">📥 Descargar resultados</div>', unsafe_allow_html=True)
+st.markdown('<div class="sec-t">📥 Descargar resultados</div>', unsafe_allow_html=True)
 dl1, dl2 = st.columns(2)
 with dl1:
     st.download_button("⬇️  Panel completo PNG (tesis / artículo)",
@@ -513,7 +500,7 @@ with dl2:
         "application/zip", use_container_width=True)
 
 st.markdown('<hr class="divider">', unsafe_allow_html=True)
-st.markdown('<div class="section-title">📊 Estadísticas espaciales</div>', unsafe_allow_html=True)
+st.markdown('<div class="sec-t">📊 Estadísticas espaciales</div>', unsafe_allow_html=True)
 cols_st = st.columns(len(mapas))
 for cs, (param, info) in zip(cols_st, mapas.items()):
     d = info["data"][np.isfinite(info["data"])]
@@ -522,12 +509,29 @@ for cs, (param, info) in zip(cols_st, mapas.items()):
         st.metric("Media",  f"{d.mean():.2f} {info['unidad']}")
         st.metric("Máximo", f"{d.max():.2f} {info['unidad']}")
         st.metric("Mínimo", f"{d.min():.2f} {info['unidad']}")
-        st.metric("OOB R²", f"{info['oob']:.3f}")
 
-st.markdown("""
-<div class="footer">
-  Kevin D. Rodríguez González · PhD Student · Depto. Geomática · UANL &nbsp;·&nbsp;
-  Random Forest v3 · Sentinel-2 SR · KFold-5 + OOB score &nbsp;·&nbsp;
-  <a href="https://orcid.org/0009-0004-3060-8575" style="color:#3A4A5C">ORCID: 0009-0004-3060-8575</a>
-</div>
-""", unsafe_allow_html=True)
+# Investigador al final también en la pantalla de resultados
+st.markdown('<hr class="divider">', unsafe_allow_html=True)
+st.markdown('<div class="sec-t">👨‍🔬 Investigador Principal</div>', unsafe_allow_html=True)
+photo_src2 = (f"data:image/png;base64,{PHOTO_B64}"
+              if PHOTO_B64 else "https://via.placeholder.com/88/2E8B8B/fff?text=KR")
+st.markdown(f"""
+<div class="researcher-card">
+  <img class="rphoto" src="{photo_src2}" alt="Kevin Rodriguez">
+  <div>
+    <div class="rname">Kevin David Rodríguez González</div>
+    <div class="rtitle">PhD Student · Environmental Water Quality &amp; Remote Sensing</div>
+    <div class="rdept">Departamento de Geomática · Facultad de Ingeniería Civil · UANL</div>
+    <div class="rlinks">
+      <a class="rlink" href="mailto:krodriguezge@uanl.edu.mx">✉ krodriguezge@uanl.edu.mx</a>
+      <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">
+        🔗 ORCID: 0009-0004-3060-8575</a>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+st.markdown("""<div class="footer">
+  Random Forest v3 · Sentinel-2 SR · Universidad Autónoma de Nuevo León ·
+  Facultad de Ingeniería Civil · Departamento de Geomática ·
+  Validado con KFold-5 y OOB score
+</div>""", unsafe_allow_html=True)
