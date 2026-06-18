@@ -8,3 +8,4 @@ scikit-learn
 shapely
 pyproj
 fiona
+Pillow
