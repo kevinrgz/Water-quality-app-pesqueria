@@ -9,8 +9,10 @@ from scipy.interpolate import RBFInterpolator, griddata
 from scipy import stats
 import geopandas as gpd
 from shapely.geometry import Point
-import io, base64, requests
+import io, base64
 from datetime import date, timedelta
+import folium
+from streamlit_folium import st_folium
 warnings.filterwarnings("ignore")
 
 # ── Assets ────────────────────────────────────────────────────────────────────
@@ -28,21 +30,25 @@ PARAMS = {
     "P_TOT": dict(
         label="Fósforo Total", unidad="mg/L", vmin=0, vmax=6, oob=0.684,
         icon="🧪", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"],
+        color="#74c476",
         desc="Nutriente clave en eutrofización. Indica descargas de aguas residuales, "
              "efluentes industriales y escorrentía agrícola. Ref. NOM-001: 5 mg/L."),
     "N_NH3": dict(
         label="N-Amoniaco", unidad="mg/L", vmin=0, vmax=25, oob=0.645,
         icon="⚗️", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"],
-        desc="Forma reducida del nitrógeno, indicador directo de contaminación orgánica "
+        color="#238b45",
+        desc="Forma reducida del nitrógeno. Indicador directo de contaminación orgánica "
              "reciente. Tóxico para fauna acuática. Ref. NOM-001: 25 mg/L."),
     "N_TOT": dict(
         label="N-Total", unidad="mg/L", vmin=0, vmax=35, oob=0.615,
         icon="🔬", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"],
+        color="#2E8B8B",
         desc="Suma de todas las formas de nitrógeno disuelto. Indicador integral de "
              "carga nitrogenada y riesgo de eutrofización del ecosistema acuático."),
     "N_TOTK": dict(
         label="N-Total Kjeldahl", unidad="mg/L", vmin=0, vmax=35, oob=0.662,
         icon="🧫", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"],
+        color="#1A4F7A",
         desc="Nitrógeno orgánico + amoniaco por método Kjeldahl. Estándar internacional "
              "para evaluar carga orgánica y potencial de demanda bioquímica de oxígeno."),
 }
@@ -54,7 +60,6 @@ COORDS = {
     "Punto_7": (-100.02404, 25.77480),
 }
 
-# Fechas disponibles en los datos de campo
 FECHAS_CAMPO = [
     "2/25/2016","4/12/2016","5/17/2016","6/23/2016","7/26/2016","9/4/2016",
     "2/22/2017","4/4/2017","5/16/2017","6/27/2017","8/8/2017","9/18/2017",
@@ -93,21 +98,18 @@ section[data-testid="stSidebar"]{background-color:#161B22!important}
 .badge-ok{display:inline-block;margin-top:8px;background:#1A3A2A;color:#3DBA7A;
           border:1px solid #3DBA7A55;padding:2px 12px;border-radius:20px;font-size:.68rem;font-weight:700}
 
-/* Panel de imagen satelital */
-.sat-panel{background:#161B22;border:1px solid #2E8B8B44;border-radius:14px;
-           padding:1rem 1.2rem;height:100%}
-.sat-title{font-size:.8rem;font-weight:700;color:#2E8B8B;
-           letter-spacing:.07em;text-transform:uppercase;margin-bottom:.7rem}
-.sat-info{font-size:.72rem;color:#8EAAC8;margin-top:.5rem;line-height:1.5}
-.sat-chip{display:inline-block;background:#0D1F2D;border:1px solid #2E8B8B44;
-          color:#2E8B8B;font-size:.68rem;border-radius:4px;
-          padding:2px 8px;margin:2px}
+.map-panel{background:#161B22;border:1px solid #2E8B8B44;
+           border-radius:14px;padding:.8rem 1rem;margin-bottom:1rem}
+.map-title{font-size:.75rem;font-weight:700;color:#2E8B8B;
+           letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
+.map-meta{font-size:.72rem;color:#8EAAC8;margin-top:.5rem;line-height:1.5}
+.chip{display:inline-block;background:#0D1F2D;border:1px solid #2E8B8B44;
+      color:#2E8B8B;font-size:.67rem;border-radius:4px;padding:2px 8px;margin:2px}
 
-/* Panel de configuración */
-.config-panel{background:#161B22;border:1px solid #FFFFFF0F;border-radius:14px;
-              padding:1rem 1.2rem;height:100%}
-.config-title{font-size:.8rem;font-weight:700;color:#8EAAC8;
-              letter-spacing:.07em;text-transform:uppercase;margin-bottom:.7rem}
+.info-panel{background:#161B22;border:1px solid #FFFFFF0F;
+            border-radius:14px;padding:.8rem 1rem;margin-bottom:1rem}
+.info-title{font-size:.75rem;font-weight:700;color:#8EAAC8;
+            letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
 
 .param-card{background:#161B22;border:1px solid #FFFFFF12;
             border-left:3px solid #2E8B8B;border-radius:0 12px 12px 0;
@@ -136,8 +138,8 @@ section[data-testid="stSidebar"]{background-color:#161B22!important}
 .rtitle{font-size:.8rem;color:#2E8B8B;font-weight:600;margin:0 0 3px}
 .rdept{font-size:.76rem;color:#8EAAC8;margin:0 0 9px}
 .rlinks{display:flex;gap:9px;flex-wrap:wrap}
-.rlink{font-size:.70rem;color:#8EAAC8;background:#FFFFFF0D;border:1px solid #FFFFFF22;
-       border-radius:20px;padding:3px 11px;text-decoration:none}
+.rlink{font-size:.70rem;color:#8EAAC8;background:#FFFFFF0D;
+       border:1px solid #FFFFFF22;border-radius:20px;padding:3px 11px;text-decoration:none}
 
 .divider{border:0;border-top:1px solid #FFFFFF0F;margin:1.1rem 0}
 .sec-t{font-size:.73rem;font-weight:700;color:#8EAAC8;letter-spacing:.09em;
@@ -149,7 +151,7 @@ section[data-testid="stSidebar"]{background-color:#161B22!important}
 </style>
 """, unsafe_allow_html=True)
 
-# ── Funciones de carga ────────────────────────────────────────────────────────
+# ── Carga modelo y CSV ────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner="Cargando modelo RF v3...")
 def load_model():
     p = os.path.join(os.path.dirname(__file__), "modelos_rf_v3.pkl")
@@ -164,126 +166,115 @@ def load_csv():
     df["target_date"] = pd.to_datetime(df["target_date"], format="%m/%d/%Y")
     return df
 
-# ── Función: previsualización RGB desde Copernicus WMS ────────────────────────
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_sentinel2_rgb(bbox, date_start, date_end, width=600, height=300):
+model_data = load_model()
+df_global  = load_csv()
+
+# ── Función: mapa Folium interactivo ──────────────────────────────────────────
+def build_folium_map(wmask_gdf, coords_dict, bbox, height=380):
     """
-    Obtiene imagen RGB de Sentinel-2 usando el servicio WMS público de Copernicus.
-    bbox = (lon_min, lat_min, lon_max, lat_max)
-    Retorna imagen como bytes o None si falla.
-    """
-    lon_min, lat_min, lon_max, lat_max = bbox
-
-    # Copernicus Sentinel-2 WMS (servicio público, sin autenticación)
-    WMS_URL = "https://services.sentinel-hub.com/ogc/wms/ed64bf-YOUR-KEY/wms"
-
-    # Fallback: usar tiles de ESRI World Imagery como proxy visual
-    # para mostrar la zona geográfica al usuario
-    # (alternativa gratuita y sin autenticación)
-    try:
-        # Calcular centro y zoom aproximado
-        cx = (lon_min + lon_max) / 2
-        cy = (lat_min + lat_max) / 2
-        span_lon = lon_max - lon_min
-
-        # Usar StaticMap de OpenStreetMap (disponible sin API key)
-        zoom = max(10, min(14, int(14 - span_lon * 15)))
-
-        url = (f"https://staticmap.openstreetmap.de/staticmap.php?"
-               f"center={cy},{cx}&zoom={zoom}&size={width}x{height}"
-               f"&maptype=satellite")
-
-        resp = requests.get(url, timeout=8)
-        if resp.status_code == 200:
-            return resp.content, "OSM", zoom
-
-    except Exception:
-        pass
-
-    # Segunda alternativa: generar imagen con matplotlib mostrando el bbox
-    return None, None, None
-
-
-def plot_area_preview(wmask_gdf, coords_dict, bbox, fecha_inicio, fecha_fin,
-                      max_nubes, sat_img_bytes=None):
-    """
-    Genera figura de previsualización del área de estudio.
-    Si hay imagen satelital disponible la usa de fondo,
-    si no, muestra el polígono del wmask con los puntos.
+    Crea mapa Folium con imagen satelital real (tiles ESRI World Imagery)
+    y capas del wmask y puntos de muestreo superpuestas.
     """
     lon_min, lat_min, lon_max, lat_max = bbox
-    fig, ax = plt.subplots(figsize=(8, 4))
-    fig.patch.set_facecolor("#161B22")
-    ax.set_facecolor("#0D2030")
+    cx = (lon_min + lon_max) / 2
+    cy = (lat_min + lat_max) / 2
+    span = max(lon_max - lon_min, lat_max - lat_min)
+    zoom = max(11, min(15, int(13 - span * 8)))
 
-    if sat_img_bytes:
-        import matplotlib.image as mpimg
-        from PIL import Image as PILImage
-        pil_img = PILImage.open(io.BytesIO(sat_img_bytes)).convert("RGB")
-        img_arr  = np.array(pil_img)
-        ax.imshow(img_arr, extent=[lon_min, lon_max, lat_min, lat_max],
-                  aspect="auto", origin="upper")
-    else:
-        # Fondo estilo mapa oscuro con grid
-        ax.set_facecolor("#0A1520")
-        # Grid de referencia
-        for lon in np.linspace(lon_min, lon_max, 6):
-            ax.axvline(lon, color="#1A3A5C", lw=0.4, alpha=0.5)
-        for lat in np.linspace(lat_min, lat_max, 4):
-            ax.axhline(lat, color="#1A3A5C", lw=0.4, alpha=0.5)
+    m = folium.Map(
+        location=[cy, cx],
+        zoom_start=zoom,
+        tiles=None,
+        width="100%",
+        height=height,
+    )
 
-    # Dibujar wmask
-    wmask_gdf.plot(ax=ax, facecolor="#2E8B8B22", edgecolor="#2E8B8B",
-                   linewidth=1.5, alpha=0.9)
+    # Capa base: imagen satelital ESRI (sin autenticación, pública)
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/"
+              "World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri World Imagery",
+        name="🛰️ Sentinel-2 / Satélite",
+        overlay=False,
+        control=True,
+    ).add_to(m)
 
-    # Puntos de muestreo
-    lons_pts = [v[0] for v in coords_dict.values()]
-    lats_pts = [v[1] for v in coords_dict.values()]
-    ax.scatter(lons_pts, lats_pts, c="#FFD700", s=70, zorder=6,
-               edgecolors="white", linewidths=0.8, label="Puntos muestreo")
-    for j, (p, (lon, lat)) in enumerate(coords_dict.items()):
-        ax.annotate(f" P{j+1}", (lon, lat), fontsize=7.5,
-                    color="white", fontweight="bold", zorder=7)
+    # Capa base alternativa: OpenStreetMap
+    folium.TileLayer(
+        tiles="OpenStreetMap",
+        name="🗺️ Mapa base",
+        overlay=False,
+        control=True,
+    ).add_to(m)
 
-    ax.set_xlim(lon_min, lon_max)
-    ax.set_ylim(lat_min, lat_max)
-    ax.set_xlabel("Longitud (°)", color="#8EAAC8", fontsize=8)
-    ax.set_ylabel("Latitud (°)",  color="#8EAAC8", fontsize=8)
-    ax.tick_params(colors="#8EAAC8", labelsize=7)
-    for sp in ax.spines.values(): sp.set_edgecolor("#2E8B8B55")
+    # Capa: wmask polígono
+    folium.GeoJson(
+        wmask_gdf.__geo_interface__,
+        name="📍 Área de estudio (wmask)",
+        style_function=lambda x: {
+            "fillColor": "#2E8B8B",
+            "color": "#00FFCC",
+            "weight": 2.5,
+            "fillOpacity": 0.15,
+        },
+        tooltip=folium.GeoJsonTooltip(fields=[], aliases=[]),
+    ).add_to(m)
 
-    ax.set_title(
-        f"Área de estudio | Sentinel-2 SR | {fecha_inicio} – {fecha_fin} | Nubes < {max_nubes}%",
-        color="white", fontsize=9, fontweight="bold", pad=6)
+    # Puntos de muestreo con popups
+    for j, (nombre, (lon, lat)) in enumerate(coords_dict.items()):
+        folium.CircleMarker(
+            location=[lat, lon],
+            radius=8,
+            color="#FFD700",
+            fill=True,
+            fill_color="#FFD700",
+            fill_opacity=0.9,
+            weight=2,
+            popup=folium.Popup(
+                f"<b>{nombre}</b><br>"
+                f"Lon: {lon:.5f}°<br>"
+                f"Lat: {lat:.5f}°",
+                max_width=150,
+            ),
+            tooltip=f"P{j+1} — {nombre}",
+        ).add_to(m)
 
-    # Leyenda
-    h1 = mpatches.Patch(facecolor="#2E8B8B22", edgecolor="#2E8B8B",
-                         linewidth=1.5, label="Área de estudio (wmask)")
-    ax.scatter([], [], c="#FFD700", s=50, edgecolors="white",
-               linewidths=0.8, label="Puntos muestreo")
-    ax.legend(handles=[h1], fontsize=7, loc="upper right",
-              facecolor="#161B22", labelcolor="white", edgecolor="#444")
+        # Etiqueta del punto
+        folium.Marker(
+            location=[lat + 0.0015, lon + 0.001],
+            icon=folium.DivIcon(
+                html=f'<div style="font-size:10px;font-weight:bold;color:white;'
+                     f'text-shadow:1px 1px 2px black">P{j+1}</div>',
+                icon_size=(25, 15),
+                icon_anchor=(0, 0),
+            ),
+        ).add_to(m)
 
-    plt.tight_layout()
-    buf = io.BytesIO()
-    fig.savefig(buf, dpi=130, bbox_inches="tight", facecolor="#161B22")
-    plt.close(fig)
-    return buf
+    # Bounding box del área
+    folium.Rectangle(
+        bounds=[[lat_min, lon_min], [lat_max, lon_max]],
+        color="#2E8B8B",
+        weight=1,
+        fill=False,
+        dash_array="5,5",
+        tooltip="Bounding box del área de estudio",
+    ).add_to(m)
+
+    folium.LayerControl(position="topright").add_to(m)
+    return m
 
 
 # ── HEADER ────────────────────────────────────────────────────────────────────
-logo_uanl = f'<img class="hdr-logo-img" src="data:image/png;base64,{UANL_B64}">' if UANL_B64 else "<span style='color:#8EAAC8'>UANL</span>"
-logo_fic  = f'<img class="hdr-logo-img" src="data:image/png;base64,{FIC_B64}">'  if FIC_B64  else ""
-logo_geo  = f'<img class="hdr-logo-img" src="data:image/png;base64,{GEO_B64}">'  if GEO_B64  else ""
+logo_u = f'<img class="hdr-logo-img" src="data:image/png;base64,{UANL_B64}">' if UANL_B64 else "<span style='color:#8EAAC8'>UANL</span>"
+logo_f = f'<img class="hdr-logo-img" src="data:image/png;base64,{FIC_B64}">'  if FIC_B64  else ""
+logo_g = f'<img class="hdr-logo-img" src="data:image/png;base64,{GEO_B64}">'  if GEO_B64  else ""
 
 st.markdown(f"""
 <div class="hdr">
   <div class="hdr-logos">
-    {logo_uanl}
-    <div class="hdr-sep"></div>
-    {logo_fic}
-    <div class="hdr-sep"></div>
-    {logo_geo}
+    {logo_u}<div class="hdr-sep"></div>
+    {logo_f}<div class="hdr-sep"></div>
+    {logo_g}
   </div>
   <div class="app-title">💧 Water Quality Mapping</div>
   <div class="app-sub">Río Pesquería, Nuevo León, México &nbsp;·&nbsp;
@@ -302,9 +293,6 @@ for col, cfg in PARAMS.items():
 mh += "</div>"
 st.markdown(mh, unsafe_allow_html=True)
 
-model_data = load_model()
-df_global  = load_csv()
-
 if model_data is None: st.error("⚠️ modelos_rf_v3.pkl no encontrado"); st.stop()
 if df_global  is None: st.error("⚠️ INDICES_completo.csv no encontrado"); st.stop()
 st.success("✅  Modelo RF v3 cargado  ·  Datos de muestreo 2016–2019 listos")
@@ -312,97 +300,97 @@ st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    # Shapefile
+    # 1. Shapefile
     st.markdown('<div class="slabel">📍 Área de estudio</div>', unsafe_allow_html=True)
     st.caption("Comprime: .shp + .dbf + .prj + .cpg → ZIP")
     wmask_zip = st.file_uploader("Sube wmask.zip", type=["zip"])
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    # Fecha de campo (para correlacionar con datos fisicoquímicos)
-    st.markdown('<div class="slabel">📋 Fecha de muestreo de campo</div>',
-                unsafe_allow_html=True)
-    st.caption("Fecha en que se tomaron las muestras fisicoquímicas")
+    # 2. Fecha de muestreo (datos de campo)
+    st.markdown('<div class="slabel">🧪 Fecha de muestreo</div>', unsafe_allow_html=True)
+    st.caption("Fecha en que se colectaron las muestras de agua")
     fecha_campo = st.selectbox("", FECHAS_CAMPO, index=16,
         format_func=lambda f: pd.to_datetime(f, format="%m/%d/%Y").strftime("%d %b %Y"))
-    fecha_campo_dt = pd.to_datetime(fecha_campo, format="%m/%d/%Y")
+    fecha_dt = pd.to_datetime(fecha_campo, format="%m/%d/%Y")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    # Rango de fechas para búsqueda de imagen Sentinel-2
-    st.markdown('<div class="slabel">🛰️ Imagen Sentinel-2</div>', unsafe_allow_html=True)
-    st.caption("Define el rango de fechas para buscar la mejor imagen disponible")
+    # 3. Rango Sentinel-2 (auto-sugerido ±10 días de la fecha de campo)
+    st.markdown('<div class="slabel">🛰️ Rango imagen Sentinel-2</div>',
+                unsafe_allow_html=True)
+    st.caption("Se buscará la imagen con menos nubes en este período")
 
     col_d1, col_d2 = st.columns(2)
     with col_d1:
-        fecha_inicio = st.date_input(
-            "Desde",
-            value=fecha_campo_dt.date() - timedelta(days=10),
-            min_value=date(2015, 1, 1),
-            max_value=date(2025, 12, 31),
-        )
+        fecha_ini = st.date_input("Desde",
+            value=fecha_dt.date() - timedelta(days=8),
+            min_value=date(2015,6,1), max_value=date(2025,12,31))
     with col_d2:
-        fecha_fin = st.date_input(
-            "Hasta",
-            value=fecha_campo_dt.date() + timedelta(days=10),
-            min_value=date(2015, 1, 1),
-            max_value=date(2025, 12, 31),
-        )
-
-    # Filtro de nubes
-    st.markdown('<div class="slabel" style="margin-top:.6rem">☁️ Filtro de nubes</div>',
-                unsafe_allow_html=True)
-    max_nubes = st.slider(
-        "Cobertura máxima de nubes (%)",
-        min_value=0, max_value=50, value=15, step=5,
-        help="Imágenes con más nubes que este valor serán descartadas automáticamente"
-    )
-
-    # Advertencia si el rango es muy estrecho
-    if fecha_inicio >= fecha_fin:
-        st.error("⚠️ La fecha de inicio debe ser anterior a la fecha fin")
-    else:
-        dias = (fecha_fin - fecha_inicio).days
-        if dias < 5:
-            st.warning(f"⚠️ Rango de {dias} días puede ser muy estrecho. Considera ampliar.")
-        else:
-            st.info(f"📅 Rango: {dias} días | Nubes < {max_nubes}%")
+        fecha_fin = st.date_input("Hasta",
+            value=fecha_dt.date() + timedelta(days=8),
+            min_value=date(2015,6,1), max_value=date(2025,12,31))
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    # Parámetros
+    # 4. Filtro de nubes
+    st.markdown('<div class="slabel">☁️ Filtro de cobertura de nubes</div>',
+                unsafe_allow_html=True)
+    max_nubes = st.slider("Máx. cobertura (%)", 0, 50, 15, 5,
+        help="Imágenes con más nubes serán descartadas automáticamente")
+
+    # Indicador de calidad de configuración
+    if fecha_ini >= fecha_fin:
+        st.error("⚠️ Fecha inicio debe ser anterior a fecha fin")
+    else:
+        dias    = (fecha_fin - fecha_ini).days
+        mid_s2  = fecha_ini + (fecha_fin - fecha_ini) / 2
+        desfase = abs((fecha_dt.date() - mid_s2).days)
+        if desfase <= 5:
+            st.success(f"✅ Desfase campo/imagen: {desfase} días")
+        elif desfase <= 12:
+            st.warning(f"⚠️ Desfase campo/imagen: {desfase} días")
+        else:
+            st.error(f"❌ Desfase campo/imagen: {desfase} días — considera ajustar")
+
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
+
+    # 5. Parámetros
     st.markdown('<div class="slabel">🔬 Parámetros a mapear</div>', unsafe_allow_html=True)
     params_sel = st.multiselect("", list(PARAMS.keys()), default=list(PARAMS.keys()),
         format_func=lambda p: f"{PARAMS[p]['label']} ({PARAMS[p]['unidad']})")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    # Resolución
+    # 6. Resolución
     st.markdown('<div class="slabel">🎯 Resolución de grilla</div>', unsafe_allow_html=True)
     resolucion = st.select_slider("", options=[200,300,400,500], value=400,
         format_func=lambda v: f"{v}×{v} celdas")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    correr = st.button("🗺️  Generar Mapas", type="primary", use_container_width=True,
-                       disabled=(wmask_zip is None or not params_sel or fecha_inicio >= fecha_fin))
+
+    valid = (wmask_zip is not None and params_sel
+             and fecha_ini < fecha_fin)
+    correr = st.button("🗺️  Generar Mapas", type="primary",
+                       use_container_width=True, disabled=not valid)
     if wmask_zip is None:
         st.warning("⬆️  Sube tu wmask.zip para continuar")
 
 # ── PANTALLA INICIAL ──────────────────────────────────────────────────────────
 if not correr:
 
-    # Pasos de uso
+    # Pasos
     c1, c2, c3 = st.columns(3)
     for col, (t, b) in zip([c1,c2,c3],[
-        ("① Shapefile & Fechas",
-         "Sube tu wmask.zip, define el rango de fechas Sentinel-2 "
-         "y el filtro de cobertura de nubes en el panel izquierdo."),
-        ("② Previsualización",
-         "Verifica que el área de estudio y la imagen satelital sean correctas "
-         "antes de aplicar el modelo. Ajusta el rango si hay nubes excesivas."),
+        ("① Configura",
+         "Sube tu <b>wmask.zip</b>, elige la fecha de muestreo y define el rango "
+         "de búsqueda para Sentinel-2. Ajusta el filtro de nubes."),
+        ("② Verifica imagen",
+         "El mapa interactivo muestra la imagen satelital real del área de estudio. "
+         "Verifica que no haya nubes excesivas antes de continuar."),
         ("③ Genera y Descarga",
          "Clic en <b>Generar Mapas</b>:<br>"
-         "📊 Panel PNG (tesis / artículo)<br>"
+         "📊 Panel PNG para tesis<br>"
          "🗺️ Mapas individuales ZIP<br>"
          "📈 Estadísticas espaciales"),
     ]):
@@ -414,104 +402,114 @@ if not correr:
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    # ── Panel principal: Configuración + Previsualización ─────────────────────
-    if wmask_zip is not None:
+    # ── Mapa interactivo + info técnica ───────────────────────────────────────
+    if wmask_zip is not None and fecha_ini < fecha_fin:
 
-        # Cargar wmask para previsualización
         with st.spinner("Cargando shapefile para previsualización..."):
-            with tempfile.TemporaryDirectory() as tmpdir:
-                with zipfile.ZipFile(wmask_zip, "r") as z: z.extractall(tmpdir)
-                shp = [f for f in os.listdir(tmpdir) if f.endswith(".shp")]
-                if shp:
+            try:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    with zipfile.ZipFile(wmask_zip, "r") as z: z.extractall(tmpdir)
+                    shp = [f for f in os.listdir(tmpdir) if f.endswith(".shp")]
                     wmask_prev = gpd.read_file(os.path.join(tmpdir, shp[0]))
                     if wmask_prev.crs is None or wmask_prev.crs.to_epsg() != 4326:
                         wmask_prev = wmask_prev.to_crs(4326)
-                    bounds_prev = wmask_prev.total_bounds
-                    bbox_prev   = tuple(bounds_prev)
-                else:
-                    wmask_prev = None
-                    bbox_prev  = None
+                    bbox_prev = tuple(wmask_prev.total_bounds)
+                    lon_min, lat_min, lon_max, lat_max = bbox_prev
+            except Exception as e:
+                st.error(f"Error cargando shapefile: {e}")
+                wmask_prev = None
 
-        if wmask_prev is not None and fecha_inicio < fecha_fin:
+        if wmask_prev is not None:
 
-            col_left, col_right = st.columns([1, 1.4], gap="medium")
+            st.markdown('<div class="sec-t">🛰️ Previsualización del Área de Estudio</div>',
+                        unsafe_allow_html=True)
 
-            with col_left:
-                st.markdown('<div class="config-panel">', unsafe_allow_html=True)
-                st.markdown('<div class="config-title">⚙️ Configuración de búsqueda</div>',
+            # Mapa Folium ocupa todo el ancho
+            st.markdown('<div class="map-panel">', unsafe_allow_html=True)
+            st.markdown('<div class="map-title">🛰️ Imagen Satelital — Área de Estudio · Río Pesquería</div>',
+                        unsafe_allow_html=True)
+
+            mapa_folium = build_folium_map(wmask_prev, COORDS, bbox_prev, height=420)
+            st_folium(mapa_folium, width="100%", height=420, returned_objects=[])
+
+            st.markdown(f"""
+            <div class="map-meta">
+              <b style="color:#fff">Tiles base</b>: Esri World Imagery (imagen satelital real) ·
+              Alterna con el control de capas 🗺️ arriba a la derecha<br>
+              <b style="color:#fff">Capa verde</b>: tu área de estudio (wmask) &nbsp;·&nbsp;
+              <b style="color:#fff">Puntos dorados</b>: 7 estaciones de muestreo (P1–P7)<br>
+              <b style="color:#fff">Fecha búsqueda S2</b>:
+              <span class="chip">📅 {fecha_ini.strftime('%d %b %Y')}</span>
+              <span class="chip">→</span>
+              <span class="chip">📅 {fecha_fin.strftime('%d %b %Y')}</span>
+              <span class="chip">☁️ &lt; {max_nubes}%</span>
+              &nbsp;·&nbsp;
+              <b style="color:#fff">Muestreo campo</b>:
+              <span class="chip">🧪 {fecha_dt.strftime('%d %b %Y')}</span>
+            </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Info técnica en 3 columnas debajo del mapa
+            st.markdown('<hr class="divider">', unsafe_allow_html=True)
+            ci1, ci2, ci3 = st.columns(3)
+
+            with ci1:
+                st.markdown('<div class="info-panel">', unsafe_allow_html=True)
+                st.markdown('<div class="info-title">📐 Área de estudio (bbox)</div>',
                             unsafe_allow_html=True)
-
-                lon_min, lat_min, lon_max, lat_max = bbox_prev
                 st.markdown(f"""
-                <div style="font-size:.78rem;color:#8EAAC8;line-height:1.8">
-                  <b style="color:#FFFFFF">Área de estudio (bbox)</b><br>
-                  <span class="sat-chip">Lon: {lon_min:.4f}° → {lon_max:.4f}°</span>
-                  <span class="sat-chip">Lat: {lat_min:.4f}° → {lat_max:.4f}°</span><br><br>
-                  <b style="color:#FFFFFF">Parámetros de imagen</b><br>
-                  <span class="sat-chip">🛰️ Sentinel-2 SR Harmonized</span>
-                  <span class="sat-chip">☁️ Nubes &lt; {max_nubes}%</span>
-                  <span class="sat-chip">📐 10m / píxel</span><br>
-                  <span class="sat-chip">📅 {fecha_inicio.strftime('%d %b %Y')}</span>
-                  <span class="sat-chip">→</span>
-                  <span class="sat-chip">📅 {fecha_fin.strftime('%d %b %Y')}</span><br><br>
-                  <b style="color:#FFFFFF">Fecha de muestreo campo</b><br>
-                  <span class="sat-chip">🧪 {fecha_campo_dt.strftime('%d %b %Y')}</span><br><br>
-                  <b style="color:#FFFFFF">Días de desfase campo/imagen</b><br>
-                """, unsafe_allow_html=True)
-
-                # Calcular desfase
-                mid_s2 = fecha_inicio + (fecha_fin - fecha_inicio) / 2
-                desfase = abs((fecha_campo_dt.date() - mid_s2).days)
-                color_desfase = "#3DBA7A" if desfase <= 7 else ("#FFD700" if desfase <= 15 else "#E74C3C")
-                st.markdown(f"""
-                  <span class="sat-chip" style="border-color:{color_desfase};color:{color_desfase}">
-                    ± {desfase} días</span>
-                  <br><br>
-                  <b style="color:#FFFFFF">Parámetros a mapear</b><br>
-                  {''.join(f'<span class="sat-chip">{PARAMS[p]["icon"]} {PARAMS[p]["label"]}</span>' for p in params_sel)}
+                <div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">
+                  <b style="color:#fff">Lon min</b>: {lon_min:.5f}°<br>
+                  <b style="color:#fff">Lon max</b>: {lon_max:.5f}°<br>
+                  <b style="color:#fff">Lat min</b>:  {lat_min:.5f}°<br>
+                  <b style="color:#fff">Lat max</b>:  {lat_max:.5f}°<br>
+                  <b style="color:#fff">Polígonos</b>: {len(wmask_prev)}
                 </div>
-                </div>
-                """, unsafe_allow_html=True)
+                </div>""", unsafe_allow_html=True)
 
-            with col_right:
-                st.markdown('<div class="sat-panel">', unsafe_allow_html=True)
-                st.markdown('<div class="sat-title">🛰️ Previsualización del Área de Estudio</div>',
+            with ci2:
+                st.markdown('<div class="info-panel">', unsafe_allow_html=True)
+                st.markdown('<div class="info-title">🛰️ Parámetros Sentinel-2</div>',
                             unsafe_allow_html=True)
-
-                with st.spinner("Generando previsualización..."):
-                    buf_prev = plot_area_preview(
-                        wmask_prev, COORDS, bbox_prev,
-                        fecha_inicio.strftime("%d/%b/%Y"),
-                        fecha_fin.strftime("%d/%b/%Y"),
-                        max_nubes
-                    )
-
-                st.image(buf_prev, use_column_width=True)
-
+                dias = (fecha_fin - fecha_ini).days
+                mid  = fecha_ini + (fecha_fin - fecha_ini) / 2
+                des  = abs((fecha_dt.date() - mid).days)
+                col_des = "#3DBA7A" if des<=5 else ("#FFD700" if des<=12 else "#E74C3C")
                 st.markdown(f"""
-                <div class="sat-info">
-                  <b style="color:#FFFFFF">Composición RGB</b>: B4 (Rojo) · B3 (Verde) · B2 (Azul)<br>
-                  <b style="color:#FFFFFF">Colección</b>: COPERNICUS/S2_SR_HARMONIZED<br>
-                  <b style="color:#FFFFFF">Resolución</b>: 10 m/píxel (bandas visibles)<br>
-                  <b style="color:#FFFFFF">Puntos</b>: 7 estaciones de muestreo (P1–P7)
-                  &nbsp;🟡 marcadas en dorado<br>
-                  <span style="color:#3DBA7A">✓ Área lista para análisis</span>
-                  — ajusta el rango de fechas si detectas nubes en la imagen real.
+                <div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">
+                  <b style="color:#fff">Colección</b>: S2_SR_HARMONIZED<br>
+                  <b style="color:#fff">Bandas RGB</b>: B4 · B3 · B2 (10m)<br>
+                  <b style="color:#fff">Rango</b>: {dias} días<br>
+                  <b style="color:#fff">Max nubes</b>: {max_nubes}%<br>
+                  <b style="color:#fff">Desfase</b>: <span style="color:{col_des}">±{des} días</span>
                 </div>
-                </div>
-                """, unsafe_allow_html=True)
+                </div>""", unsafe_allow_html=True)
+
+            with ci3:
+                st.markdown('<div class="info-panel">', unsafe_allow_html=True)
+                st.markdown('<div class="info-title">🔬 Parámetros a mapear</div>',
+                            unsafe_allow_html=True)
+                params_html = "".join(
+                    f'<div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">'
+                    f'<span style="color:{PARAMS[p]["color"]}">{PARAMS[p]["icon"]}</span> '
+                    f'<b style="color:#fff">{PARAMS[p]["label"]}</b> '
+                    f'({PARAMS[p]["unidad"]})</div>'
+                    for p in params_sel
+                ) if params_sel else '<div style="color:#E74C3C;font-size:.76rem">Ninguno seleccionado</div>'
+                st.markdown(params_html + "</div>", unsafe_allow_html=True)
 
     else:
-        # Sin wmask: mostrar instrucciones y mapa de puntos
+        # Sin wmask: mapa de puntos simple
         st.markdown('<div class="sec-t">📍 Puntos de Muestreo — Río Pesquería</div>',
                     unsafe_allow_html=True)
-        df_pts = pd.DataFrame([{"lat":c[1],"lon":c[0],"Punto":p} for p,c in COORDS.items()])
+        df_pts = pd.DataFrame([{"lat":c[1],"lon":c[0]} for c in COORDS.values()])
         st.map(df_pts)
-        st.info("⬅️  Sube tu **wmask.zip** en el panel izquierdo para ver la previsualización del área de estudio.")
+        st.info("⬅️  Sube tu **wmask.zip** para ver la imagen satelital real del área de estudio.")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    # Parámetros con descripción técnica
+    # Parámetros
     st.markdown('<div class="sec-t">📊 Parámetros Fisicoquímicos del Modelo</div>',
                 unsafe_allow_html=True)
     for col, cfg in PARAMS.items():
@@ -533,8 +531,7 @@ if not correr:
 
     # Investigador
     st.markdown('<div class="sec-t">👨‍🔬 Investigador Principal</div>', unsafe_allow_html=True)
-    photo_src = (f"data:image/png;base64,{PHOTO_B64}" if PHOTO_B64
-                 else "https://via.placeholder.com/88/2E8B8B/fff?text=KR")
+    photo_src = f"data:image/png;base64,{PHOTO_B64}" if PHOTO_B64 else ""
     st.markdown(f"""
     <div class="researcher-card">
       <img class="rphoto" src="{photo_src}" alt="Kevin Rodriguez">
@@ -551,8 +548,7 @@ if not correr:
     </div>""", unsafe_allow_html=True)
 
     st.markdown("""<div class="footer">
-      Random Forest v3 · Sentinel-2 SR · Universidad Autónoma de Nuevo León ·
-      Facultad de Ingeniería Civil · Departamento de Geomática · KFold-5 + OOB score
+      Random Forest v3 · Sentinel-2 SR · UANL · FIC · Depto. Geomática · KFold-5 + OOB score
     </div>""", unsafe_allow_html=True)
     st.stop()
 
@@ -568,8 +564,8 @@ puntos_uniq = sorted(COORDS.keys())
 lons = np.array([COORDS[p][0] for p in puntos_uniq])
 lats = np.array([COORDS[p][1] for p in puntos_uniq])
 pts_known = np.column_stack([lons, lats])
-fecha_dt  = pd.to_datetime(fecha_campo, format="%m/%d/%Y")
-df_fecha  = df_global[df_global["target_date"] == fecha_dt]
+fecha_campo_dt = pd.to_datetime(fecha_campo, format="%m/%d/%Y")
+df_fecha       = df_global[df_global["target_date"] == fecha_campo_dt]
 progress.progress(10)
 
 status.text("Cargando shapefile...")
@@ -583,14 +579,14 @@ with tempfile.TemporaryDirectory() as tmpdir:
     bounds     = wmask.total_bounds
 progress.progress(30)
 
-status.text("Generando grilla de interpolación...")
+status.text("Generando grilla...")
 lon_min, lat_min, lon_max, lat_max = bounds
 RES     = resolucion
 lon_vec = np.linspace(lon_min, lon_max, RES)
 lat_vec = np.linspace(lat_min, lat_max, RES)
 lon_grid, lat_grid = np.meshgrid(lon_vec, lat_vec)
-pts_grid = np.column_stack([lon_grid.ravel(), lat_grid.ravel()])
-extent   = [lon_min, lon_max, lat_min, lat_max]
+pts_grid  = np.column_stack([lon_grid.ravel(), lat_grid.ravel()])
+extent    = [lon_min, lon_max, lat_min, lat_max]
 mask_flat = np.array([union_geom.contains(Point(x,y)) for x,y in pts_grid])
 mask_2d   = mask_flat.reshape(RES, RES)
 progress.progress(60)
@@ -625,8 +621,8 @@ fig.patch.set_facecolor("#0D1117")
 if n==1:       axes_flat=[axes]
 elif nrows==1: axes_flat=list(axes)
 else:          axes_flat=axes.flatten().tolist()
-
 buf_ind={}
+
 for i,(col,info) in enumerate(mapas.items()):
     ax=axes_flat[i]; ax.set_facecolor("#161B22")
     data=info["data"]; vmin,vmax=info["vmin"],info["vmax"]
@@ -646,7 +642,7 @@ for i,(col,info) in enumerate(mapas.items()):
     plt.setp(plt.getp(cbar.ax.axes,"yticklabels"),color="white",fontsize=8)
     d=data[np.isfinite(data)]
     ax.set_title(info["label"],color="white",fontsize=11,fontweight="bold")
-    ax.text(0.01,0.99,f"Min: {d.min():.2f}\nMáx: {d.max():.2f}\nMedia: {d.mean():.2f}",
+    ax.text(0.01,0.99,f"Min:{d.min():.2f}\nMáx:{d.max():.2f}\nMedia:{d.mean():.2f}",
             transform=ax.transAxes,fontsize=8,color="white",va="top",
             bbox=dict(boxstyle="round,pad=0.3",facecolor="#0D1117",alpha=0.7))
     ax.set_xlabel("Longitud (°)",color="#8EAAC8",fontsize=8)
@@ -665,7 +661,7 @@ for i,(col,info) in enumerate(mapas.items()):
     cb2=plt.colorbar(im2,ax=ai,fraction=0.025,pad=0.02,shrink=0.9)
     cb2.set_label(f"{info['label']} ({info['unidad']})",color="white",fontsize=11)
     plt.setp(plt.getp(cb2.ax.axes,"yticklabels"),color="white",fontsize=9)
-    ai.set_title(f"{info['label']} | Río Pesquería | {fecha_dt.strftime('%d/%m/%Y')} | RF v3",
+    ai.set_title(f"{info['label']} | Río Pesquería | {fecha_campo_dt.strftime('%d/%m/%Y')} | RF v3",
                  color="white",fontsize=11,fontweight="bold")
     ai.text(0.99,0.01,"Kevin D. Rodríguez G. · UANL · Depto. Geomática · RF v3",
             transform=ai.transAxes,fontsize=7,color="#8EAAC8",ha="right",va="bottom")
@@ -676,32 +672,36 @@ for i,(col,info) in enumerate(mapas.items()):
     buf_ind[col]=bi; plt.close(fi)
 
 for k in range(n,len(axes_flat)): axes_flat[k].set_visible(False)
-mes2=fecha_dt.month; temp="Temporada Seca 🌵" if mes2 in [11,12,1,2,3] else "Temporada Lluviosa 🌧️"
-fig.suptitle(f"Calidad de Agua — Río Pesquería\n{fecha_dt.strftime('%d/%m/%Y')} | {temp} | RF v3 | UANL·FIC·Geomática",
-             fontsize=13,fontweight="bold",color="white",y=1.01)
+mes2=fecha_campo_dt.month
+temp="Temporada Seca 🌵" if mes2 in [11,12,1,2,3] else "Temporada Lluviosa 🌧️"
+fig.suptitle(
+    f"Calidad de Agua — Río Pesquería\n"
+    f"{fecha_campo_dt.strftime('%d/%m/%Y')} | {temp} | RF v3 | UANL·FIC·Geomática",
+    fontsize=13,fontweight="bold",color="white",y=1.01)
 plt.tight_layout()
 buf_panel=io.BytesIO()
 fig.savefig(buf_panel,dpi=150,bbox_inches="tight",facecolor="#0D1117")
 plt.close(fig); progress.progress(100); status.empty()
 
 # ── RESULTADOS ────────────────────────────────────────────────────────────────
-st.success(f"✅  {n} mapas generados — {fecha_dt.strftime('%d/%m/%Y')} · {temp}")
+st.success(f"✅  {n} mapas — {fecha_campo_dt.strftime('%d/%m/%Y')} · {temp}")
 st.image(buf_panel,caption="Panel de calidad de agua · Río Pesquería · UANL",use_column_width=True)
 
-st.markdown('<div class="sec-t">📥 Descargar resultados</div>', unsafe_allow_html=True)
+st.markdown('<div class="sec-t">📥 Descargar resultados</div>',unsafe_allow_html=True)
 dl1,dl2=st.columns(2)
 with dl1:
     st.download_button("⬇️  Panel completo PNG",buf_panel.getvalue(),
-        f"WaterQuality_Pesqueria_{fecha_dt.strftime('%Y%m%d')}.png","image/png",use_container_width=True)
+        f"WaterQuality_{fecha_campo_dt.strftime('%Y%m%d')}.png","image/png",use_container_width=True)
 with dl2:
     bz=io.BytesIO()
     with zipfile.ZipFile(bz,"w") as zf:
-        for col,buf in buf_ind.items(): zf.writestr(f"mapa_{col}_{fecha_dt.strftime('%Y%m%d')}.png",buf.getvalue())
+        for col,buf in buf_ind.items():
+            zf.writestr(f"mapa_{col}_{fecha_campo_dt.strftime('%Y%m%d')}.png",buf.getvalue())
     st.download_button("⬇️  Mapas individuales ZIP",bz.getvalue(),
-        f"mapas_pesqueria_{fecha_dt.strftime('%Y%m%d')}.zip","application/zip",use_container_width=True)
+        f"mapas_{fecha_campo_dt.strftime('%Y%m%d')}.zip","application/zip",use_container_width=True)
 
-st.markdown('<hr class="divider">', unsafe_allow_html=True)
-st.markdown('<div class="sec-t">📊 Estadísticas espaciales</div>', unsafe_allow_html=True)
+st.markdown('<hr class="divider">',unsafe_allow_html=True)
+st.markdown('<div class="sec-t">📊 Estadísticas espaciales</div>',unsafe_allow_html=True)
 cols_st=st.columns(len(mapas))
 for cs,(param,info) in zip(cols_st,mapas.items()):
     d=info["data"][np.isfinite(info["data"])]
@@ -711,23 +711,22 @@ for cs,(param,info) in zip(cols_st,mapas.items()):
         st.metric("Máximo", f"{d.max():.2f} {info['unidad']}")
         st.metric("Mínimo", f"{d.min():.2f} {info['unidad']}")
 
-st.markdown('<hr class="divider">', unsafe_allow_html=True)
-st.markdown('<div class="sec-t">👨‍🔬 Investigador Principal</div>', unsafe_allow_html=True)
-photo_src2=(f"data:image/png;base64,{PHOTO_B64}" if PHOTO_B64 else "")
+st.markdown('<hr class="divider">',unsafe_allow_html=True)
+st.markdown('<div class="sec-t">👨‍🔬 Investigador Principal</div>',unsafe_allow_html=True)
 st.markdown(f"""
 <div class="researcher-card">
-  <img class="rphoto" src="{photo_src2}" alt="Kevin Rodriguez">
+  <img class="rphoto" src="data:image/png;base64,{PHOTO_B64}" alt="Kevin">
   <div>
     <div class="rname">Kevin David Rodríguez González</div>
     <div class="rtitle">PhD Student · Environmental Water Quality &amp; Remote Sensing</div>
     <div class="rdept">Departamento de Geomática · Facultad de Ingeniería Civil · UANL</div>
     <div class="rlinks">
       <a class="rlink" href="mailto:krodriguezge@uanl.edu.mx">✉ krodriguezge@uanl.edu.mx</a>
-      <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">🔗 ORCID: 0009-0004-3060-8575</a>
+      <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">🔗 ORCID</a>
     </div>
   </div>
-</div>""", unsafe_allow_html=True)
+</div>""",unsafe_allow_html=True)
 
 st.markdown("""<div class="footer">
-  Random Forest v3 · Sentinel-2 SR · UANL · FIC · Depto. Geomática · KFold-5 + OOB score
-</div>""", unsafe_allow_html=True)
+  RF v3 · Sentinel-2 SR · UANL · FIC · Depto. Geomática · KFold-5 + OOB score
+</div>""",unsafe_allow_html=True)

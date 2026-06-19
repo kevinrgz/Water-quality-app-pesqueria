@@ -9,4 +9,6 @@ shapely
 pyproj
 fiona
 Pillow
+folium
+streamlit-folium
 requests
