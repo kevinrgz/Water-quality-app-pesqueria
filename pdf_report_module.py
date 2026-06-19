@@ -1,7 +1,12 @@
 # =============================================================================
 # MÓDULO DE GENERACIÓN DE REPORTES PDF
-# Agregar este código a app.py (después de las funciones de mapas existentes)
 # =============================================================================
+
+import io
+from datetime import date
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.units import cm, mm
@@ -393,7 +398,7 @@ def generar_pdf_serie_temporal(resultados_por_fecha, params_sel, bbox, n_puntos,
         ax_t.fill_between(fechas_validas, medias, maximos, alpha=0.15, color="#E74C3C")
         ax_t.plot(fechas_validas, maximos, "s--", color="#E74C3C", lw=1, ms=3, label="Máximo espacial")
 
-        ax_t.set_title(f"{cfg['icon']} {cfg['label']} — Evolución 2016-2019",
+        ax_t.set_title(f"{cfg['label']} — Evolución 2016-2019",
                        fontsize=10, fontweight="bold", color="#1A4F7A")
         ax_t.set_ylabel(cfg["unidad"], fontsize=8)
         ax_t.tick_params(axis="x", rotation=40, labelsize=7)
