@@ -1,9 +1,8 @@
 import streamlit as st
-import pickle, tempfile, os, zipfile, warnings
+import pickle, tempfile, os, zipfile, warnings, json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
 from scipy.interpolate import RBFInterpolator, griddata
 from scipy import stats
@@ -13,6 +12,7 @@ import io, base64
 from datetime import date, timedelta
 import folium
 from streamlit_folium import st_folium
+import ee
 warnings.filterwarnings("ignore")
 
 # ── Assets ────────────────────────────────────────────────────────────────────
@@ -27,28 +27,20 @@ PHOTO_B64 = _b64("photo_researcher.png")
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 PARAMS = {
-    "P_TOT": dict(
-        label="Fósforo Total", unidad="mg/L", vmin=0, vmax=6, oob=0.684,
-        icon="🧪", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"],
-        color="#74c476",
+    "P_TOT": dict(label="Fósforo Total", unidad="mg/L", vmin=0, vmax=6, oob=0.684,
+        icon="🧪", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], color="#74c476",
         desc="Nutriente clave en eutrofización. Indica descargas de aguas residuales, "
              "efluentes industriales y escorrentía agrícola. Ref. NOM-001: 5 mg/L."),
-    "N_NH3": dict(
-        label="N-Amoniaco", unidad="mg/L", vmin=0, vmax=25, oob=0.645,
-        icon="⚗️", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"],
-        color="#238b45",
+    "N_NH3": dict(label="N-Amoniaco", unidad="mg/L", vmin=0, vmax=25, oob=0.645,
+        icon="⚗️", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], color="#238b45",
         desc="Forma reducida del nitrógeno. Indicador directo de contaminación orgánica "
              "reciente. Tóxico para fauna acuática. Ref. NOM-001: 25 mg/L."),
-    "N_TOT": dict(
-        label="N-Total", unidad="mg/L", vmin=0, vmax=35, oob=0.615,
-        icon="🔬", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"],
-        color="#2E8B8B",
+    "N_TOT": dict(label="N-Total", unidad="mg/L", vmin=0, vmax=35, oob=0.615,
+        icon="🔬", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], color="#2E8B8B",
         desc="Suma de todas las formas de nitrógeno disuelto. Indicador integral de "
              "carga nitrogenada y riesgo de eutrofización del ecosistema acuático."),
-    "N_TOTK": dict(
-        label="N-Total Kjeldahl", unidad="mg/L", vmin=0, vmax=35, oob=0.662,
-        icon="🧫", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"],
-        color="#1A4F7A",
+    "N_TOTK": dict(label="N-Total Kjeldahl", unidad="mg/L", vmin=0, vmax=35, oob=0.662,
+        icon="🧫", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], color="#1A4F7A",
         desc="Nitrógeno orgánico + amoniaco por método Kjeldahl. Estándar internacional "
              "para evaluar carga orgánica y potencial de demanda bioquímica de oxígeno."),
 }
@@ -71,16 +63,12 @@ def make_cmap(pal):
     return LinearSegmentedColormap.from_list("wq", pal, N=256)
 
 # ── Page config ───────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Water Quality RF — Río Pesquería",
-    page_icon="💧", layout="wide",
-)
+st.set_page_config(page_title="Water Quality RF — Río Pesquería", page_icon="💧", layout="wide")
 
 st.markdown("""
 <style>
 body,.stApp{background-color:#0D1117!important}
 section[data-testid="stSidebar"]{background-color:#161B22!important}
-
 .hdr{background:linear-gradient(135deg,#1A4F7A 0%,#0D1117 65%);
      border-bottom:2px solid #2E8B8B;padding:1.2rem 2rem .9rem;
      margin-bottom:1.2rem;border-radius:0 0 14px 14px}
@@ -89,7 +77,6 @@ section[data-testid="stSidebar"]{background-color:#161B22!important}
 .hdr-sep{width:1px;height:46px;background:#2E8B8B55;flex-shrink:0}
 .app-title{font-size:2.1rem;font-weight:800;color:#fff;margin:0;letter-spacing:-.5px}
 .app-sub{font-size:.88rem;color:#8EAAC8;margin:.3rem 0 0}
-
 .metric-row{display:flex;gap:12px;margin:1rem 0;flex-wrap:wrap}
 .metric-card{flex:1;min-width:130px;background:linear-gradient(145deg,#161B22,#1A2030);
              border:1px solid #2E8B8B44;border-radius:14px;padding:1rem;text-align:center}
@@ -97,61 +84,59 @@ section[data-testid="stSidebar"]{background-color:#161B22!important}
 .metric-label{font-size:.68rem;color:#8EAAC8;text-transform:uppercase;letter-spacing:.07em;margin-top:4px}
 .badge-ok{display:inline-block;margin-top:8px;background:#1A3A2A;color:#3DBA7A;
           border:1px solid #3DBA7A55;padding:2px 12px;border-radius:20px;font-size:.68rem;font-weight:700}
-
-.map-panel{background:#161B22;border:1px solid #2E8B8B44;
-           border-radius:14px;padding:.8rem 1rem;margin-bottom:1rem}
-.map-title{font-size:.75rem;font-weight:700;color:#2E8B8B;
-           letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
+.map-panel{background:#161B22;border:1px solid #2E8B8B44;border-radius:14px;padding:.8rem 1rem;margin-bottom:1rem}
+.map-title{font-size:.75rem;font-weight:700;color:#2E8B8B;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
 .map-meta{font-size:.72rem;color:#8EAAC8;margin-top:.5rem;line-height:1.5}
-.chip{display:inline-block;background:#0D1F2D;border:1px solid #2E8B8B44;
-      color:#2E8B8B;font-size:.67rem;border-radius:4px;padding:2px 8px;margin:2px}
-
-.info-panel{background:#161B22;border:1px solid #FFFFFF0F;
-            border-radius:14px;padding:.8rem 1rem;margin-bottom:1rem}
-.info-title{font-size:.75rem;font-weight:700;color:#8EAAC8;
-            letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
-
-.param-card{background:#161B22;border:1px solid #FFFFFF12;
-            border-left:3px solid #2E8B8B;border-radius:0 12px 12px 0;
-            padding:1.1rem 1.4rem;margin-bottom:.75rem}
-.param-hdr{display:flex;justify-content:space-between;align-items:center;
-           margin-bottom:.55rem;flex-wrap:wrap;gap:8px}
+.chip{display:inline-block;background:#0D1F2D;border:1px solid #2E8B8B44;color:#2E8B8B;
+      font-size:.67rem;border-radius:4px;padding:2px 8px;margin:2px}
+.chip-warn{border-color:#FFD70066;color:#FFD700}
+.chip-bad{border-color:#E74C3C66;color:#E74C3C}
+.info-panel{background:#161B22;border:1px solid #FFFFFF0F;border-radius:14px;padding:.8rem 1rem;margin-bottom:1rem}
+.info-title{font-size:.75rem;font-weight:700;color:#8EAAC8;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
+.param-card{background:#161B22;border:1px solid #FFFFFF12;border-left:3px solid #2E8B8B;
+            border-radius:0 12px 12px 0;padding:1.1rem 1.4rem;margin-bottom:.75rem}
+.param-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.55rem;flex-wrap:wrap;gap:8px}
 .param-name{font-size:.95rem;font-weight:700;color:#FFFFFF}
-.param-oob{font-size:.68rem;color:#2E8B8B;background:#0D1F2D;
-           border:1px solid #2E8B8B44;border-radius:20px;padding:2px 10px}
+.param-oob{font-size:.68rem;color:#2E8B8B;background:#0D1F2D;border:1px solid #2E8B8B44;border-radius:20px;padding:2px 10px}
 .param-desc{font-size:.78rem;color:#8EAAC8;line-height:1.65;margin-bottom:.65rem}
 .param-meta{display:flex;gap:20px;flex-wrap:wrap}
 .pmi{font-size:.72rem;color:#8EAAC8}
 .pmv{color:#2E8B8B;font-weight:600}
-
 .step-box{background:#161B22;border:1px solid #FFFFFF0F;border-left:3px solid #2E8B8B;
           border-radius:0 10px 10px 0;padding:1rem 1.2rem}
 .step-t{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:.5rem}
 .step-b{font-size:.76rem;color:#8EAAC8;line-height:1.65}
-
-.researcher-card{background:linear-gradient(145deg,#161B22,#1A2030);
-                 border:1px solid #2E8B8B44;border-radius:16px;
-                 padding:1.3rem 1.7rem;display:flex;gap:20px;align-items:center}
-.rphoto{width:88px;height:88px;border-radius:50%;object-fit:cover;
-        border:3px solid #2E8B8B;flex-shrink:0}
+.researcher-card{background:linear-gradient(145deg,#161B22,#1A2030);border:1px solid #2E8B8B44;
+                 border-radius:16px;padding:1.3rem 1.7rem;display:flex;gap:20px;align-items:center}
+.rphoto{width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid #2E8B8B;flex-shrink:0}
 .rname{font-size:1rem;font-weight:700;color:#fff;margin:0 0 2px}
 .rtitle{font-size:.8rem;color:#2E8B8B;font-weight:600;margin:0 0 3px}
 .rdept{font-size:.76rem;color:#8EAAC8;margin:0 0 9px}
 .rlinks{display:flex;gap:9px;flex-wrap:wrap}
-.rlink{font-size:.70rem;color:#8EAAC8;background:#FFFFFF0D;
-       border:1px solid #FFFFFF22;border-radius:20px;padding:3px 11px;text-decoration:none}
-
+.rlink{font-size:.70rem;color:#8EAAC8;background:#FFFFFF0D;border:1px solid #FFFFFF22;
+       border-radius:20px;padding:3px 11px;text-decoration:none}
 .divider{border:0;border-top:1px solid #FFFFFF0F;margin:1.1rem 0}
-.sec-t{font-size:.73rem;font-weight:700;color:#8EAAC8;letter-spacing:.09em;
-       text-transform:uppercase;margin:1.1rem 0 .6rem}
-.slabel{font-size:.68rem;color:#8EAAC8;text-transform:uppercase;
-        letter-spacing:.08em;font-weight:700;margin-bottom:.3rem}
-.footer{text-align:center;font-size:.68rem;color:#3A4A5C;margin-top:2rem;
-        padding-top:1rem;border-top:1px solid #FFFFFF0D}
+.sec-t{font-size:.73rem;font-weight:700;color:#8EAAC8;letter-spacing:.09em;text-transform:uppercase;margin:1.1rem 0 .6rem}
+.slabel{font-size:.68rem;color:#8EAAC8;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:.3rem}
+.footer{text-align:center;font-size:.68rem;color:#3A4A5C;margin-top:2rem;padding-top:1rem;border-top:1px solid #FFFFFF0D}
 </style>
 """, unsafe_allow_html=True)
 
-# ── Carga modelo y CSV ────────────────────────────────────────────────────────
+# ── Conexión a GEE con Service Account ────────────────────────────────────────
+@st.cache_resource(show_spinner=False)
+def init_gee():
+    try:
+        sa_email = st.secrets["gee"]["service_account"]
+        creds_json = st.secrets["gee"]["credentials"]
+        credentials = ee.ServiceAccountCredentials(sa_email, key_data=creds_json)
+        ee.Initialize(credentials)
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+GEE_OK, GEE_ERROR = init_gee()
+
+# ── Carga modelo y CSV ─────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner="Cargando modelo RF v3...")
 def load_model():
     p = os.path.join(os.path.dirname(__file__), "modelos_rf_v3.pkl")
@@ -169,97 +154,69 @@ def load_csv():
 model_data = load_model()
 df_global  = load_csv()
 
-# ── Función: mapa Folium interactivo ──────────────────────────────────────────
-def build_folium_map(wmask_gdf, coords_dict, bbox, height=380):
-    """
-    Crea mapa Folium con imagen satelital real (tiles ESRI World Imagery)
-    y capas del wmask y puntos de muestreo superpuestas.
-    """
+# ── Función: buscar mejor imagen Sentinel-2 en GEE ────────────────────────────
+@st.cache_data(ttl=1800, show_spinner=False)
+def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes):
+    if not GEE_OK:
+        return None, None
+    try:
+        lon_min, lat_min, lon_max, lat_max = bbox
+        geom = ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max])
+        coll = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+                  .filterBounds(geom)
+                  .filterDate(fecha_ini_str, fecha_fin_str)
+                  .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_nubes))
+                  .sort("CLOUDY_PIXEL_PERCENTAGE"))
+        n_imgs = coll.size().getInfo()
+        if n_imgs == 0:
+            return {"n_imagenes": 0}, None
+        img = coll.first().clip(geom)
+        img_info = img.getInfo()
+        props = img_info.get("properties", {})
+        fecha_real = props.get("PRODUCT_ID", "")[7:15] if "PRODUCT_ID" in props else "N/D"
+        nubes_pct  = props.get("CLOUDY_PIXEL_PERCENTAGE", None)
+        vis_params = {"bands": ["B4","B3","B2"], "min": 0, "max": 3000, "gamma": 1.3}
+        map_id = img.getMapId(vis_params)
+        tile_url = map_id["tile_fetcher"].url_format
+        info = {"n_imagenes": n_imgs,
+                "nubes_pct": round(nubes_pct, 1) if nubes_pct is not None else None,
+                "fecha_real": fecha_real}
+        return info, tile_url
+    except Exception as e:
+        return {"error": str(e)}, None
+
+
+def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_url=None, height=420):
     lon_min, lat_min, lon_max, lat_max = bbox
-    cx = (lon_min + lon_max) / 2
-    cy = (lat_min + lat_max) / 2
-    span = max(lon_max - lon_min, lat_max - lat_min)
-    zoom = max(11, min(15, int(13 - span * 8)))
-
-    m = folium.Map(
-        location=[cy, cx],
-        zoom_start=zoom,
-        tiles=None,
-        width="100%",
-        height=height,
-    )
-
-    # Capa base: imagen satelital ESRI (sin autenticación, pública)
+    cx, cy = (lon_min+lon_max)/2, (lat_min+lat_max)/2
+    span = max(lon_max-lon_min, lat_max-lat_min)
+    zoom = max(11, min(15, int(13 - span*8)))
+    m = folium.Map(location=[cy, cx], zoom_start=zoom, tiles=None, width="100%", height=height)
+    if tile_url:
+        folium.TileLayer(tiles=tile_url, attr="Google Earth Engine — Sentinel-2 SR",
+                         name="🛰️ Sentinel-2 (imagen real)", overlay=False, control=True).add_to(m)
     folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/"
               "World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        attr="Esri World Imagery",
-        name="🛰️ Sentinel-2 / Satélite",
-        overlay=False,
-        control=True,
-    ).add_to(m)
-
-    # Capa base alternativa: OpenStreetMap
-    folium.TileLayer(
-        tiles="OpenStreetMap",
-        name="🗺️ Mapa base",
-        overlay=False,
-        control=True,
-    ).add_to(m)
-
-    # Capa: wmask polígono
+        attr="Esri World Imagery", name="🌍 Satélite (referencia actual)",
+        overlay=False, control=True).add_to(m)
+    folium.TileLayer(tiles="OpenStreetMap", name="🗺️ Mapa base", overlay=False, control=True).add_to(m)
     folium.GeoJson(
-        wmask_gdf.__geo_interface__,
-        name="📍 Área de estudio (wmask)",
-        style_function=lambda x: {
-            "fillColor": "#2E8B8B",
-            "color": "#00FFCC",
-            "weight": 2.5,
-            "fillOpacity": 0.15,
-        },
-        tooltip=folium.GeoJsonTooltip(fields=[], aliases=[]),
-    ).add_to(m)
-
-    # Puntos de muestreo con popups
-    for j, (nombre, (lon, lat)) in enumerate(coords_dict.items()):
+        wmask_gdf.__geo_interface__, name="📍 Área de estudio",
+        style_function=lambda x: {"fillColor":"#2E8B8B","color":"#00FFCC",
+                                  "weight":2.5,"fillOpacity":0.12}).add_to(m)
+    for j,(nombre,(lon,lat)) in enumerate(coords_dict.items()):
         folium.CircleMarker(
-            location=[lat, lon],
-            radius=8,
-            color="#FFD700",
-            fill=True,
-            fill_color="#FFD700",
-            fill_opacity=0.9,
-            weight=2,
-            popup=folium.Popup(
-                f"<b>{nombre}</b><br>"
-                f"Lon: {lon:.5f}°<br>"
-                f"Lat: {lat:.5f}°",
-                max_width=150,
-            ),
-            tooltip=f"P{j+1} — {nombre}",
-        ).add_to(m)
-
-        # Etiqueta del punto
+            location=[lat,lon], radius=8, color="#FFD700",
+            fill=True, fill_color="#FFD700", fill_opacity=0.9, weight=2,
+            popup=folium.Popup(f"<b>{nombre}</b><br>Lon:{lon:.5f}°<br>Lat:{lat:.5f}°", max_width=150),
+            tooltip=f"P{j+1} — {nombre}").add_to(m)
         folium.Marker(
-            location=[lat + 0.0015, lon + 0.001],
+            location=[lat+0.0015, lon+0.001],
             icon=folium.DivIcon(
                 html=f'<div style="font-size:10px;font-weight:bold;color:white;'
                      f'text-shadow:1px 1px 2px black">P{j+1}</div>',
-                icon_size=(25, 15),
-                icon_anchor=(0, 0),
-            ),
-        ).add_to(m)
-
-    # Bounding box del área
-    folium.Rectangle(
-        bounds=[[lat_min, lon_min], [lat_max, lon_max]],
-        color="#2E8B8B",
-        weight=1,
-        fill=False,
-        dash_array="5,5",
-        tooltip="Bounding box del área de estudio",
-    ).add_to(m)
-
+                icon_size=(25,15), icon_anchor=(0,0))).add_to(m)
     folium.LayerControl(position="topright").add_to(m)
     return m
 
@@ -271,11 +228,7 @@ logo_g = f'<img class="hdr-logo-img" src="data:image/png;base64,{GEO_B64}">'  if
 
 st.markdown(f"""
 <div class="hdr">
-  <div class="hdr-logos">
-    {logo_u}<div class="hdr-sep"></div>
-    {logo_f}<div class="hdr-sep"></div>
-    {logo_g}
-  </div>
+  <div class="hdr-logos">{logo_u}<div class="hdr-sep"></div>{logo_f}<div class="hdr-sep"></div>{logo_g}</div>
   <div class="app-title">💧 Water Quality Mapping</div>
   <div class="app-sub">Río Pesquería, Nuevo León, México &nbsp;·&nbsp;
     Random Forest v3 · Sentinel-2 SR 2016–2019 &nbsp;·&nbsp;
@@ -286,8 +239,7 @@ st.markdown(f"""
 # ── MÉTRICAS ──────────────────────────────────────────────────────────────────
 mh = '<div class="metric-row">'
 for col, cfg in PARAMS.items():
-    mh += (f'<div class="metric-card">'
-           f'<div class="metric-value">{cfg["oob"]:.3f}</div>'
+    mh += (f'<div class="metric-card"><div class="metric-value">{cfg["oob"]:.3f}</div>'
            f'<div class="metric-label">OOB R² · {cfg["label"]}</div>'
            f'<span class="badge-ok">✓ Validado</span></div>')
 mh += "</div>"
@@ -295,82 +247,66 @@ st.markdown(mh, unsafe_allow_html=True)
 
 if model_data is None: st.error("⚠️ modelos_rf_v3.pkl no encontrado"); st.stop()
 if df_global  is None: st.error("⚠️ INDICES_completo.csv no encontrado"); st.stop()
-st.success("✅  Modelo RF v3 cargado  ·  Datos de muestreo 2016–2019 listos")
+
+col_status1, col_status2 = st.columns(2)
+with col_status1:
+    st.success("✅  Modelo RF v3 cargado  ·  Datos de muestreo 2016–2019 listos")
+with col_status2:
+    if GEE_OK:
+        st.success("✅  Conexión a Google Earth Engine activa")
+    else:
+        st.warning(f"⚠️  GEE no disponible — se usará imagen de referencia.")
+
 st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    # 1. Shapefile
     st.markdown('<div class="slabel">📍 Área de estudio</div>', unsafe_allow_html=True)
     st.caption("Comprime: .shp + .dbf + .prj + .cpg → ZIP")
     wmask_zip = st.file_uploader("Sube wmask.zip", type=["zip"])
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-
-    # 2. Fecha de muestreo (datos de campo)
     st.markdown('<div class="slabel">🧪 Fecha de muestreo</div>', unsafe_allow_html=True)
-    st.caption("Fecha en que se colectaron las muestras de agua")
     fecha_campo = st.selectbox("", FECHAS_CAMPO, index=16,
         format_func=lambda f: pd.to_datetime(f, format="%m/%d/%Y").strftime("%d %b %Y"))
     fecha_dt = pd.to_datetime(fecha_campo, format="%m/%d/%Y")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-
-    # 3. Rango Sentinel-2 (auto-sugerido ±10 días de la fecha de campo)
-    st.markdown('<div class="slabel">🛰️ Rango imagen Sentinel-2</div>',
-                unsafe_allow_html=True)
-    st.caption("Se buscará la imagen con menos nubes en este período")
-
+    st.markdown('<div class="slabel">🛰️ Rango imagen Sentinel-2</div>', unsafe_allow_html=True)
     col_d1, col_d2 = st.columns(2)
     with col_d1:
-        fecha_ini = st.date_input("Desde",
-            value=fecha_dt.date() - timedelta(days=8),
-            min_value=date(2015,6,1), max_value=date(2025,12,31))
+        fecha_ini = st.date_input("Desde", value=fecha_dt.date()-timedelta(days=8),
+                                  min_value=date(2015,6,1), max_value=date(2025,12,31))
     with col_d2:
-        fecha_fin = st.date_input("Hasta",
-            value=fecha_dt.date() + timedelta(days=8),
-            min_value=date(2015,6,1), max_value=date(2025,12,31))
+        fecha_fin = st.date_input("Hasta", value=fecha_dt.date()+timedelta(days=8),
+                                  min_value=date(2015,6,1), max_value=date(2025,12,31))
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
+    st.markdown('<div class="slabel">☁️ Filtro de nubes</div>', unsafe_allow_html=True)
+    max_nubes = st.slider("Máx. cobertura (%)", 0, 50, 15, 5)
 
-    # 4. Filtro de nubes
-    st.markdown('<div class="slabel">☁️ Filtro de cobertura de nubes</div>',
-                unsafe_allow_html=True)
-    max_nubes = st.slider("Máx. cobertura (%)", 0, 50, 15, 5,
-        help="Imágenes con más nubes serán descartadas automáticamente")
-
-    # Indicador de calidad de configuración
     if fecha_ini >= fecha_fin:
-        st.error("⚠️ Fecha inicio debe ser anterior a fecha fin")
+        st.error("⚠️ Fecha inicio debe ser anterior a fin")
     else:
-        dias    = (fecha_fin - fecha_ini).days
-        mid_s2  = fecha_ini + (fecha_fin - fecha_ini) / 2
-        desfase = abs((fecha_dt.date() - mid_s2).days)
-        if desfase <= 5:
-            st.success(f"✅ Desfase campo/imagen: {desfase} días")
-        elif desfase <= 12:
-            st.warning(f"⚠️ Desfase campo/imagen: {desfase} días")
-        else:
-            st.error(f"❌ Desfase campo/imagen: {desfase} días — considera ajustar")
+        dias = (fecha_fin - fecha_ini).days
+        mid  = fecha_ini + (fecha_fin - fecha_ini)/2
+        des  = abs((fecha_dt.date() - mid).days)
+        if des <= 5:   st.success(f"✅ Desfase: {des} días")
+        elif des <= 12: st.warning(f"⚠️ Desfase: {des} días")
+        else:           st.error(f"❌ Desfase: {des} días")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-
-    # 5. Parámetros
     st.markdown('<div class="slabel">🔬 Parámetros a mapear</div>', unsafe_allow_html=True)
     params_sel = st.multiselect("", list(PARAMS.keys()), default=list(PARAMS.keys()),
         format_func=lambda p: f"{PARAMS[p]['label']} ({PARAMS[p]['unidad']})")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-
-    # 6. Resolución
-    st.markdown('<div class="slabel">🎯 Resolución de grilla</div>', unsafe_allow_html=True)
+    st.markdown('<div class="slabel">🎯 Resolución</div>', unsafe_allow_html=True)
     resolucion = st.select_slider("", options=[200,300,400,500], value=400,
-        format_func=lambda v: f"{v}×{v} celdas")
+        format_func=lambda v: f"{v}×{v}")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-
-    valid = (wmask_zip is not None and params_sel
-             and fecha_ini < fecha_fin)
+    valid = (wmask_zip is not None and params_sel and fecha_ini < fecha_fin)
     correr = st.button("🗺️  Generar Mapas", type="primary",
                        use_container_width=True, disabled=not valid)
     if wmask_zip is None:
@@ -378,184 +314,134 @@ with st.sidebar:
 
 # ── PANTALLA INICIAL ──────────────────────────────────────────────────────────
 if not correr:
-
-    # Pasos
-    c1, c2, c3 = st.columns(3)
-    for col, (t, b) in zip([c1,c2,c3],[
-        ("① Configura",
-         "Sube tu <b>wmask.zip</b>, elige la fecha de muestreo y define el rango "
-         "de búsqueda para Sentinel-2. Ajusta el filtro de nubes."),
-        ("② Verifica imagen",
-         "El mapa interactivo muestra la imagen satelital real del área de estudio. "
-         "Verifica que no haya nubes excesivas antes de continuar."),
-        ("③ Genera y Descarga",
-         "Clic en <b>Generar Mapas</b>:<br>"
-         "📊 Panel PNG para tesis<br>"
-         "🗺️ Mapas individuales ZIP<br>"
-         "📈 Estadísticas espaciales"),
+    c1,c2,c3 = st.columns(3)
+    for col,(t,b) in zip([c1,c2,c3],[
+        ("① Configura","Sube tu <b>wmask.zip</b>, elige fecha de muestreo y rango Sentinel-2."),
+        ("② Verifica imagen","Se busca automáticamente en GEE la imagen real con menos nubes del período."),
+        ("③ Genera y Descarga","Panel PNG · Mapas individuales ZIP · Estadísticas espaciales"),
     ]):
         with col:
-            st.markdown(
-                f'<div class="step-box"><div class="step-t">{t}</div>'
-                f'<div class="step-b">{b}</div></div>',
-                unsafe_allow_html=True)
+            st.markdown(f'<div class="step-box"><div class="step-t">{t}</div><div class="step-b">{b}</div></div>',
+                       unsafe_allow_html=True)
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    # ── Mapa interactivo + info técnica ───────────────────────────────────────
     if wmask_zip is not None and fecha_ini < fecha_fin:
-
-        with st.spinner("Cargando shapefile para previsualización..."):
+        with st.spinner("Cargando shapefile..."):
             try:
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    with zipfile.ZipFile(wmask_zip, "r") as z: z.extractall(tmpdir)
+                    with zipfile.ZipFile(wmask_zip,"r") as z: z.extractall(tmpdir)
                     shp = [f for f in os.listdir(tmpdir) if f.endswith(".shp")]
                     wmask_prev = gpd.read_file(os.path.join(tmpdir, shp[0]))
-                    if wmask_prev.crs is None or wmask_prev.crs.to_epsg() != 4326:
+                    if wmask_prev.crs is None or wmask_prev.crs.to_epsg()!=4326:
                         wmask_prev = wmask_prev.to_crs(4326)
                     bbox_prev = tuple(wmask_prev.total_bounds)
-                    lon_min, lat_min, lon_max, lat_max = bbox_prev
+                    lon_min,lat_min,lon_max,lat_max = bbox_prev
             except Exception as e:
-                st.error(f"Error cargando shapefile: {e}")
-                wmask_prev = None
+                st.error(f"Error: {e}"); wmask_prev = None
 
         if wmask_prev is not None:
+            st.markdown('<div class="sec-t">🛰️ Previsualización del Área de Estudio</div>', unsafe_allow_html=True)
 
-            st.markdown('<div class="sec-t">🛰️ Previsualización del Área de Estudio</div>',
-                        unsafe_allow_html=True)
+            tile_url, s2_info = None, {}
+            if GEE_OK:
+                with st.spinner("Buscando imagen Sentinel-2 en Google Earth Engine..."):
+                    s2_info, tile_url = buscar_imagen_s2(
+                        bbox_prev, fecha_ini.strftime("%Y-%m-%d"),
+                        fecha_fin.strftime("%Y-%m-%d"), max_nubes)
 
-            # Mapa Folium ocupa todo el ancho
             st.markdown('<div class="map-panel">', unsafe_allow_html=True)
-            st.markdown('<div class="map-title">🛰️ Imagen Satelital — Área de Estudio · Río Pesquería</div>',
-                        unsafe_allow_html=True)
+            st.markdown('<div class="map-title">🛰️ Imagen Satelital — Río Pesquería</div>', unsafe_allow_html=True)
 
-            mapa_folium = build_folium_map(wmask_prev, COORDS, bbox_prev, height=420)
-            st_folium(mapa_folium, width="100%", height=420, returned_objects=[])
+            mapa_f = build_folium_map_s2(wmask_prev, COORDS, bbox_prev, tile_url=tile_url, height=420)
+            st_folium(mapa_f, width="100%", height=420, returned_objects=[])
 
-            st.markdown(f"""
-            <div class="map-meta">
-              <b style="color:#fff">Tiles base</b>: Esri World Imagery (imagen satelital real) ·
-              Alterna con el control de capas 🗺️ arriba a la derecha<br>
-              <b style="color:#fff">Capa verde</b>: tu área de estudio (wmask) &nbsp;·&nbsp;
-              <b style="color:#fff">Puntos dorados</b>: 7 estaciones de muestreo (P1–P7)<br>
-              <b style="color:#fff">Fecha búsqueda S2</b>:
-              <span class="chip">📅 {fecha_ini.strftime('%d %b %Y')}</span>
-              <span class="chip">→</span>
-              <span class="chip">📅 {fecha_fin.strftime('%d %b %Y')}</span>
-              <span class="chip">☁️ &lt; {max_nubes}%</span>
-              &nbsp;·&nbsp;
-              <b style="color:#fff">Muestreo campo</b>:
-              <span class="chip">🧪 {fecha_dt.strftime('%d %b %Y')}</span>
-            </div>
-            </div>
-            """, unsafe_allow_html=True)
+            if s2_info.get("n_imagenes", 0) == 0:
+                st.markdown(f"""
+                <div class="map-meta">
+                  <span class="chip chip-bad">❌ Sin imágenes en este rango con &lt;{max_nubes}% nubes</span>
+                  <br>Amplía el rango de fechas o aumenta el umbral de nubes en el sidebar.
+                </div></div>""", unsafe_allow_html=True)
+            elif "error" in s2_info:
+                st.markdown(f"""
+                <div class="map-meta">
+                  <span class="chip chip-warn">⚠️ Mostrando capa de referencia (Esri actual)</span>
+                  <br>No se pudo conectar a GEE.
+                </div></div>""", unsafe_allow_html=True)
+            else:
+                n_imgs   = s2_info.get("n_imagenes", 0)
+                nubes_real = s2_info.get("nubes_pct", "N/D")
+                st.markdown(f"""
+                <div class="map-meta">
+                  <span class="chip">✅ {n_imgs} imagen(es) encontrada(s)</span>
+                  <span class="chip">☁️ Nubes reales: {nubes_real}%</span>
+                  <span class="chip">📅 {fecha_ini.strftime('%d %b')} → {fecha_fin.strftime('%d %b %Y')}</span>
+                  <span class="chip">🧪 Muestreo: {fecha_dt.strftime('%d %b %Y')}</span><br>
+                  <b style="color:#fff">Capa activa</b>: selecciona "🛰️ Sentinel-2 (imagen real)"
+                  en el control de capas arriba a la derecha del mapa para ver la imagen exacta
+                  que usará el modelo.
+                </div></div>""", unsafe_allow_html=True)
 
-            # Info técnica en 3 columnas debajo del mapa
             st.markdown('<hr class="divider">', unsafe_allow_html=True)
-            ci1, ci2, ci3 = st.columns(3)
-
+            ci1,ci2,ci3 = st.columns(3)
             with ci1:
-                st.markdown('<div class="info-panel">', unsafe_allow_html=True)
-                st.markdown('<div class="info-title">📐 Área de estudio (bbox)</div>',
-                            unsafe_allow_html=True)
-                st.markdown(f"""
-                <div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">
-                  <b style="color:#fff">Lon min</b>: {lon_min:.5f}°<br>
-                  <b style="color:#fff">Lon max</b>: {lon_max:.5f}°<br>
-                  <b style="color:#fff">Lat min</b>:  {lat_min:.5f}°<br>
-                  <b style="color:#fff">Lat max</b>:  {lat_max:.5f}°<br>
+                st.markdown('<div class="info-panel"><div class="info-title">📐 Bbox</div>', unsafe_allow_html=True)
+                st.markdown(f"""<div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">
+                  <b style="color:#fff">Lon</b>: {lon_min:.5f}° → {lon_max:.5f}°<br>
+                  <b style="color:#fff">Lat</b>: {lat_min:.5f}° → {lat_max:.5f}°<br>
                   <b style="color:#fff">Polígonos</b>: {len(wmask_prev)}
-                </div>
-                </div>""", unsafe_allow_html=True)
-
+                </div></div>""", unsafe_allow_html=True)
             with ci2:
-                st.markdown('<div class="info-panel">', unsafe_allow_html=True)
-                st.markdown('<div class="info-title">🛰️ Parámetros Sentinel-2</div>',
-                            unsafe_allow_html=True)
-                dias = (fecha_fin - fecha_ini).days
-                mid  = fecha_ini + (fecha_fin - fecha_ini) / 2
-                des  = abs((fecha_dt.date() - mid).days)
-                col_des = "#3DBA7A" if des<=5 else ("#FFD700" if des<=12 else "#E74C3C")
-                st.markdown(f"""
-                <div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">
+                st.markdown('<div class="info-panel"><div class="info-title">🛰️ Sentinel-2</div>', unsafe_allow_html=True)
+                dias=(fecha_fin-fecha_ini).days
+                st.markdown(f"""<div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">
                   <b style="color:#fff">Colección</b>: S2_SR_HARMONIZED<br>
-                  <b style="color:#fff">Bandas RGB</b>: B4 · B3 · B2 (10m)<br>
-                  <b style="color:#fff">Rango</b>: {dias} días<br>
-                  <b style="color:#fff">Max nubes</b>: {max_nubes}%<br>
-                  <b style="color:#fff">Desfase</b>: <span style="color:{col_des}">±{des} días</span>
-                </div>
-                </div>""", unsafe_allow_html=True)
-
+                  <b style="color:#fff">RGB</b>: B4·B3·B2 (10m)<br>
+                  <b style="color:#fff">Rango</b>: {dias} días · Nubes&lt;{max_nubes}%
+                </div></div>""", unsafe_allow_html=True)
             with ci3:
-                st.markdown('<div class="info-panel">', unsafe_allow_html=True)
-                st.markdown('<div class="info-title">🔬 Parámetros a mapear</div>',
-                            unsafe_allow_html=True)
-                params_html = "".join(
-                    f'<div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">'
-                    f'<span style="color:{PARAMS[p]["color"]}">{PARAMS[p]["icon"]}</span> '
-                    f'<b style="color:#fff">{PARAMS[p]["label"]}</b> '
-                    f'({PARAMS[p]["unidad"]})</div>'
-                    for p in params_sel
-                ) if params_sel else '<div style="color:#E74C3C;font-size:.76rem">Ninguno seleccionado</div>'
-                st.markdown(params_html + "</div>", unsafe_allow_html=True)
-
+                st.markdown('<div class="info-panel"><div class="info-title">🔬 Parámetros</div>', unsafe_allow_html=True)
+                ph = "".join(f'<div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">'
+                            f'<span style="color:{PARAMS[p]["color"]}">{PARAMS[p]["icon"]}</span> '
+                            f'<b style="color:#fff">{PARAMS[p]["label"]}</b></div>' for p in params_sel)
+                st.markdown(ph + "</div>", unsafe_allow_html=True)
     else:
-        # Sin wmask: mapa de puntos simple
-        st.markdown('<div class="sec-t">📍 Puntos de Muestreo — Río Pesquería</div>',
-                    unsafe_allow_html=True)
-        df_pts = pd.DataFrame([{"lat":c[1],"lon":c[0]} for c in COORDS.values()])
-        st.map(df_pts)
-        st.info("⬅️  Sube tu **wmask.zip** para ver la imagen satelital real del área de estudio.")
+        st.markdown('<div class="sec-t">📍 Puntos de Muestreo</div>', unsafe_allow_html=True)
+        st.map(pd.DataFrame([{"lat":c[1],"lon":c[0]} for c in COORDS.values()]))
+        st.info("⬅️  Sube tu **wmask.zip** para ver la imagen Sentinel-2 real del área.")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-
-    # Parámetros
-    st.markdown('<div class="sec-t">📊 Parámetros Fisicoquímicos del Modelo</div>',
-                unsafe_allow_html=True)
-    for col, cfg in PARAMS.items():
-        st.markdown(f"""
-        <div class="param-card">
-          <div class="param-hdr">
-            <div class="param-name">{cfg["icon"]} &nbsp;{cfg["label"]}</div>
-            <span class="param-oob">OOB R² = {cfg["oob"]:.3f} · Validado ✓</span>
-          </div>
+    st.markdown('<div class="sec-t">📊 Parámetros Fisicoquímicos del Modelo</div>', unsafe_allow_html=True)
+    for col,cfg in PARAMS.items():
+        st.markdown(f"""<div class="param-card">
+          <div class="param-hdr"><div class="param-name">{cfg["icon"]} &nbsp;{cfg["label"]}</div>
+          <span class="param-oob">OOB R² = {cfg["oob"]:.3f} · Validado ✓</span></div>
           <div class="param-desc">{cfg["desc"]}</div>
           <div class="param-meta">
             <div class="pmi">Unidad: <span class="pmv">{cfg["unidad"]}</span></div>
             <div class="pmi">Rango: <span class="pmv">{cfg["vmin"]}–{cfg["vmax"]} {cfg["unidad"]}</span></div>
             <div class="pmi">Estado: <span class="pmv">🟢 Bueno</span></div>
-          </div>
-        </div>""", unsafe_allow_html=True)
+          </div></div>""", unsafe_allow_html=True)
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-
-    # Investigador
     st.markdown('<div class="sec-t">👨‍🔬 Investigador Principal</div>', unsafe_allow_html=True)
     photo_src = f"data:image/png;base64,{PHOTO_B64}" if PHOTO_B64 else ""
-    st.markdown(f"""
-    <div class="researcher-card">
-      <img class="rphoto" src="{photo_src}" alt="Kevin Rodriguez">
-      <div>
-        <div class="rname">Kevin David Rodríguez González</div>
-        <div class="rtitle">PhD Student · Environmental Water Quality &amp; Remote Sensing</div>
-        <div class="rdept">Departamento de Geomática · Facultad de Ingeniería Civil · UANL</div>
-        <div class="rlinks">
-          <a class="rlink" href="mailto:krodriguezge@uanl.edu.mx">✉ krodriguezge@uanl.edu.mx</a>
-          <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">
-            🔗 ORCID: 0009-0004-3060-8575</a>
-        </div>
-      </div>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="researcher-card">
+      <img class="rphoto" src="{photo_src}">
+      <div><div class="rname">Kevin David Rodríguez González</div>
+      <div class="rtitle">PhD Student · Environmental Water Quality &amp; Remote Sensing</div>
+      <div class="rdept">Departamento de Geomática · Facultad de Ingeniería Civil · UANL</div>
+      <div class="rlinks">
+        <a class="rlink" href="mailto:krodriguezge@uanl.edu.mx">✉ krodriguezge@uanl.edu.mx</a>
+        <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">🔗 ORCID</a>
+      </div></div></div>""", unsafe_allow_html=True)
 
-    st.markdown("""<div class="footer">
-      Random Forest v3 · Sentinel-2 SR · UANL · FIC · Depto. Geomática · KFold-5 + OOB score
-    </div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="footer">RF v3 · Sentinel-2 SR · UANL · FIC · Depto. Geomática · KFold-5 + OOB</div>""",
+               unsafe_allow_html=True)
     st.stop()
 
 # ── PROCESAMIENTO ─────────────────────────────────────────────────────────────
-progress = st.progress(0)
-status   = st.empty()
-
+progress = st.progress(0); status = st.empty()
 modelos    = model_data["models"]
 transforms = model_data["transforms"]
 lambdas    = model_data["lambdas"]
@@ -565,62 +451,59 @@ lons = np.array([COORDS[p][0] for p in puntos_uniq])
 lats = np.array([COORDS[p][1] for p in puntos_uniq])
 pts_known = np.column_stack([lons, lats])
 fecha_campo_dt = pd.to_datetime(fecha_campo, format="%m/%d/%Y")
-df_fecha       = df_global[df_global["target_date"] == fecha_campo_dt]
+df_fecha = df_global[df_global["target_date"]==fecha_campo_dt]
 progress.progress(10)
 
 status.text("Cargando shapefile...")
 with tempfile.TemporaryDirectory() as tmpdir:
-    with zipfile.ZipFile(wmask_zip, "r") as z: z.extractall(tmpdir)
-    shp = [f for f in os.listdir(tmpdir) if f.endswith(".shp")]
-    if not shp: st.error("No .shp en el ZIP"); st.stop()
+    with zipfile.ZipFile(wmask_zip,"r") as z: z.extractall(tmpdir)
+    shp=[f for f in os.listdir(tmpdir) if f.endswith(".shp")]
+    if not shp: st.error("No .shp"); st.stop()
     wmask = gpd.read_file(os.path.join(tmpdir, shp[0]))
-    if wmask.crs is None or wmask.crs.to_epsg() != 4326: wmask = wmask.to_crs(4326)
+    if wmask.crs is None or wmask.crs.to_epsg()!=4326: wmask=wmask.to_crs(4326)
     union_geom = wmask.geometry.unary_union
-    bounds     = wmask.total_bounds
+    bounds = wmask.total_bounds
 progress.progress(30)
 
 status.text("Generando grilla...")
-lon_min, lat_min, lon_max, lat_max = bounds
-RES     = resolucion
-lon_vec = np.linspace(lon_min, lon_max, RES)
-lat_vec = np.linspace(lat_min, lat_max, RES)
-lon_grid, lat_grid = np.meshgrid(lon_vec, lat_vec)
-pts_grid  = np.column_stack([lon_grid.ravel(), lat_grid.ravel()])
-extent    = [lon_min, lon_max, lat_min, lat_max]
-mask_flat = np.array([union_geom.contains(Point(x,y)) for x,y in pts_grid])
-mask_2d   = mask_flat.reshape(RES, RES)
+lon_min,lat_min,lon_max,lat_max = bounds
+RES = resolucion
+lon_vec=np.linspace(lon_min,lon_max,RES); lat_vec=np.linspace(lat_min,lat_max,RES)
+lon_grid,lat_grid=np.meshgrid(lon_vec,lat_vec)
+pts_grid=np.column_stack([lon_grid.ravel(),lat_grid.ravel()])
+extent=[lon_min,lon_max,lat_min,lat_max]
+mask_flat=np.array([union_geom.contains(Point(x,y)) for x,y in pts_grid])
+mask_2d=mask_flat.reshape(RES,RES)
 progress.progress(60)
 
 status.text("Aplicando modelo RF...")
-mapas = {}
+mapas={}
 for col in params_sel:
     if col not in PARAMS or col not in modelos: continue
-    cfg  = PARAMS[col]
-    vals = []
+    cfg=PARAMS[col]; vals=[]
     for p in puntos_uniq:
-        fila = df_fecha[df_fecha["nombre"]==p]
+        fila=df_fecha[df_fecha["nombre"]==p]
         vals.append(float(fila[col].values[0]) if len(fila)>0 else np.nan)
-    vals = np.array(vals); ok = np.isfinite(vals)
-    if ok.sum() < 3: continue
+    vals=np.array(vals); ok=np.isfinite(vals)
+    if ok.sum()<3: continue
     try:
-        rbf    = RBFInterpolator(pts_known[ok], vals[ok],
-                                  kernel="thin_plate_spline", smoothing=0.1)
-        z_flat = rbf(pts_grid)
+        rbf=RBFInterpolator(pts_known[ok],vals[ok],kernel="thin_plate_spline",smoothing=0.1)
+        z_flat=rbf(pts_grid)
     except Exception:
-        z_flat = griddata(pts_known[ok], vals[ok], pts_grid, method="linear")
-        z_nan  = griddata(pts_known[ok], vals[ok], pts_grid, method="nearest")
-        z_flat = np.where(np.isnan(z_flat), z_nan, z_flat)
-    z_2d = np.where(mask_2d, z_flat.reshape(RES,RES), np.nan)
-    mapas[col] = {"data":z_2d, "vals_puntos":vals, **cfg}
+        z_flat=griddata(pts_known[ok],vals[ok],pts_grid,method="linear")
+        z_nan=griddata(pts_known[ok],vals[ok],pts_grid,method="nearest")
+        z_flat=np.where(np.isnan(z_flat),z_nan,z_flat)
+    z_2d=np.where(mask_2d,z_flat.reshape(RES,RES),np.nan)
+    mapas[col]={"data":z_2d,"vals_puntos":vals,**cfg}
 progress.progress(80)
 
 status.text("Generando visualizaciones...")
 n=len(mapas); ncols=min(n,2); nrows=(n+ncols-1)//ncols
 fig,axes=plt.subplots(nrows,ncols,figsize=(ncols*7,nrows*5.5))
 fig.patch.set_facecolor("#0D1117")
-if n==1:       axes_flat=[axes]
+if n==1: axes_flat=[axes]
 elif nrows==1: axes_flat=list(axes)
-else:          axes_flat=axes.flatten().tolist()
+else: axes_flat=axes.flatten().tolist()
 buf_ind={}
 
 for i,(col,info) in enumerate(mapas.items()):
@@ -628,15 +511,14 @@ for i,(col,info) in enumerate(mapas.items()):
     data=info["data"]; vmin,vmax=info["vmin"],info["vmax"]
     cmap=make_cmap(info["pal"])
     im=ax.imshow(np.clip(data,vmin,vmax),cmap=cmap,vmin=vmin,vmax=vmax,
-                 extent=extent,aspect="auto",interpolation="bilinear",origin="upper")
+                extent=extent,aspect="auto",interpolation="bilinear",origin="upper")
     wmask.boundary.plot(ax=ax,color="#2E8B8B",linewidth=1.2,alpha=0.8)
     vals_p=info["vals_puntos"]
     for j,p in enumerate(puntos_uniq):
         lon,lat=COORDS[p]
         ax.scatter(lon,lat,c="white",s=60,zorder=5,edgecolors="#0D1117",linewidths=0.6)
         if np.isfinite(vals_p[j]):
-            ax.annotate(f" P{j+1}: {vals_p[j]:.1f}",(lon,lat),fontsize=7.5,
-                        color="white",fontweight="bold",zorder=6)
+            ax.annotate(f" P{j+1}: {vals_p[j]:.1f}",(lon,lat),fontsize=7.5,color="white",fontweight="bold",zorder=6)
     cbar=plt.colorbar(im,ax=ax,fraction=0.03,pad=0.02,shrink=0.85)
     cbar.set_label(f"{info['label']} ({info['unidad']})",color="white",fontsize=10)
     plt.setp(plt.getp(cbar.ax.axes,"yticklabels"),color="white",fontsize=8)
@@ -653,7 +535,7 @@ for i,(col,info) in enumerate(mapas.items()):
     bi=io.BytesIO(); fi,ai=plt.subplots(figsize=(11,5))
     fi.patch.set_facecolor("#0D1117"); ai.set_facecolor("#161B22")
     im2=ai.imshow(np.clip(data,vmin,vmax),cmap=cmap,vmin=vmin,vmax=vmax,
-                  extent=extent,aspect="auto",interpolation="bilinear",origin="upper")
+                 extent=extent,aspect="auto",interpolation="bilinear",origin="upper")
     wmask.boundary.plot(ax=ai,color="#2E8B8B",linewidth=1.4,alpha=0.8)
     for j,p in enumerate(puntos_uniq):
         lon,lat=COORDS[p]; ai.scatter(lon,lat,c="white",s=80,zorder=5,edgecolors="#0D1117",linewidths=0.8)
@@ -662,28 +544,24 @@ for i,(col,info) in enumerate(mapas.items()):
     cb2.set_label(f"{info['label']} ({info['unidad']})",color="white",fontsize=11)
     plt.setp(plt.getp(cb2.ax.axes,"yticklabels"),color="white",fontsize=9)
     ai.set_title(f"{info['label']} | Río Pesquería | {fecha_campo_dt.strftime('%d/%m/%Y')} | RF v3",
-                 color="white",fontsize=11,fontweight="bold")
+                color="white",fontsize=11,fontweight="bold")
     ai.text(0.99,0.01,"Kevin D. Rodríguez G. · UANL · Depto. Geomática · RF v3",
-            transform=ai.transAxes,fontsize=7,color="#8EAAC8",ha="right",va="bottom")
+           transform=ai.transAxes,fontsize=7,color="#8EAAC8",ha="right",va="bottom")
     ai.tick_params(colors="#8EAAC8",labelsize=7)
     for sp in ai.spines.values(): sp.set_edgecolor("#2E8B8B44")
-    plt.tight_layout()
-    fi.savefig(bi,dpi=180,bbox_inches="tight",facecolor="#0D1117")
+    plt.tight_layout(); fi.savefig(bi,dpi=180,bbox_inches="tight",facecolor="#0D1117")
     buf_ind[col]=bi; plt.close(fi)
 
 for k in range(n,len(axes_flat)): axes_flat[k].set_visible(False)
 mes2=fecha_campo_dt.month
 temp="Temporada Seca 🌵" if mes2 in [11,12,1,2,3] else "Temporada Lluviosa 🌧️"
-fig.suptitle(
-    f"Calidad de Agua — Río Pesquería\n"
-    f"{fecha_campo_dt.strftime('%d/%m/%Y')} | {temp} | RF v3 | UANL·FIC·Geomática",
-    fontsize=13,fontweight="bold",color="white",y=1.01)
+fig.suptitle(f"Calidad de Agua — Río Pesquería\n{fecha_campo_dt.strftime('%d/%m/%Y')} | {temp} | RF v3 | UANL·FIC·Geomática",
+            fontsize=13,fontweight="bold",color="white",y=1.01)
 plt.tight_layout()
 buf_panel=io.BytesIO()
 fig.savefig(buf_panel,dpi=150,bbox_inches="tight",facecolor="#0D1117")
 plt.close(fig); progress.progress(100); status.empty()
 
-# ── RESULTADOS ────────────────────────────────────────────────────────────────
 st.success(f"✅  {n} mapas — {fecha_campo_dt.strftime('%d/%m/%Y')} · {temp}")
 st.image(buf_panel,caption="Panel de calidad de agua · Río Pesquería · UANL",use_column_width=True)
 
@@ -695,8 +573,7 @@ with dl1:
 with dl2:
     bz=io.BytesIO()
     with zipfile.ZipFile(bz,"w") as zf:
-        for col,buf in buf_ind.items():
-            zf.writestr(f"mapa_{col}_{fecha_campo_dt.strftime('%Y%m%d')}.png",buf.getvalue())
+        for col,buf in buf_ind.items(): zf.writestr(f"mapa_{col}_{fecha_campo_dt.strftime('%Y%m%d')}.png",buf.getvalue())
     st.download_button("⬇️  Mapas individuales ZIP",bz.getvalue(),
         f"mapas_{fecha_campo_dt.strftime('%Y%m%d')}.zip","application/zip",use_container_width=True)
 
@@ -707,26 +584,21 @@ for cs,(param,info) in zip(cols_st,mapas.items()):
     d=info["data"][np.isfinite(info["data"])]
     with cs:
         st.markdown(f"**{info['label']}**")
-        st.metric("Media",  f"{d.mean():.2f} {info['unidad']}")
-        st.metric("Máximo", f"{d.max():.2f} {info['unidad']}")
-        st.metric("Mínimo", f"{d.min():.2f} {info['unidad']}")
+        st.metric("Media",f"{d.mean():.2f} {info['unidad']}")
+        st.metric("Máximo",f"{d.max():.2f} {info['unidad']}")
+        st.metric("Mínimo",f"{d.min():.2f} {info['unidad']}")
 
 st.markdown('<hr class="divider">',unsafe_allow_html=True)
 st.markdown('<div class="sec-t">👨‍🔬 Investigador Principal</div>',unsafe_allow_html=True)
-st.markdown(f"""
-<div class="researcher-card">
-  <img class="rphoto" src="data:image/png;base64,{PHOTO_B64}" alt="Kevin">
-  <div>
-    <div class="rname">Kevin David Rodríguez González</div>
-    <div class="rtitle">PhD Student · Environmental Water Quality &amp; Remote Sensing</div>
-    <div class="rdept">Departamento de Geomática · Facultad de Ingeniería Civil · UANL</div>
-    <div class="rlinks">
-      <a class="rlink" href="mailto:krodriguezge@uanl.edu.mx">✉ krodriguezge@uanl.edu.mx</a>
-      <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">🔗 ORCID</a>
-    </div>
-  </div>
-</div>""",unsafe_allow_html=True)
+st.markdown(f"""<div class="researcher-card">
+  <img class="rphoto" src="data:image/png;base64,{PHOTO_B64}">
+  <div><div class="rname">Kevin David Rodríguez González</div>
+  <div class="rtitle">PhD Student · Environmental Water Quality &amp; Remote Sensing</div>
+  <div class="rdept">Departamento de Geomática · Facultad de Ingeniería Civil · UANL</div>
+  <div class="rlinks">
+    <a class="rlink" href="mailto:krodriguezge@uanl.edu.mx">✉ krodriguezge@uanl.edu.mx</a>
+    <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">🔗 ORCID</a>
+  </div></div></div>""",unsafe_allow_html=True)
 
-st.markdown("""<div class="footer">
-  RF v3 · Sentinel-2 SR · UANL · FIC · Depto. Geomática · KFold-5 + OOB score
-</div>""",unsafe_allow_html=True)
+st.markdown("""<div class="footer">RF v3 · Sentinel-2 SR · UANL · FIC · Depto. Geomática · KFold-5 + OOB</div>""",
+           unsafe_allow_html=True)

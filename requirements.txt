@@ -11,4 +11,4 @@ fiona
 Pillow
 folium
 streamlit-folium
-requests
+earthengine-api
