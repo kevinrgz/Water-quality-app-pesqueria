@@ -13,7 +13,9 @@ from datetime import date, timedelta
 import folium
 from streamlit_folium import st_folium
 import ee
+from datetime import date as date_cls
 warnings.filterwarnings("ignore")
+from pdf_report_module import generar_pdf_fecha_unica, generar_pdf_serie_temporal
 
 # ── Assets ────────────────────────────────────────────────────────────────────
 def _b64(fn):
@@ -514,6 +516,107 @@ if not correr:
           </div></div>""", unsafe_allow_html=True)
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
+
+    # ── Reporte de Serie Temporal Completa (opcional) ──────────────────────────
+    st.markdown('<div class="sec-t">📈 Reporte de Serie Temporal Completa</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="step-box"><div class="step-b">Genera un PDF con la '
+        'evolución 2016–2019 de los parámetros seleccionados, incluyendo '
+        'gráficos de tendencia, tabla resumen e interpretación automática. '
+        'Requiere haber subido tu wmask.zip.</div></div>',
+        unsafe_allow_html=True
+    )
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    gen_serie = st.button("📈  Generar Reporte de Serie Temporal (PDF)",
+                          use_container_width=True,
+                          disabled=(wmask_zip is None or not params_sel))
+
+    if gen_serie and wmask_zip is not None:
+        with st.spinner("Calculando serie temporal para todas las fechas disponibles... "
+                        "(puede tardar 1-2 minutos)"):
+            try:
+                with tempfile.TemporaryDirectory() as tmpdir2:
+                    with zipfile.ZipFile(wmask_zip, "r") as z: z.extractall(tmpdir2)
+                    shp2 = [f for f in os.listdir(tmpdir2) if f.endswith(".shp")]
+                    wmask_serie = gpd.read_file(os.path.join(tmpdir2, shp2[0]))
+                    if wmask_serie.crs is None or wmask_serie.crs.to_epsg()!=4326:
+                        wmask_serie = wmask_serie.to_crs(4326)
+                    union_serie = wmask_serie.geometry.unary_union
+                    bounds_serie = wmask_serie.total_bounds
+
+                lon_min_s, lat_min_s, lon_max_s, lat_max_s = bounds_serie
+                RES_S = 150  # resolucion reducida para velocidad en serie temporal
+                lon_vec_s = np.linspace(lon_min_s, lon_max_s, RES_S)
+                lat_vec_s = np.linspace(lat_min_s, lat_max_s, RES_S)
+                lon_grid_s, lat_grid_s = np.meshgrid(lon_vec_s, lat_vec_s)
+                pts_grid_s = np.column_stack([lon_grid_s.ravel(), lat_grid_s.ravel()])
+                mask_flat_s = np.array([union_serie.contains(Point(x,y)) for x,y in pts_grid_s])
+                mask_2d_s = mask_flat_s.reshape(RES_S, RES_S)
+
+                puntos_uniq_s = sorted(COORDS.keys())
+                lons_s = np.array([COORDS[p][0] for p in puntos_uniq_s])
+                lats_s = np.array([COORDS[p][1] for p in puntos_uniq_s])
+                pts_known_s = np.column_stack([lons_s, lats_s])
+
+                resultados_por_fecha = {}
+                pbar = st.progress(0)
+                for i_f, fecha_str in enumerate(FECHAS_CAMPO):
+                    fecha_dt_s = pd.to_datetime(fecha_str, format="%m/%d/%Y")
+                    df_fecha_s = df_global[df_global["target_date"] == fecha_dt_s]
+                    if len(df_fecha_s) == 0:
+                        continue
+
+                    resultados_por_fecha[fecha_str] = {}
+                    for col_s in params_sel:
+                        if col_s not in PARAMS or col_s not in model_data["models"]:
+                            continue
+                        vals_s = []
+                        for p in puntos_uniq_s:
+                            fila_s = df_fecha_s[df_fecha_s["nombre"]==p]
+                            vals_s.append(float(fila_s[col_s].values[0]) if len(fila_s)>0 else np.nan)
+                        vals_s = np.array(vals_s); ok_s = np.isfinite(vals_s)
+                        if ok_s.sum() < 3: continue
+
+                        try:
+                            rbf_s = RBFInterpolator(pts_known_s[ok_s], vals_s[ok_s],
+                                                    kernel="thin_plate_spline", smoothing=0.1)
+                            z_flat_s = rbf_s(pts_grid_s)
+                        except Exception:
+                            z_flat_s = griddata(pts_known_s[ok_s], vals_s[ok_s],
+                                                pts_grid_s, method="nearest")
+
+                        z_2d_s = np.where(mask_2d_s, z_flat_s.reshape(RES_S,RES_S), np.nan)
+                        d_s = z_2d_s[np.isfinite(z_2d_s)]
+                        if len(d_s) > 0:
+                            resultados_por_fecha[fecha_str][col_s] = {
+                                "mean": float(d_s.mean()),
+                                "max": float(d_s.max()),
+                                "min": float(d_s.min()),
+                            }
+                    pbar.progress((i_f+1)/len(FECHAS_CAMPO))
+
+                pbar.empty()
+
+                if len(resultados_por_fecha) >= 2:
+                    pdf_serie_buf = generar_pdf_serie_temporal(
+                        resultados_por_fecha, params_sel, bounds_serie,
+                        len(puntos_uniq_s), PARAMS
+                    )
+                    st.success(f"✅ Reporte generado con {len(resultados_por_fecha)} fechas")
+                    st.download_button(
+                        "📥  Descargar Reporte de Serie Temporal (PDF)",
+                        pdf_serie_buf.getvalue(),
+                        f"Reporte_SerieTemporal_Pesqueria_{date_cls.today().strftime('%Y%m%d')}.pdf",
+                        "application/pdf", use_container_width=True, type="primary"
+                    )
+                else:
+                    st.warning("No hay suficientes fechas con datos válidos para generar la serie.")
+
+            except Exception as e:
+                st.error(f"Error generando reporte de serie temporal: {e}")
+
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
     st.markdown('<div class="sec-t">👨‍🔬 Investigador Principal</div>', unsafe_allow_html=True)
     photo_src = f"data:image/png;base64,{PHOTO_B64}" if PHOTO_B64 else ""
     st.markdown(f"""<div class="researcher-card">
@@ -641,6 +744,7 @@ for i,(col,info) in enumerate(mapas.items()):
     for sp in ai.spines.values(): sp.set_edgecolor("#2E8B8B44")
     plt.tight_layout(); fi.savefig(bi,dpi=180,bbox_inches="tight",facecolor="#0D1117")
     buf_ind[col]=bi; plt.close(fi)
+    mapas[col]["individual_buf"] = bi
 
 for k in range(n,len(axes_flat)): axes_flat[k].set_visible(False)
 mes2=fecha_campo_dt.month
@@ -656,7 +760,7 @@ st.success(f"✅  {n} mapas — {fecha_campo_dt.strftime('%d/%m/%Y')} · {temp}"
 st.image(buf_panel,caption="Panel de calidad de agua · Río Pesquería · UANL",use_column_width=True)
 
 st.markdown('<div class="sec-t">📥 Descargar resultados</div>',unsafe_allow_html=True)
-dl1,dl2=st.columns(2)
+dl1,dl2,dl3=st.columns(3)
 with dl1:
     st.download_button("⬇️  Panel completo PNG",buf_panel.getvalue(),
         f"WaterQuality_{fecha_campo_dt.strftime('%Y%m%d')}.png","image/png",use_container_width=True)
@@ -666,6 +770,18 @@ with dl2:
         for col,buf in buf_ind.items(): zf.writestr(f"mapa_{col}_{fecha_campo_dt.strftime('%Y%m%d')}.png",buf.getvalue())
     st.download_button("⬇️  Mapas individuales ZIP",bz.getvalue(),
         f"mapas_{fecha_campo_dt.strftime('%Y%m%d')}.zip","application/zip",use_container_width=True)
+with dl3:
+    with st.spinner("Generando reporte PDF..."):
+        try:
+            pdf_buf = generar_pdf_fecha_unica(
+                mapas, fecha_campo_dt, temp, buf_panel,
+                bounds, len(puntos_uniq), PARAMS
+            )
+            st.download_button("📄  Reporte PDF completo", pdf_buf.getvalue(),
+                f"Reporte_CalidadAgua_{fecha_campo_dt.strftime('%Y%m%d')}.pdf",
+                "application/pdf", use_container_width=True, type="primary")
+        except Exception as e:
+            st.error(f"Error generando PDF: {e}")
 
 st.markdown('<hr class="divider">',unsafe_allow_html=True)
 st.markdown('<div class="sec-t">📊 Estadísticas espaciales</div>',unsafe_allow_html=True)

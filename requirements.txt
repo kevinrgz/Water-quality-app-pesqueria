@@ -12,3 +12,4 @@ Pillow
 folium
 streamlit-folium
 earthengine-api
+reportlab
