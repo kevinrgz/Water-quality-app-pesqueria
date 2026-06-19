@@ -154,11 +154,59 @@ def load_csv():
 model_data = load_model()
 df_global  = load_csv()
 
-# ── Función: buscar mejor imagen Sentinel-2 en GEE ────────────────────────────
+# ── Configuración de capas espectrales disponibles ────────────────────────────
+INDICES_VIZ = {
+    "RGB": dict(
+        nombre="🌈 RGB (Color natural)",
+        desc="Composición B4-B3-B2. Vista natural de la escena.",
+        vis={"bands": ["B4","B3","B2"], "min": 0, "max": 3000, "gamma": 1.3},
+    ),
+    "NDVI": dict(
+        nombre="🌿 NDVI (Vegetación)",
+        desc="Detecta vegetación ribereña que puede contaminar el píxel "
+             "de agua. Verde=vegetación densa, café=suelo/agua.",
+        vis={"min": -0.2, "max": 0.8,
+             "palette": ["#a50026","#d73027","#fee08b","#d9ef8b","#66bd63","#1a9850","#006837"]},
+    ),
+    "NDWI": dict(
+        nombre="💧 NDWI (Índice de Agua)",
+        desc="Índice McFeeters. Azul intenso=agua, café=tierra. "
+             "Delimita el cuerpo de agua dentro de tu wmask.",
+        vis={"min": -0.5, "max": 0.5,
+             "palette": ["#8c510a","#d8b365","#f6e8c3","#c7eae5","#5ab4ac","#01665e"]},
+    ),
+    "MNDWI": dict(
+        nombre="🌊 MNDWI (Agua mejorado)",
+        desc="Índice Xu, mejor para aguas turbias que NDWI estándar. "
+             "Recomendado para ríos con alta carga de sedimentos.",
+        vis={"min": -0.5, "max": 0.5,
+             "palette": ["#7f3b08","#b35806","#fee0b6","#d8daeb","#8073ac","#542788"]},
+    ),
+    "NDTI": dict(
+        nombre="🟤 NDTI (Turbidez)",
+        desc="Índice de turbidez normalizado. Rojo=alta turbidez, "
+             "azul=agua clara. Correlaciona con SST y color del agua.",
+        vis={"min": -0.3, "max": 0.3,
+             "palette": ["#08519c","#6baed6","#fee5d9","#fc9272","#de2d26","#a50f15"]},
+    ),
+}
+
+def calcular_indice_gee(img, indice):
+    if indice == "NDVI":
+        return img.normalizedDifference(["B8","B4"]).rename("NDVI")
+    elif indice == "NDWI":
+        return img.normalizedDifference(["B3","B8"]).rename("NDWI")
+    elif indice == "MNDWI":
+        return img.normalizedDifference(["B3","B11"]).rename("MNDWI")
+    elif indice == "NDTI":
+        return img.normalizedDifference(["B4","B3"]).rename("NDTI")
+    return None
+
+
 @st.cache_data(ttl=1800, show_spinner=False)
 def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes):
     if not GEE_OK:
-        return None, None
+        return None, {}
     try:
         lon_min, lat_min, lon_max, lat_max = bbox
         geom = ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max])
@@ -169,42 +217,66 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes):
                   .sort("CLOUDY_PIXEL_PERCENTAGE"))
         n_imgs = coll.size().getInfo()
         if n_imgs == 0:
-            return {"n_imagenes": 0}, None
+            return {"n_imagenes": 0}, {}
+
         img = coll.first().clip(geom)
         img_info = img.getInfo()
         props = img_info.get("properties", {})
         fecha_real = props.get("PRODUCT_ID", "")[7:15] if "PRODUCT_ID" in props else "N/D"
         nubes_pct  = props.get("CLOUDY_PIXEL_PERCENTAGE", None)
-        vis_params = {"bands": ["B4","B3","B2"], "min": 0, "max": 3000, "gamma": 1.3}
-        map_id = img.getMapId(vis_params)
-        tile_url = map_id["tile_fetcher"].url_format
+
+        tile_urls = {}
+        map_id_rgb = img.getMapId(INDICES_VIZ["RGB"]["vis"])
+        tile_urls["RGB"] = map_id_rgb["tile_fetcher"].url_format
+
+        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI"]:
+            idx_img = calcular_indice_gee(img, idx_name)
+            map_id  = idx_img.getMapId(INDICES_VIZ[idx_name]["vis"])
+            tile_urls[idx_name] = map_id["tile_fetcher"].url_format
+
         info = {"n_imagenes": n_imgs,
                 "nubes_pct": round(nubes_pct, 1) if nubes_pct is not None else None,
                 "fecha_real": fecha_real}
-        return info, tile_url
+        return info, tile_urls
     except Exception as e:
-        return {"error": str(e)}, None
+        return {"error": str(e)}, {}
 
 
-def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_url=None, height=420):
+def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460):
     lon_min, lat_min, lon_max, lat_max = bbox
     cx, cy = (lon_min+lon_max)/2, (lat_min+lat_max)/2
     span = max(lon_max-lon_min, lat_max-lat_min)
     zoom = max(11, min(15, int(13 - span*8)))
     m = folium.Map(location=[cy, cx], zoom_start=zoom, tiles=None, width="100%", height=height)
-    if tile_url:
-        folium.TileLayer(tiles=tile_url, attr="Google Earth Engine — Sentinel-2 SR",
-                         name="🛰️ Sentinel-2 (imagen real)", overlay=False, control=True).add_to(m)
+
+    tile_urls = tile_urls or {}
+
+    if "RGB" in tile_urls:
+        folium.TileLayer(tiles=tile_urls["RGB"], attr="GEE — Sentinel-2 SR",
+                         name="🌈 RGB (Color natural)", overlay=False,
+                         control=True, show=True).add_to(m)
+
+    for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI"]:
+        if idx_name in tile_urls:
+            cfg = INDICES_VIZ[idx_name]
+            folium.TileLayer(tiles=tile_urls[idx_name], attr="GEE — Sentinel-2 SR",
+                             name=cfg["nombre"], overlay=False,
+                             control=True, show=False).add_to(m)
+
     folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/"
               "World_Imagery/MapServer/tile/{z}/{y}/{x}",
         attr="Esri World Imagery", name="🌍 Satélite (referencia actual)",
-        overlay=False, control=True).add_to(m)
-    folium.TileLayer(tiles="OpenStreetMap", name="🗺️ Mapa base", overlay=False, control=True).add_to(m)
+        overlay=False, control=True, show=(not tile_urls)).add_to(m)
+
+    folium.TileLayer(tiles="OpenStreetMap", name="🗺️ Mapa base",
+                     overlay=False, control=True, show=False).add_to(m)
+
     folium.GeoJson(
         wmask_gdf.__geo_interface__, name="📍 Área de estudio",
         style_function=lambda x: {"fillColor":"#2E8B8B","color":"#00FFCC",
-                                  "weight":2.5,"fillOpacity":0.12}).add_to(m)
+                                  "weight":2.5,"fillOpacity":0.10}).add_to(m)
+
     for j,(nombre,(lon,lat)) in enumerate(coords_dict.items()):
         folium.CircleMarker(
             location=[lat,lon], radius=8, color="#FFD700",
@@ -217,8 +289,10 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_url=None, height=420)
                 html=f'<div style="font-size:10px;font-weight:bold;color:white;'
                      f'text-shadow:1px 1px 2px black">P{j+1}</div>',
                 icon_size=(25,15), icon_anchor=(0,0))).add_to(m)
-    folium.LayerControl(position="topright").add_to(m)
+
+    folium.LayerControl(position="topright", collapsed=False).add_to(m)
     return m
+
 
 
 # ── HEADER ────────────────────────────────────────────────────────────────────
@@ -343,18 +417,18 @@ if not correr:
         if wmask_prev is not None:
             st.markdown('<div class="sec-t">🛰️ Previsualización del Área de Estudio</div>', unsafe_allow_html=True)
 
-            tile_url, s2_info = None, {}
+            tile_urls, s2_info = {}, {}
             if GEE_OK:
-                with st.spinner("Buscando imagen Sentinel-2 en Google Earth Engine..."):
-                    s2_info, tile_url = buscar_imagen_s2(
+                with st.spinner("Buscando imagen Sentinel-2 y calculando indices espectrales..."):
+                    s2_info, tile_urls = buscar_imagen_s2(
                         bbox_prev, fecha_ini.strftime("%Y-%m-%d"),
                         fecha_fin.strftime("%Y-%m-%d"), max_nubes)
 
             st.markdown('<div class="map-panel">', unsafe_allow_html=True)
-            st.markdown('<div class="map-title">🛰️ Imagen Satelital — Río Pesquería</div>', unsafe_allow_html=True)
+            st.markdown('<div class="map-title">🛰️ Imagen Satelital — Rio Pesqueria</div>', unsafe_allow_html=True)
 
-            mapa_f = build_folium_map_s2(wmask_prev, COORDS, bbox_prev, tile_url=tile_url, height=420)
-            st_folium(mapa_f, width="100%", height=420, returned_objects=[])
+            mapa_f = build_folium_map_s2(wmask_prev, COORDS, bbox_prev, tile_urls=tile_urls, height=460)
+            st_folium(mapa_f, width="100%", height=460, returned_objects=[])
 
             if s2_info.get("n_imagenes", 0) == 0:
                 st.markdown(f"""
@@ -377,10 +451,26 @@ if not correr:
                   <span class="chip">☁️ Nubes reales: {nubes_real}%</span>
                   <span class="chip">📅 {fecha_ini.strftime('%d %b')} → {fecha_fin.strftime('%d %b %Y')}</span>
                   <span class="chip">🧪 Muestreo: {fecha_dt.strftime('%d %b %Y')}</span><br>
-                  <b style="color:#fff">Capa activa</b>: selecciona "🛰️ Sentinel-2 (imagen real)"
-                  en el control de capas arriba a la derecha del mapa para ver la imagen exacta
-                  que usará el modelo.
+                  <b style="color:#fff">5 capas disponibles</b>: usa el panel de capas a la derecha
+                  del mapa para alternar entre RGB, NDVI (vegetación), NDWI y MNDWI (agua),
+                  y NDTI (turbidez) — la misma imagen que usará el modelo.
                 </div></div>""", unsafe_allow_html=True)
+
+                # Leyenda de indices espectrales disponibles
+                st.markdown('<div class="map-panel" style="margin-top:.6rem">', unsafe_allow_html=True)
+                st.markdown('<div class="map-title">📡 Indices Espectrales Disponibles en el Mapa</div>',
+                           unsafe_allow_html=True)
+                idx_cols = st.columns(5)
+                for ic, idx_key in zip(idx_cols, ["RGB","NDVI","NDWI","MNDWI","NDTI"]):
+                    cfg = INDICES_VIZ[idx_key]
+                    with ic:
+                        st.markdown(f"""
+                        <div style="font-size:.72rem;color:#8EAAC8;line-height:1.5;
+                                    border-left:2px solid #2E8B8B;padding-left:8px">
+                          <b style="color:#fff;font-size:.78rem">{cfg['nombre']}</b><br>
+                          {cfg['desc']}
+                        </div>""", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown('<hr class="divider">', unsafe_allow_html=True)
             ci1,ci2,ci3 = st.columns(3)
