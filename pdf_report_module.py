@@ -56,7 +56,8 @@ def get_pdf_styles():
 
 
 # ── Encabezado y pie de página para cada hoja ─────────────────────────────────
-def _draw_header_footer(canvas_obj, doc, titulo_corto="Calidad de Agua — Río Pesquería"):
+def _draw_header_footer(canvas_obj, doc, titulo_corto="Calidad de Agua — Río Pesquería",
+                        logo_geo_path=None):
     canvas_obj.saveState()
     width, height = letter
 
@@ -64,20 +65,25 @@ def _draw_header_footer(canvas_obj, doc, titulo_corto="Calidad de Agua — Río 
     canvas_obj.setLineWidth(1.2)
     canvas_obj.line(2*cm, height - 1.4*cm, width - 2*cm, height - 1.4*cm)
 
+    # Logo del departamento en la esquina superior derecha
+    if logo_geo_path:
+        try:
+            canvas_obj.drawImage(logo_geo_path, width - 4.2*cm, height - 1.85*cm,
+                                 width=2.2*cm, height=0.55*cm,
+                                 preserveAspectRatio=True, mask="auto")
+        except Exception:
+            pass
+
     canvas_obj.setFont("Helvetica", 7.5)
     canvas_obj.setFillColor(PDF_GREY)
     canvas_obj.drawString(2*cm, height - 1.2*cm, titulo_corto)
-    canvas_obj.drawRightString(width - 2*cm, height - 1.2*cm,
-                                "UANL · FIC · Depto. Geomática")
 
     canvas_obj.setLineWidth(0.6)
     canvas_obj.line(2*cm, 1.5*cm, width - 2*cm, 1.5*cm)
     canvas_obj.setFont("Helvetica", 7.5)
-    canvas_obj.drawString(2*cm, 1.1*cm,
-                          "Kevin D. Rodríguez González · krodriguezge@uanl.edu.mx")
-    canvas_obj.drawRightString(width - 2*cm, 1.1*cm, f"Página {doc.page}")
-    canvas_obj.drawCentredString(width/2, 1.1*cm,
-                                 "Random Forest v3 · Sentinel-2 SR")
+    canvas_obj.drawCentredString(width/2, 1.1*cm, f"Página {doc.page}")
+    canvas_obj.drawRightString(width - 2*cm, 1.1*cm,
+                               "Universidad Autónoma de Nuevo León · FIC · Depto. Geomática")
 
     canvas_obj.restoreState()
 
@@ -161,7 +167,8 @@ def generar_interpretacion(mapas, fecha_dt, temporada):
 
 # ── FUNCIÓN PRINCIPAL: generar PDF para una sola fecha ────────────────────────
 def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
-                            bbox, n_puntos, PARAMS_DICT):
+                            bbox, n_puntos, PARAMS_DICT,
+                            rgb_buf=None, logo_geo_path=None):
     """
     Genera un reporte PDF completo para una sola fecha de análisis.
     mapas: dict con 'data', 'individual_buf', 'label', 'icon', 'desc', etc por param
@@ -200,9 +207,9 @@ def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
     story.append(Spacer(1, 0.6*cm))
 
     story.append(Paragraph(
-        f"<b>Investigador principal:</b> Kevin David Rodríguez González · PhD Student<br/>"
-        f"Departamento de Geomática · Facultad de Ingeniería Civil · UANL<br/>"
-        f"ORCID: 0009-0004-3060-8575",
+        "Reporte generado automáticamente por el sistema de mapeo de calidad "
+        "de agua del Río Pesquería, basado en sensores remotos Sentinel-2 y "
+        "modelos de aprendizaje automático.",
         styles["FootnoteCentro"]
     ))
     story.append(PageBreak())
@@ -246,6 +253,23 @@ def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
         f"infrarrojo cercano)",
         styles["CuerpoTexto"]
     ))
+    story.append(Spacer(1, 0.3*cm))
+
+    if rgb_buf is not None:
+        story.append(Paragraph(
+            "Imagen satelital Sentinel-2 (composición RGB natural, bandas B4-B3-B2) "
+            "del área de estudio correspondiente a la fecha analizada:",
+            styles["CuerpoTextoChico"]
+        ))
+        story.append(Spacer(1, 0.2*cm))
+        rgb_buf.seek(0)
+        story.append(RLImage(rgb_buf, width=14*cm, height=8*cm))
+        story.append(Spacer(1, 0.2*cm))
+        story.append(Paragraph(
+            "<i>Fuente: Copernicus Sentinel-2 SR Harmonized, vía Google Earth Engine.</i>",
+            styles["FootnoteCentro"]
+        ))
+
     story.append(Spacer(1, 0.4*cm))
 
     # ── ESTADÍSTICAS ──────────────────────────────────────────────────────────
@@ -318,13 +342,16 @@ def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
         styles["CuerpoTextoChico"]
     ))
 
-    doc.build(story, onFirstPage=_draw_header_footer, onLaterPages=_draw_header_footer)
+    from functools import partial
+    header_fn = partial(_draw_header_footer, logo_geo_path=logo_geo_path)
+    doc.build(story, onFirstPage=header_fn, onLaterPages=header_fn)
     buf.seek(0)
     return buf
 
 
 # ── FUNCIÓN: generar PDF de serie temporal completa ───────────────────────────
-def generar_pdf_serie_temporal(resultados_por_fecha, params_sel, bbox, n_puntos, PARAMS_DICT):
+def generar_pdf_serie_temporal(resultados_por_fecha, params_sel, bbox, n_puntos, PARAMS_DICT,
+                               logo_geo_path=None):
     """
     Genera un reporte PDF con la evolución temporal de todos los parámetros.
     resultados_por_fecha: dict {fecha_str: {param: {mean, max, min}}}
@@ -357,9 +384,9 @@ def generar_pdf_serie_temporal(resultados_por_fecha, params_sel, bbox, n_puntos,
     story.append(Spacer(1, 1*cm))
 
     story.append(Paragraph(
-        "<b>Investigador principal:</b> Kevin David Rodríguez González · PhD Student<br/>"
-        "Departamento de Geomática · Facultad de Ingeniería Civil · UANL<br/>"
-        "ORCID: 0009-0004-3060-8575",
+        "Reporte generado automáticamente por el sistema de mapeo de calidad "
+        "de agua del Río Pesquería, basado en sensores remotos Sentinel-2 y "
+        "modelos de aprendizaje automático.",
         styles["FootnoteCentro"]
     ))
     story.append(PageBreak())
@@ -483,6 +510,8 @@ def generar_pdf_serie_temporal(resultados_por_fecha, params_sel, bbox, n_puntos,
         styles["CuerpoTextoChico"]
     ))
 
-    doc.build(story, onFirstPage=_draw_header_footer, onLaterPages=_draw_header_footer)
+    from functools import partial
+    header_fn2 = partial(_draw_header_footer, logo_geo_path=logo_geo_path)
+    doc.build(story, onFirstPage=header_fn2, onLaterPages=header_fn2)
     buf.seek(0)
     return buf

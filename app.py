@@ -121,6 +121,32 @@ section[data-testid="stSidebar"]{background-color:#161B22!important}
 .sec-t{font-size:.73rem;font-weight:700;color:#8EAAC8;letter-spacing:.09em;text-transform:uppercase;margin:1.1rem 0 .6rem}
 .slabel{font-size:.68rem;color:#8EAAC8;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:.3rem}
 .footer{text-align:center;font-size:.68rem;color:#3A4A5C;margin-top:2rem;padding-top:1rem;border-top:1px solid #FFFFFF0D}
+
+/* Control de capas Folium/Leaflet - estilo tecnico compacto */
+.leaflet-control-layers{
+    font-size:11px!important;
+    font-family:'Helvetica Neue',Arial,sans-serif!important;
+    background:#161B22!important;
+    border:1px solid #2E8B8B66!important;
+    border-radius:8px!important;
+    box-shadow:0 2px 8px rgba(0,0,0,.4)!important;
+}
+.leaflet-control-layers-list{padding:6px 8px!important}
+.leaflet-control-layers label{
+    color:#D6E2EC!important;
+    font-size:11px!important;
+    line-height:1.6!important;
+    font-weight:500!important;
+    margin-bottom:2px!important;
+}
+.leaflet-control-layers-separator{border-color:#2E8B8B44!important;margin:4px 0!important}
+.leaflet-control-layers-base label,.leaflet-control-layers-overlays label{
+    display:flex!important;align-items:center!important;gap:4px!important;
+}
+.leaflet-control-layers-toggle{
+    background-color:#161B22!important;
+    border-radius:8px!important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -139,7 +165,7 @@ def init_gee():
 GEE_OK, GEE_ERROR = init_gee()
 
 # ── Carga modelo y CSV ─────────────────────────────────────────────────────────
-@st.cache_resource(show_spinner="Cargando modelo RF v3...")
+@st.cache_resource(show_spinner="Cargando modelo...")
 def load_model():
     p = os.path.join(os.path.dirname(__file__), "modelos_rf_v3.pkl")
     if not os.path.exists(p): return None
@@ -159,7 +185,7 @@ df_global  = load_csv()
 # ── Configuración de capas espectrales disponibles ────────────────────────────
 INDICES_VIZ = {
     "RGB": dict(
-        nombre="🌈 RGB (Color natural)",
+        nombre="📷 RGB (Color natural)",
         desc="Composición B4-B3-B2. Vista natural de la escena.",
         vis={"bands": ["B4","B3","B2"], "min": 0, "max": 3000, "gamma": 1.3},
     ),
@@ -244,6 +270,42 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes):
         return {"error": str(e)}, {}
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def obtener_url_descarga_tiff(_bbox, fecha_ini_str, fecha_fin_str, max_nubes, indice):
+    """
+    Genera una URL de descarga directa GeoTIFF para una banda/indice especifico
+    de la mejor imagen Sentinel-2 encontrada en el rango de fechas.
+    """
+    if not GEE_OK:
+        return None
+    try:
+        lon_min, lat_min, lon_max, lat_max = _bbox
+        geom = ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max])
+        coll = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+                  .filterBounds(geom)
+                  .filterDate(fecha_ini_str, fecha_fin_str)
+                  .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_nubes))
+                  .sort("CLOUDY_PIXEL_PERCENTAGE"))
+        if coll.size().getInfo() == 0:
+            return None
+        img = coll.first().clip(geom)
+
+        if indice == "RGB":
+            img_export = img.select(["B4","B3","B2"]).toFloat()
+        else:
+            img_export = calcular_indice_gee(img, indice).toFloat()
+
+        url = img_export.getDownloadURL({
+            "scale": 10,
+            "region": geom,
+            "format": "GEO_TIFF",
+            "crs": "EPSG:4326",
+        })
+        return url
+    except Exception:
+        return None
+
+
 def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460):
     lon_min, lat_min, lon_max, lat_max = bbox
     cx, cy = (lon_min+lon_max)/2, (lat_min+lat_max)/2
@@ -255,7 +317,7 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
 
     if "RGB" in tile_urls:
         folium.TileLayer(tiles=tile_urls["RGB"], attr="GEE — Sentinel-2 SR",
-                         name="🌈 RGB (Color natural)", overlay=False,
+                         name="📷 RGB (Color natural)", overlay=False,
                          control=True, show=True).add_to(m)
 
     for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI"]:
@@ -312,21 +374,12 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ── MÉTRICAS ──────────────────────────────────────────────────────────────────
-mh = '<div class="metric-row">'
-for col, cfg in PARAMS.items():
-    mh += (f'<div class="metric-card"><div class="metric-value">{cfg["oob"]:.3f}</div>'
-           f'<div class="metric-label">OOB R² · {cfg["label"]}</div>'
-           f'<span class="badge-ok">✓ Validado</span></div>')
-mh += "</div>"
-st.markdown(mh, unsafe_allow_html=True)
-
 if model_data is None: st.error("⚠️ modelos_rf_v3.pkl no encontrado"); st.stop()
 if df_global  is None: st.error("⚠️ INDICES_completo.csv no encontrado"); st.stop()
 
 col_status1, col_status2 = st.columns(2)
 with col_status1:
-    st.success("✅  Modelo RF v3 cargado  ·  Datos de muestreo 2016–2019 listos")
+    st.success("✅  Modelo cargado  ·  Datos de muestreo 2016–2019 listos")
 with col_status2:
     if GEE_OK:
         st.success("✅  Conexión a Google Earth Engine activa")
@@ -474,6 +527,32 @@ if not correr:
                         </div>""", unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
 
+                # ── Descarga de GeoTIFFs ─────────────────────────────────────
+                if GEE_OK and s2_info.get("n_imagenes", 0) > 0:
+                    st.markdown('<div class="map-panel" style="margin-top:.6rem">',
+                               unsafe_allow_html=True)
+                    st.markdown('<div class="map-title">⬇️ Descargar Capas en GeoTIFF</div>',
+                               unsafe_allow_html=True)
+                    st.caption("Descarga cada banda/índice como archivo .tif georreferenciado "
+                              "(EPSG:4326, 10m/píxel) listo para QGIS o ArcGIS.")
+
+                    tiff_cols = st.columns(5)
+                    for tc, idx_key in zip(tiff_cols, ["RGB","NDVI","NDWI","MNDWI","NDTI"]):
+                        with tc:
+                            if st.button(f"📥 {idx_key}", key=f"tiff_{idx_key}",
+                                        use_container_width=True):
+                                with st.spinner(f"Generando enlace de descarga {idx_key}..."):
+                                    url_tiff = obtener_url_descarga_tiff(
+                                        bbox_prev, fecha_ini.strftime("%Y-%m-%d"),
+                                        fecha_fin.strftime("%Y-%m-%d"), max_nubes, idx_key
+                                    )
+                                if url_tiff:
+                                    st.success("✅ Listo")
+                                    st.markdown(f"[⬇️ Descargar {idx_key}.tif]({url_tiff})")
+                                else:
+                                    st.error("No se pudo generar el enlace")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
             st.markdown('<hr class="divider">', unsafe_allow_html=True)
             ci1,ci2,ci3 = st.columns(3)
             with ci1:
@@ -599,9 +678,12 @@ if not correr:
                 pbar.empty()
 
                 if len(resultados_por_fecha) >= 2:
+                    _logo_geo_path_s = os.path.join(os.path.dirname(__file__), "logo_geomatica.png")
+                    if not os.path.exists(_logo_geo_path_s):
+                        _logo_geo_path_s = None
                     pdf_serie_buf = generar_pdf_serie_temporal(
                         resultados_por_fecha, params_sel, bounds_serie,
-                        len(puntos_uniq_s), PARAMS
+                        len(puntos_uniq_s), PARAMS, logo_geo_path=_logo_geo_path_s
                     )
                     st.success(f"✅ Reporte generado con {len(resultados_por_fecha)} fechas")
                     st.download_button(
@@ -629,7 +711,7 @@ if not correr:
         <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">🔗 ORCID</a>
       </div></div></div>""", unsafe_allow_html=True)
 
-    st.markdown("""<div class="footer">RF v3 · Sentinel-2 SR · UANL · FIC · Depto. Geomática · KFold-5 + OOB</div>""",
+    st.markdown("""<div class="footer">Sentinel-2 SR · UANL · FIC · Depto. Geomática</div>""",
                unsafe_allow_html=True)
     st.stop()
 
@@ -656,7 +738,39 @@ with tempfile.TemporaryDirectory() as tmpdir:
     if wmask.crs is None or wmask.crs.to_epsg()!=4326: wmask=wmask.to_crs(4326)
     union_geom = wmask.geometry.unary_union
     bounds = wmask.total_bounds
-progress.progress(30)
+progress.progress(25)
+
+# Capturar imagen RGB satelital del area de estudio para el reporte PDF
+rgb_satelital_buf = None
+if GEE_OK:
+    status.text("Obteniendo imagen satelital del área de estudio...")
+    try:
+        _, tile_urls_pdf = buscar_imagen_s2(
+            tuple(bounds), fecha_ini.strftime("%Y-%m-%d"),
+            fecha_fin.strftime("%Y-%m-%d"), max_nubes
+        )
+        if tile_urls_pdf and "RGB" in tile_urls_pdf:
+            lon_min_r, lat_min_r, lon_max_r, lat_max_r = bounds
+            geom_r = ee.Geometry.Rectangle([lon_min_r, lat_min_r, lon_max_r, lat_max_r])
+            coll_r = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+                        .filterBounds(geom_r)
+                        .filterDate(fecha_ini.strftime("%Y-%m-%d"), fecha_fin.strftime("%Y-%m-%d"))
+                        .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_nubes))
+                        .sort("CLOUDY_PIXEL_PERCENTAGE"))
+            if coll_r.size().getInfo() > 0:
+                img_r = coll_r.first().clip(geom_r)
+                thumb_url = img_r.getThumbURL({
+                    "bands": ["B4","B3","B2"], "min": 0, "max": 3000,
+                    "gamma": 1.3, "dimensions": 800, "format": "png",
+                    "region": geom_r,
+                })
+                import requests as _req
+                resp_r = _req.get(thumb_url, timeout=15)
+                if resp_r.status_code == 200:
+                    rgb_satelital_buf = io.BytesIO(resp_r.content)
+    except Exception:
+        rgb_satelital_buf = None
+progress.progress(35)
 
 status.text("Generando grilla...")
 lon_min,lat_min,lon_max,lat_max = bounds
@@ -736,9 +850,9 @@ for i,(col,info) in enumerate(mapas.items()):
     cb2=plt.colorbar(im2,ax=ai,fraction=0.025,pad=0.02,shrink=0.9)
     cb2.set_label(f"{info['label']} ({info['unidad']})",color="white",fontsize=11)
     plt.setp(plt.getp(cb2.ax.axes,"yticklabels"),color="white",fontsize=9)
-    ai.set_title(f"{info['label']} | Río Pesquería | {fecha_campo_dt.strftime('%d/%m/%Y')} | RF v3",
+    ai.set_title(f"{info['label']} | Río Pesquería | {fecha_campo_dt.strftime('%d/%m/%Y')}",
                 color="white",fontsize=11,fontweight="bold")
-    ai.text(0.99,0.01,"Kevin D. Rodríguez G. · UANL · Depto. Geomática · RF v3",
+    ai.text(0.99,0.01,"Kevin D. Rodríguez G. · UANL · Depto. Geomática",
            transform=ai.transAxes,fontsize=7,color="#8EAAC8",ha="right",va="bottom")
     ai.tick_params(colors="#8EAAC8",labelsize=7)
     for sp in ai.spines.values(): sp.set_edgecolor("#2E8B8B44")
@@ -749,7 +863,7 @@ for i,(col,info) in enumerate(mapas.items()):
 for k in range(n,len(axes_flat)): axes_flat[k].set_visible(False)
 mes2=fecha_campo_dt.month
 temp="Temporada Seca 🌵" if mes2 in [11,12,1,2,3] else "Temporada Lluviosa 🌧️"
-fig.suptitle(f"Calidad de Agua — Río Pesquería\n{fecha_campo_dt.strftime('%d/%m/%Y')} | {temp} | RF v3 | UANL·FIC·Geomática",
+fig.suptitle(f"Calidad de Agua — Río Pesquería\n{fecha_campo_dt.strftime('%d/%m/%Y')} | {temp} | UANL·FIC·Geomática",
             fontsize=13,fontweight="bold",color="white",y=1.01)
 plt.tight_layout()
 buf_panel=io.BytesIO()
@@ -773,9 +887,13 @@ with dl2:
 with dl3:
     with st.spinner("Generando reporte PDF..."):
         try:
+            _logo_geo_path = os.path.join(os.path.dirname(__file__), "logo_geomatica.png")
+            if not os.path.exists(_logo_geo_path):
+                _logo_geo_path = None
             pdf_buf = generar_pdf_fecha_unica(
                 mapas, fecha_campo_dt, temp, buf_panel,
-                bounds, len(puntos_uniq), PARAMS
+                bounds, len(puntos_uniq), PARAMS,
+                rgb_buf=rgb_satelital_buf, logo_geo_path=_logo_geo_path
             )
             st.download_button("📄  Reporte PDF completo", pdf_buf.getvalue(),
                 f"Reporte_CalidadAgua_{fecha_campo_dt.strftime('%Y%m%d')}.pdf",
@@ -806,5 +924,5 @@ st.markdown(f"""<div class="researcher-card">
     <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">🔗 ORCID</a>
   </div></div></div>""",unsafe_allow_html=True)
 
-st.markdown("""<div class="footer">RF v3 · Sentinel-2 SR · UANL · FIC · Depto. Geomática · KFold-5 + OOB</div>""",
+st.markdown("""<div class="footer">Sentinel-2 SR · UANL · FIC · Depto. Geomática</div>""",
            unsafe_allow_html=True)
