@@ -100,11 +100,246 @@ LANG = st.session_state["lang"]
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
-/* ── Base ──────────────────────────────────────────────────────────────── */
-html,body,.stApp,*{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif!important}
-code,pre,.stCode{font-family:'JetBrains Mono',monospace!important}
+/* ══ TOKENS ══════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#080B0D; --s1:#0C1015; --s2:#111820;
+  --v:#7C5CFC; --vs:rgba(124,92,252,.15); --vg:rgba(124,92,252,.3);
+  --cy:#00C8FF; --cys:rgba(0,200,255,.12);
+  --ok:#00E59A; --warn:#FFB800; --err:#FF4D4D;
+  --t1:#DDE6EE; --t2:#4E6272; --t3:#222E38;
+  --r:10px; --rl:16px;
+  --f-sans:'Space Grotesk',system-ui,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+
+/* ── BASE ──────────────────────────────────────────────────────────────── */
+html,body,.stApp,*:not(code):not(pre){font-family:var(--f-sans)!important}
+code,pre,.stCode{font-family:var(--f-mono)!important}
+
+/* dot-grid bg */
+body,.stApp{
+  background-color:var(--bg)!important;
+  background-image:radial-gradient(circle,rgba(124,92,252,.055) 1px,transparent 1px)!important;
+  background-size:28px 28px!important;
+}
+
+/* ── ANIMATIONS ──────────────────────────────────────────────────────────── */
+@keyframes scanSweep{
+  0%{top:-2px;opacity:0} 5%{opacity:.85} 95%{opacity:.85} 100%{top:100%;opacity:0}
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes glowIn{from{box-shadow:none}to{box-shadow:0 0 24px var(--vg)}}
+
+/* ── SIDEBAR ──────────────────────────────────────────────────────────────── */
+section[data-testid="stSidebar"]{
+  background:linear-gradient(180deg,#09090D 0%,#080B0D 100%)!important;
+  border-right:1px solid rgba(124,92,252,.15)!important;
+}
+
+/* ── STREAMLIT NATIVE OVERRIDES ──────────────────────────────────────────── */
+.stSelectbox [data-baseweb="select"]>div,.stMultiSelect [data-baseweb="select"]>div{
+  background:var(--s1)!important;border:1px solid rgba(124,92,252,.18)!important;border-radius:var(--r)!important}
+.stTextInput>div>div>input,.stDateInput>div>div>input{
+  background:var(--s1)!important;border:1px solid rgba(124,92,252,.18)!important;
+  color:var(--t1)!important;border-radius:var(--r)!important}
+[data-testid="stFileUploader"]>div{
+  background:var(--s1)!important;border:1px dashed rgba(124,92,252,.28)!important;border-radius:var(--r)!important}
+.stSlider [role="slider"]{background:var(--v)!important}
+[data-testid="stSliderTrackFill"]{background:var(--v)!important}
+
+.stButton>button,.stDownloadButton>button{
+  background:linear-gradient(135deg,var(--v),#5438C4)!important;
+  border:none!important;color:#fff!important;font-weight:600!important;
+  font-size:.85rem!important;letter-spacing:.02em!important;
+  border-radius:var(--r)!important;padding:.55rem 1.2rem!important;
+  transition:all .2s!important;box-shadow:0 2px 16px rgba(124,92,252,.2)!important}
+.stButton>button:hover,.stDownloadButton>button:hover{
+  background:linear-gradient(135deg,#8F72FD,#6B4FE4)!important;
+  box-shadow:0 6px 28px rgba(124,92,252,.5)!important;transform:translateY(-1px)!important}
+.stButton>button:disabled{
+  background:rgba(124,92,252,.06)!important;color:var(--t3)!important;
+  border:1px solid rgba(124,92,252,.1)!important;box-shadow:none!important;transform:none!important}
+
+/* ── HEADER ──────────────────────────────────────────────────────────────── */
+.hdr{
+  position:relative;overflow:hidden;
+  background:linear-gradient(135deg,#1C0E47 0%,#10083A 35%,#080B0D 100%);
+  border-bottom:1px solid rgba(124,92,252,.45);
+  padding:1.6rem 2rem 1.3rem;
+  margin-bottom:1.5rem;
+  border-radius:0 0 20px 20px;
+  animation:fadeUp .45s ease forwards;
+}
+/* coordinate grid overlay */
+.hdr::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(124,92,252,.08) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(124,92,252,.08) 1px,transparent 1px);
+  background-size:48px 48px;
+}
+/* one-shot radar sweep */
+.hdr::after{
+  content:'';position:absolute;left:0;right:0;height:2px;top:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent 0%,rgba(0,200,255,.9) 50%,transparent 100%);
+  animation:scanSweep 2s ease-out .4s forwards;
+}
+.hdr-logos{display:flex;align-items:center;gap:16px;margin-bottom:1rem;flex-wrap:wrap;position:relative;z-index:1}
+.hdr-logo-img{height:50px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,0,0,.6))}
+.hdr-sep{width:1px;height:42px;background:rgba(124,92,252,.28);flex-shrink:0}
+.hdr-body{position:relative;z-index:1}
+.app-title{
+  font-size:2.25rem;font-weight:700;color:#fff;margin:0;letter-spacing:-.3px;line-height:1.1;
+  font-family:var(--f-sans)!important;display:inline;
+}
+.app-title .hl{color:var(--v)}
+.hdr-live{
+  display:inline-flex;align-items:center;gap:5px;margin-left:12px;
+  background:rgba(0,229,154,.08);border:1px solid rgba(0,229,154,.28);
+  border-radius:20px;padding:2px 10px;vertical-align:middle;position:relative;top:-5px;
+  font-family:var(--f-mono)!important;font-size:.6rem;color:var(--ok);letter-spacing:.12em;
+}
+.hdr-live-dot{width:6px;height:6px;background:var(--ok);border-radius:50%;animation:blink 1.8s ease infinite}
+.app-sub{
+  font-size:.8rem;color:var(--t2);margin:.45rem 0 0;
+  font-family:var(--f-mono)!important;letter-spacing:.02em;
+}
+.hdr-meta{
+  display:flex;flex-wrap:wrap;gap:6px;margin-top:.9rem;
+}
+.hdr-tag{
+  font-family:var(--f-mono)!important;font-size:.62rem;
+  background:rgba(0,200,255,.06);border:1px solid rgba(0,200,255,.18);
+  color:rgba(0,200,255,.7);border-radius:4px;padding:3px 10px;letter-spacing:.05em;
+}
+.hdr-tag b{color:rgba(0,200,255,.45);font-weight:500;margin-right:4px}
+
+/* ── LABELS (sidebar + sections) ────────────────────────────────────────── */
+.slabel{
+  display:flex;align-items:center;gap:8px;
+  font-family:var(--f-mono)!important;font-size:.6rem;
+  color:var(--t2);text-transform:uppercase;letter-spacing:.14em;font-weight:700;
+  margin-bottom:.4rem;
+}
+.slabel::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(124,92,252,.2),transparent)}
+.sec-t{
+  display:flex;align-items:center;gap:10px;
+  font-family:var(--f-mono)!important;font-size:.63rem;
+  color:var(--t2);text-transform:uppercase;letter-spacing:.14em;font-weight:700;
+  margin:1.3rem 0 .7rem;
+}
+.sec-t::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(124,92,252,.15),transparent)}
+
+/* ── METRIC CARDS ────────────────────────────────────────────────────────── */
+.metric-row{display:flex;gap:10px;margin:1rem 0;flex-wrap:wrap}
+.metric-card{
+  flex:1;min-width:140px;background:var(--s1);
+  border:1px solid rgba(124,92,252,.14);border-top:2px solid var(--v);
+  border-radius:0 0 var(--r) var(--r);padding:1rem 1.2rem;text-align:center;
+  transition:border-color .25s,box-shadow .25s;
+}
+.metric-card:hover{border-color:rgba(124,92,252,.4);box-shadow:0 4px 24px rgba(124,92,252,.12)}
+.metric-value{font-family:var(--f-mono)!important;font-size:2rem;font-weight:700;color:var(--v);line-height:1.1}
+.metric-label{font-family:var(--f-mono)!important;font-size:.59rem;color:var(--t2);text-transform:uppercase;letter-spacing:.1em;margin-top:4px}
+.badge-ok{
+  display:inline-block;margin-top:8px;background:rgba(0,229,154,.07);
+  color:var(--ok);border:1px solid rgba(0,229,154,.22);
+  padding:2px 10px;border-radius:20px;font-size:.6rem;font-weight:600;
+  font-family:var(--f-mono)!important;
+}
+
+/* ── MAP PANELS ──────────────────────────────────────────────────────────── */
+.map-panel{
+  background:var(--s1);
+  border:1px solid rgba(124,92,252,.12);border-top:2px solid rgba(0,200,255,.38);
+  border-radius:0 0 var(--rl) var(--rl);padding:.9rem 1.1rem;margin-bottom:1rem;
+}
+.map-title{
+  font-family:var(--f-mono)!important;font-size:.62rem;font-weight:700;
+  color:var(--cy);letter-spacing:.14em;text-transform:uppercase;margin-bottom:.6rem;
+}
+.map-meta{font-size:.7rem;color:var(--t2);margin-top:.5rem;line-height:1.65;font-family:var(--f-mono)!important}
+
+/* ── CHIPS ───────────────────────────────────────────────────────────────── */
+.chip{
+  display:inline-block;background:rgba(124,92,252,.07);
+  border:1px solid rgba(124,92,252,.22);color:#A78BFA;
+  font-size:.62rem;border-radius:4px;padding:3px 8px;margin:2px;
+  font-family:var(--f-mono)!important;
+}
+.chip-warn{background:rgba(255,184,0,.06);border-color:rgba(255,184,0,.28);color:var(--warn)}
+.chip-bad{background:rgba(255,77,77,.06);border-color:rgba(255,77,77,.28);color:var(--err)}
+
+/* ── INFO PANELS ─────────────────────────────────────────────────────────── */
+.info-panel{background:var(--s1);border:1px solid rgba(255,255,255,.05);border-radius:var(--rl);padding:.9rem 1.1rem;margin-bottom:1rem}
+.info-title{font-family:var(--f-mono)!important;font-size:.62rem;font-weight:700;color:var(--t2);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.6rem}
+
+/* ── PARAM CARDS ─────────────────────────────────────────────────────────── */
+.param-card{
+  background:var(--s1);border:1px solid rgba(255,255,255,.04);
+  border-left:2px solid var(--v);border-radius:0 var(--rl) var(--rl) 0;
+  padding:1.1rem 1.4rem;margin-bottom:.7rem;
+  transition:all .2s;
+}
+.param-card:hover{background:#0E1318;border-left-color:#A78BFA;box-shadow:-4px 0 20px rgba(124,92,252,.12)}
+.param-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;flex-wrap:wrap;gap:8px}
+.param-name{font-size:.95rem;font-weight:700;color:var(--t1)}
+.param-oob{font-family:var(--f-mono)!important;font-size:.62rem;color:var(--v);background:rgba(124,92,252,.07);border:1px solid rgba(124,92,252,.18);border-radius:20px;padding:2px 10px}
+.param-desc{font-size:.77rem;color:var(--t2);line-height:1.7;margin-bottom:.65rem}
+.param-meta{display:flex;gap:20px;flex-wrap:wrap}
+.pmi{font-size:.7rem;color:var(--t2);font-family:var(--f-mono)!important}
+.pmv{color:var(--v);font-weight:600}
+
+/* ── STEP BOXES ──────────────────────────────────────────────────────────── */
+.step-box{
+  background:var(--s1);border:1px solid rgba(255,255,255,.05);
+  border-radius:var(--rl);padding:1.3rem 1.4rem;
+  position:relative;overflow:hidden;
+  transition:border-color .25s,box-shadow .25s;
+  animation:fadeUp .5s ease forwards;
+}
+.step-num{
+  font-family:var(--f-mono)!important;font-size:.6rem;font-weight:700;
+  color:var(--v);letter-spacing:.1em;text-transform:uppercase;
+  margin-bottom:.6rem;opacity:.7;
+}
+.step-box:hover{border-color:rgba(124,92,252,.22);box-shadow:0 4px 24px rgba(124,92,252,.08)}
+.step-t{font-size:.9rem;font-weight:700;color:var(--t1);margin-bottom:.5rem}
+.step-b{font-size:.76rem;color:var(--t2);line-height:1.7}
+
+/* ── RESEARCHER CARD ─────────────────────────────────────────────────────── */
+.researcher-card{
+  background:var(--s1);border:1px solid rgba(124,92,252,.14);border-radius:var(--rl);
+  padding:1.3rem 1.7rem;display:flex;gap:20px;align-items:center;
+}
+.rphoto{width:88px;height:88px;border-radius:50%;object-fit:cover;border:2px solid var(--v);flex-shrink:0;box-shadow:0 0 0 5px rgba(124,92,252,.1)}
+.rname{font-size:1rem;font-weight:700;color:var(--t1);margin:0 0 2px}
+.rtitle{font-size:.8rem;color:var(--v);font-weight:600;margin:0 0 3px}
+.rdept{font-size:.75rem;color:var(--t2);margin:0 0 10px}
+.rlinks{display:flex;gap:8px;flex-wrap:wrap}
+.rlink{font-size:.67rem;color:var(--t2);background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:3px 12px;text-decoration:none;font-family:var(--f-mono)!important;transition:border-color .2s,color .2s}
+.rlink:hover{border-color:rgba(124,92,252,.4);color:#A78BFA}
+
+/* ── MISC ────────────────────────────────────────────────────────────────── */
+.divider{border:0;border-top:1px solid rgba(255,255,255,.05);margin:1.2rem 0}
+.footer{text-align:center;font-family:var(--f-mono)!important;font-size:.62rem;color:var(--t3);margin-top:2rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.04)}
+
+/* ── FOLIUM / LEAFLET ────────────────────────────────────────────────────── */
+.leaflet-control-layers{
+  font-family:var(--f-mono)!important;font-size:11px!important;
+  background:var(--s1)!important;border:1px solid rgba(124,92,252,.3)!important;
+  border-radius:var(--r)!important;box-shadow:0 4px 20px rgba(0,0,0,.6)!important;
+}
+.leaflet-control-layers-list{padding:6px 8px!important}
+.leaflet-control-layers label{color:#C0CCD8!important;font-size:11px!important;line-height:1.7!important;font-weight:500!important}
+.leaflet-control-layers-separator{border-color:rgba(124,92,252,.14)!important;margin:4px 0!important}
+.leaflet-control-layers-base label,.leaflet-control-layers-overlays label{display:flex!important;align-items:center!important;gap:5px!important}
+.leaflet-control-layers-toggle{background-color:var(--s1)!important;border-radius:var(--r)!important}
+
+/* ── KEEP FONT FAMILY OUT OF CODE ───────────────────────────────────────── */
 
 body,.stApp{background-color:#0B0C0E!important}
 section[data-testid="stSidebar"]{background-color:#0E0F11!important;border-right:1px solid rgba(124,92,252,.12)!important}
@@ -837,8 +1072,20 @@ logo_g = f'<img class="hdr-logo-img" src="data:image/png;base64,{GEO_B64}">'  if
 st.markdown(f"""
 <div class="hdr">
   <div class="hdr-logos">{logo_u}<div class="hdr-sep"></div>{logo_f}<div class="hdr-sep"></div>{logo_g}</div>
-  <div class="app-title">{t("app_title", LANG)}</div>
-  <div class="app-sub">{t("app_subtitle", LANG)}</div>
+  <div class="hdr-body">
+    <div>
+      <span class="app-title">{t("app_title", LANG)}</span>
+      <span class="hdr-live"><span class="hdr-live-dot"></span>LIVE</span>
+    </div>
+    <div class="app-sub">{t("app_subtitle", LANG)}</div>
+    <div class="hdr-meta">
+      <span class="hdr-tag"><b>SAT</b> Sentinel-2 SR · 10 m</span>
+      <span class="hdr-tag"><b>MDL</b> Random Forest · 4 params</span>
+      <span class="hdr-tag"><b>LAT</b> 25.77° – 25.83° N</span>
+      <span class="hdr-tag"><b>LON</b> 100.34° – 100.02° W</span>
+      <span class="hdr-tag"><b>EPSG</b> 4326</span>
+    </div>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -954,13 +1201,16 @@ with st.sidebar:
 # ── PANTALLA INICIAL ──────────────────────────────────────────────────────────
 if not correr:
     c1,c2,c3 = st.columns(3)
-    for col, paso_titulo, paso_texto in zip(
+    for col, paso_num, paso_titulo, paso_texto in zip(
         [c1,c2,c3],
+        ["01", "02", "03"],
         [t("paso1_titulo",LANG), t("paso2_titulo",LANG), t("paso3_titulo",LANG)],
         [t("paso1_texto",LANG), t("paso2_texto",LANG), t("paso3_texto",LANG)],
     ):
         with col:
-            st.markdown(f'<div class="step-box"><div class="step-t">{paso_titulo}</div>'
+            st.markdown(f'<div class="step-box">'
+                       f'<div class="step-num">STEP {paso_num}</div>'
+                       f'<div class="step-t">{paso_titulo}</div>'
                        f'<div class="step-b">{paso_texto}</div></div>',
                        unsafe_allow_html=True)
 
