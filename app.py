@@ -56,6 +56,27 @@ COORDS = {
     "Punto_7": (-100.02404, 25.77480),
 }
 
+def zona_es_pesqueria(bbox, margen_factor=0.5):
+    """
+    Determina si un bbox (lon_min, lat_min, lon_max, lat_max) corresponde
+    al área del Río Pesquería, verificando si al menos 3 de los 7 puntos
+    de muestreo caen dentro (o cerca, con margen) del área subida.
+
+    Esto permite habilitar los mapas de calidad de agua (que dependen del
+    modelo RF entrenado solo con estos 7 puntos) únicamente cuando el
+    usuario sube un wmask que realmente corresponde a esta zona — para
+    cualquier otra área del mundo, solo se ofrecen RGB/índices/GIF/TIFF,
+    que no dependen del modelo y sí funcionan en cualquier lugar.
+    """
+    lon_min, lat_min, lon_max, lat_max = bbox
+    margen = max(lon_max - lon_min, lat_max - lat_min) * margen_factor
+    n_dentro = 0
+    for lon, lat in COORDS.values():
+        if (lon_min - margen <= lon <= lon_max + margen and
+            lat_min - margen <= lat <= lat_max + margen):
+            n_dentro += 1
+    return n_dentro >= 3
+
 FECHAS_CAMPO = [
     "2/25/2016","4/12/2016","5/17/2016","6/23/2016","7/26/2016","9/4/2016",
     "2/22/2017","4/4/2017","5/16/2017","6/27/2017","8/8/2017","9/18/2017",
@@ -567,9 +588,13 @@ def generar_gif_sentinel2(capa_key, bbox, fecha_ini, fecha_fin, max_nubes,
 def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460):
     lon_min, lat_min, lon_max, lat_max = bbox
     cx, cy = (lon_min+lon_max)/2, (lat_min+lat_max)/2
-    span = max(lon_max-lon_min, lat_max-lat_min)
-    zoom = max(11, min(15, int(13 - span*8)))
-    m = folium.Map(location=[cy, cx], zoom_start=zoom, tiles=None, width="100%", height=height)
+
+    # location/zoom_start son solo un punto de partida; fit_bounds() (al final)
+    # es lo que realmente encuadra el área sin importar su tamaño o ubicación
+    # en el mundo — funciona igual de bien para un río chico que para un
+    # municipio o una cuenca completa.
+    m = folium.Map(location=[cy, cx], zoom_start=12, tiles=None,
+                   width="100%", height=height)
 
     tile_urls = tile_urls or {}
 
@@ -599,7 +624,15 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
         style_function=lambda x: {"fillColor":"#2E8B8B","color":"#00FFCC",
                                   "weight":2.5,"fillOpacity":0.10}).add_to(m)
 
+    # Puntos de muestreo: solo se dibujan si caen dentro (o cerca) del bbox
+    # del área de estudio. Si el usuario sube un wmask de otra parte del
+    # mundo, los 7 puntos del Río Pesquería simplemente no aparecen.
+    margen = max((lon_max - lon_min), (lat_max - lat_min)) * 0.5
     for j,(nombre,(lon,lat)) in enumerate(coords_dict.items()):
+        dentro = (lon_min - margen <= lon <= lon_max + margen and
+                 lat_min - margen <= lat <= lat_max + margen)
+        if not dentro:
+            continue
         folium.CircleMarker(
             location=[lat,lon], radius=8, color="#FFD700",
             fill=True, fill_color="#FFD700", fill_opacity=0.9, weight=2,
@@ -611,6 +644,11 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
                 html=f'<div style="font-size:10px;font-weight:bold;color:white;'
                      f'text-shadow:1px 1px 2px black">P{j+1}</div>',
                 icon_size=(25,15), icon_anchor=(0,0))).add_to(m)
+
+    # Encuadre robusto: ajusta el mapa exactamente a los límites del wmask
+    # con un pequeño padding, sin importar el tamaño del área (metros o
+    # cientos de kilómetros).
+    m.fit_bounds([[lat_min, lon_min], [lat_max, lon_max]], padding=(20, 20))
 
     folium.LayerControl(position="topright", collapsed=False).add_to(m)
     return m
@@ -666,6 +704,28 @@ with st.sidebar:
     st.caption(t("sidebar_area_caption", LANG))
     wmask_zip = st.file_uploader(t("sidebar_upload", LANG), type=["zip"])
 
+    # Detectar si el wmask subido corresponde al Río Pesquería (única zona
+    # con modelo RF entrenado) o es otra zona del mundo (solo RGB/índices)
+    es_zona_pesqueria = False
+    if wmask_zip is not None:
+        try:
+            with tempfile.TemporaryDirectory() as _tmp_zone:
+                with zipfile.ZipFile(wmask_zip, "r") as _z: _z.extractall(_tmp_zone)
+                _shp = [f for f in os.listdir(_tmp_zone) if f.endswith(".shp")]
+                if _shp:
+                    _w_check = gpd.read_file(os.path.join(_tmp_zone, _shp[0]))
+                    if _w_check.crs is None or _w_check.crs.to_epsg() != 4326:
+                        _w_check = _w_check.to_crs(4326)
+                    es_zona_pesqueria = zona_es_pesqueria(tuple(_w_check.total_bounds))
+            wmask_zip.seek(0)  # reset para usos posteriores del mismo archivo
+        except Exception:
+            es_zona_pesqueria = False
+
+        if es_zona_pesqueria:
+            st.success(t("zona_pesqueria_si", LANG))
+        else:
+            st.info(t("zona_pesqueria_no", LANG))
+
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
     st.markdown(f'<div class="slabel">{t("sidebar_fecha_muestreo", LANG)}</div>', unsafe_allow_html=True)
     fecha_campo = st.selectbox("", FECHAS_CAMPO, index=16,
@@ -708,11 +768,14 @@ with st.sidebar:
         format_func=lambda v: f"{v}×{v}")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    valid = (wmask_zip is not None and params_sel and fecha_ini < fecha_fin)
+    valid = (wmask_zip is not None and params_sel and fecha_ini < fecha_fin
+            and es_zona_pesqueria)
     correr = st.button(t("sidebar_generar_mapas", LANG), type="primary",
                        use_container_width=True, disabled=not valid)
     if wmask_zip is None:
         st.warning(t("sidebar_sube_wmask_warn", LANG))
+    elif not es_zona_pesqueria:
+        st.caption(t("zona_pesqueria_boton_disabled", LANG))
 
 # ── PANTALLA INICIAL ──────────────────────────────────────────────────────────
 if not correr:

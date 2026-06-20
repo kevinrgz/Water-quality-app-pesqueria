@@ -107,6 +107,40 @@ T = {
         "en": "⬆️  Upload your wmask.zip to continue",
         "pt": "⬆️  Envie seu wmask.zip para continuar",
     },
+    "zona_pesqueria_si": {
+        "es": "✅ Área del Río Pesquería detectada — modelo de calidad de "
+              "agua disponible",
+        "en": "✅ Pesquería River area detected — water quality model "
+              "available",
+        "pt": "✅ Área do Rio Pesquería detectada — modelo de qualidade da "
+              "água disponível",
+    },
+    "zona_pesqueria_no": {
+        "es": "ℹ️ Área fuera del Río Pesquería — disponibles RGB, índices "
+              "espectrales, descarga GeoTIFF y animación GIF. Los mapas de "
+              "calidad de agua (parámetros fisicoquímicos) solo están "
+              "disponibles para el Río Pesquería, donde el modelo fue "
+              "entrenado y validado con datos de campo.",
+        "en": "ℹ️ Area outside the Pesquería River — RGB, spectral indices, "
+              "GeoTIFF download, and GIF animation are available. Water "
+              "quality maps (physicochemical parameters) are only "
+              "available for the Pesquería River, where the model was "
+              "trained and validated with field data.",
+        "pt": "ℹ️ Área fora do Rio Pesquería — disponíveis RGB, índices "
+              "espectrais, download GeoTIFF e animação GIF. Os mapas de "
+              "qualidade da água (parâmetros físico-químicos) estão "
+              "disponíveis apenas para o Rio Pesquería, onde o modelo foi "
+              "treinado e validado com dados de campo.",
+    },
+    "zona_pesqueria_boton_disabled": {
+        "es": "Generar Mapas está deshabilitado: solo funciona para el "
+              "área del Río Pesquería. Usa RGB/índices/GIF/TIFF para "
+              "esta zona.",
+        "en": "Generate Maps is disabled: it only works for the Pesquería "
+              "River area. Use RGB/indices/GIF/TIFF for this zone.",
+        "pt": "Gerar Mapas está desabilitado: funciona apenas para a área "
+              "do Rio Pesquería. Use RGB/índices/GIF/TIFF para esta zona.",
+    },
 
     # ── Pasos de uso ───────────────────────────────────────────────────────────
     "paso1_titulo": {"es": "① Shapefile", "en": "① Shapefile", "pt": "① Shapefile"},
