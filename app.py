@@ -270,6 +270,16 @@ def calcular_indice_gee(img, indice):
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes):
+    """
+    Busca y compone una imagen Sentinel-2 que cubra TODO el bbox solicitado.
+
+    Una sola escena Sentinel-2 (.first()) puede no cubrir áreas grandes o
+    que caen en el borde entre dos pasadas del satélite — eso deja zonas
+    del bbox transparentes ("clip" sin datos). Por eso aquí se construye
+    un MOSAICO (.mosaic()) combinando todas las escenas disponibles en el
+    rango de fechas/nubes, asegurando cobertura completa del área subida,
+    sea un río angosto o un municipio entero.
+    """
     if not GEE_OK:
         return None, {}
     try:
@@ -284,11 +294,19 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes):
         if n_imgs == 0:
             return {"n_imagenes": 0}, {}
 
-        img = coll.first().clip(geom)
-        img_info = img.getInfo()
-        props = img_info.get("properties", {})
+        # Metadatos de referencia desde la imagen con menos nubes
+        img_ref   = coll.first()
+        props     = img_ref.getInfo().get("properties", {})
         fecha_real = props.get("PRODUCT_ID", "")[7:15] if "PRODUCT_ID" in props else "N/D"
         nubes_pct  = props.get("CLOUDY_PIXEL_PERCENTAGE", None)
+
+        # Mosaico: combina todas las escenas del rango para cubrir el bbox
+        # completo sin huecos, priorizando las de menor nubosidad (ya
+        # vienen ordenadas por .sort() y mosaic() usa la última imagen
+        # válida por píxel, así que invertimos el orden para que la mejor
+        # quede "encima").
+        coll_para_mosaico = coll.sort("CLOUDY_PIXEL_PERCENTAGE", False)
+        img = coll_para_mosaico.mosaic().clip(geom)
 
         tile_urls = {}
         map_id_rgb = img.getMapId(INDICES_VIZ["RGB"]["vis"])
@@ -455,7 +473,7 @@ def obtener_url_descarga_tiff(_bbox, fecha_ini_str, fecha_fin_str, max_nubes, in
                   .sort("CLOUDY_PIXEL_PERCENTAGE"))
         if coll.size().getInfo() == 0:
             return None
-        img = coll.first().clip(geom)
+        img = coll.sort("CLOUDY_PIXEL_PERCENTAGE", False).mosaic().clip(geom)
 
         if indice == "RGB":
             img_export = img.select(["B4","B3","B2"]).toFloat()
@@ -519,9 +537,10 @@ def generar_gif_sentinel2(capa_key, bbox, fecha_ini, fecha_fin, max_nubes,
             if coll.size().getInfo() == 0:
                 continue
 
-            img = coll.first().clip(geom)
-            props = img.getInfo().get("properties", {})
+            img_ref_gif  = coll.first()
+            props        = img_ref_gif.getInfo().get("properties", {})
             fecha_real_str = props.get("PRODUCT_ID", "")[7:15]
+            img = coll.sort("CLOUDY_PIXEL_PERCENTAGE", False).mosaic().clip(geom)
             try:
                 fecha_legible = pd.to_datetime(fecha_real_str, format="%Y%m%d").strftime("%d %b %Y")
             except Exception:
