@@ -4,6 +4,7 @@
 
 import io
 from datetime import date
+from i18n import t, get_param_label, get_param_desc
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -57,7 +58,7 @@ def get_pdf_styles():
 
 # ── Encabezado y pie de página para cada hoja ─────────────────────────────────
 def _draw_header_footer(canvas_obj, doc, titulo_corto="Calidad de Agua — Río Pesquería",
-                        logo_geo_path=None):
+                        logo_geo_path=None, lang="es"):
     canvas_obj.saveState()
     width, height = letter
 
@@ -81,16 +82,17 @@ def _draw_header_footer(canvas_obj, doc, titulo_corto="Calidad de Agua — Río 
     canvas_obj.setLineWidth(0.6)
     canvas_obj.line(2*cm, 1.5*cm, width - 2*cm, 1.5*cm)
     canvas_obj.setFont("Helvetica", 7.5)
-    canvas_obj.drawCentredString(width/2, 1.1*cm, f"Página {doc.page}")
-    canvas_obj.drawRightString(width - 2*cm, 1.1*cm,
-                               "Universidad Autónoma de Nuevo León · FIC · Depto. Geomática")
+    canvas_obj.drawCentredString(width/2, 1.1*cm, f"{t('pdf_pagina', lang)} {doc.page}")
+    canvas_obj.drawRightString(width - 2*cm, 1.1*cm, t("pdf_universidad", lang))
 
     canvas_obj.restoreState()
 
 
 # ── Construir tabla de estadísticas por parámetro ─────────────────────────────
-def build_stats_table(mapas, styles):
-    header = ["Parámetro", "Media", "Mín", "Máx", "Desv. Est.", "OOB R²"]
+def build_stats_table(mapas, styles, lang="es"):
+    header = [t("pdf_tabla_parametro", lang), t("pdf_tabla_media", lang),
+              t("pdf_tabla_min", lang), t("pdf_tabla_max", lang),
+              t("pdf_tabla_desv", lang), "OOB R²"]
     rows = [header]
     for col, info in mapas.items():
         d = info["data"][np.isfinite(info["data"])]
@@ -121,46 +123,30 @@ def build_stats_table(mapas, styles):
 
 
 # ── Generar texto interpretativo automático ───────────────────────────────────
-def generar_interpretacion(mapas, fecha_dt, temporada):
+def generar_interpretacion(mapas, fecha_dt, temporada, lang="es"):
     lineas = []
     lineas.append(
-        f"El análisis de calidad de agua del Río Pesquería para la fecha "
-        f"{fecha_dt.strftime('%d de %B de %Y')} ({temporada}) se realizó mediante "
-        f"interpolación espacial (RBF thin-plate-spline) de las predicciones del "
-        f"modelo Random Forest v3, entrenado con imágenes Sentinel-2 SR y datos de "
-        f"muestreo fisicoquímico 2016–2019."
+        t("pdf_interp_intro", lang).format(
+            fecha=fecha_dt.strftime('%d de %B de %Y'), temporada=temporada
+        )
     )
 
     criticos = []
     for col, info in mapas.items():
         d = info["data"][np.isfinite(info["data"])]
         pct_rango = (d.mean() - info["vmin"]) / (info["vmax"] - info["vmin"]) * 100
+        label_t = get_param_label(col, lang) if col in ("P_TOT","N_NH3","N_TOT","N_TOTK") else info["label"]
         if pct_rango > 60:
-            criticos.append((info["label"], pct_rango, d.mean(), info["unidad"]))
+            criticos.append((label_t, pct_rango, d.mean(), info["unidad"]))
 
     if criticos:
         criticos.sort(key=lambda x: -x[1])
         nombres = ", ".join([c[0] for c in criticos])
-        lineas.append(
-            f"Los parámetros que muestran concentraciones relativamente elevadas "
-            f"respecto a su rango de referencia son: {nombres}. Esto podría indicar "
-            f"zonas con mayor influencia de descargas de aguas residuales o "
-            f"escorrentía con carga orgánica."
-        )
+        lineas.append(t("pdf_interp_criticos", lang).format(nombres=nombres))
     else:
-        lineas.append(
-            "Los parámetros mapeados se encuentran dentro de rangos moderados a "
-            "bajos respecto a su escala de referencia, sin evidencia de "
-            "concentraciones críticas en el período analizado."
-        )
+        lineas.append(t("pdf_interp_normal", lang))
 
-    lineas.append(
-        "Es importante señalar que estos mapas representan una interpolación "
-        "espacial entre 7 puntos de muestreo fijos; la incertidumbre aumenta con "
-        "la distancia a los puntos de muestreo. Los valores de OOB R² (out-of-bag) "
-        "indican la capacidad predictiva validada del modelo para cada parámetro, "
-        "siendo más confiables aquellos con OOB R² superior a 0.60."
-    )
+    lineas.append(t("pdf_interp_cierre", lang))
 
     return " ".join(lineas)
 
@@ -168,10 +154,11 @@ def generar_interpretacion(mapas, fecha_dt, temporada):
 # ── FUNCIÓN PRINCIPAL: generar PDF para una sola fecha ────────────────────────
 def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
                             bbox, n_puntos, PARAMS_DICT,
-                            rgb_buf=None, logo_geo_path=None):
+                            rgb_buf=None, logo_geo_path=None, lang="es"):
     """
     Genera un reporte PDF completo para una sola fecha de análisis.
     mapas: dict con 'data', 'individual_buf', 'label', 'icon', 'desc', etc por param
+    lang: "es", "en" o "pt" — idioma del reporte completo
     Retorna BytesIO con el PDF.
     """
     buf = io.BytesIO()
@@ -179,24 +166,24 @@ def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
         buf, pagesize=letter,
         topMargin=2.2*cm, bottomMargin=2*cm,
         leftMargin=2*cm, rightMargin=2*cm,
-        title="Reporte Calidad de Agua - Río Pesquería"
+        title="Water Quality Report - Pesqueria River"
     )
     styles = get_pdf_styles()
     story = []
 
     # ── PORTADA ────────────────────────────────────────────────────────────────
     story.append(Spacer(1, 1.2*cm))
-    story.append(Paragraph("💧 REPORTE DE CALIDAD DE AGUA", styles["TituloPortada"]))
-    story.append(Paragraph("Río Pesquería, Nuevo León, México", styles["SubtituloPortada"]))
+    story.append(Paragraph(t("pdf_titulo_reporte", lang), styles["TituloPortada"]))
+    story.append(Paragraph(t("pdf_subtitulo_rio", lang), styles["SubtituloPortada"]))
     story.append(Spacer(1, 0.4*cm))
     story.append(HRFlowable(width="60%", thickness=1.2, color=PDF_TEAL, hAlign="CENTER"))
     story.append(Spacer(1, 0.5*cm))
 
     story.append(Paragraph(
-        f"<b>Fecha analizada:</b> {fecha_dt.strftime('%d de %B de %Y')} &nbsp;·&nbsp; "
-        f"<b>Temporada:</b> {temporada}<br/>"
-        f"<b>Modelo:</b> Random Forest v3 (Sentinel-2 SR, 2016–2019)<br/>"
-        f"<b>Generado:</b> {date.today().strftime('%d/%m/%Y')}",
+        f"<b>{t('pdf_fecha_analizada', lang)}:</b> {fecha_dt.strftime('%d de %B de %Y')} &nbsp;·&nbsp; "
+        f"<b>{t('pdf_temporada', lang)}:</b> {temporada}<br/>"
+        f"<b>{t('pdf_modelo', lang)}:</b> Random Forest v3 (Sentinel-2 SR, 2016–2019)<br/>"
+        f"<b>{t('pdf_generado', lang)}:</b> {date.today().strftime('%d/%m/%Y')}",
         styles["MetaPortada"]
     ))
 
@@ -206,111 +193,76 @@ def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
         story.append(RLImage(panel_buf, width=16*cm, height=9.5*cm))
     story.append(Spacer(1, 0.6*cm))
 
-    story.append(Paragraph(
-        "Reporte generado automáticamente por el sistema de mapeo de calidad "
-        "de agua del Río Pesquería, basado en sensores remotos Sentinel-2 y "
-        "modelos de aprendizaje automático.",
-        styles["FootnoteCentro"]
-    ))
+    story.append(Paragraph(t("pdf_nota_auto", lang), styles["FootnoteCentro"]))
     story.append(PageBreak())
 
     # ── RESUMEN EJECUTIVO ─────────────────────────────────────────────────────
-    story.append(Paragraph("1. Resumen Ejecutivo", styles["SeccionTitulo"]))
+    story.append(Paragraph(t("pdf_sec1_titulo", lang), styles["SeccionTitulo"]))
     story.append(Paragraph(
-        generar_interpretacion(mapas, fecha_dt, temporada),
+        generar_interpretacion(mapas, fecha_dt, temporada, lang),
         styles["CuerpoTexto"]
     ))
     story.append(Spacer(1, 0.3*cm))
 
     # ── METODOLOGÍA ───────────────────────────────────────────────────────────
-    story.append(Paragraph("2. Metodología", styles["SeccionTitulo"]))
-    story.append(Paragraph(
-        "<b>Fuente de datos espectrales:</b> Sentinel-2 SR Harmonized (Copernicus), "
-        "bandas B1–B12 y 19 índices espectrales derivados (incluyendo NDWI, MNDWI, "
-        "NDCI, NDTI, FAI, NDVI).<br/><br/>"
-        "<b>Modelo predictivo:</b> Random Forest (scikit-learn), entrenado con "
-        "centrado por punto (within-group), medias espectrales por sitio "
-        "(between-group) e identidad del punto como features adicionales, "
-        "corrigiendo la Paradoja de Simpson identificada en el análisis exploratorio.<br/><br/>"
-        "<b>Interpolación espacial:</b> Radial Basis Function (RBF) con kernel "
-        "thin-plate-spline, aplicada sobre los 7 puntos de muestreo y restringida "
-        "al polígono del área de estudio (wmask).<br/><br/>"
-        "<b>Validación:</b> K-Fold cross-validation (k=5) y Out-of-Bag (OOB) score, "
-        "reportados como R² para cada parámetro.",
-        styles["CuerpoTexto"]
-    ))
+    story.append(Paragraph(t("pdf_sec2_titulo", lang), styles["SeccionTitulo"]))
+    story.append(Paragraph(t("pdf_metodologia_texto", lang), styles["CuerpoTexto"]))
     story.append(Spacer(1, 0.3*cm))
 
     # ── ÁREA DE ESTUDIO ───────────────────────────────────────────────────────
-    story.append(Paragraph("3. Área de Estudio", styles["SeccionTitulo"]))
+    story.append(Paragraph(t("pdf_sec3_titulo", lang), styles["SeccionTitulo"]))
     lon_min, lat_min, lon_max, lat_max = bbox
     story.append(Paragraph(
-        f"<b>Coordenadas (bbox):</b> Longitud {lon_min:.5f}° a {lon_max:.5f}° · "
-        f"Latitud {lat_min:.5f}° a {lat_max:.5f}°<br/>"
-        f"<b>Puntos de muestreo:</b> {n_puntos} estaciones fijas (Río Pesquería, "
-        f"Nuevo León)<br/>"
-        f"<b>Resolución espacial Sentinel-2:</b> 10 m/píxel (bandas visibles e "
-        f"infrarrojo cercano)",
+        f"<b>{t('pdf_coordenadas', lang)}:</b> {t('pdf_longitud', lang)} {lon_min:.5f}° "
+        f"a {lon_max:.5f}° · {t('pdf_latitud', lang)} {lat_min:.5f}° a {lat_max:.5f}°<br/>"
+        f"<b>{t('pdf_puntos_muestreo', lang)}:</b> {n_puntos} {t('pdf_estaciones_fijas', lang)}<br/>"
+        f"<b>{t('pdf_resolucion_s2', lang)}:</b> {t('pdf_res_detalle', lang)}",
         styles["CuerpoTexto"]
     ))
     story.append(Spacer(1, 0.3*cm))
 
     if rgb_buf is not None:
-        story.append(Paragraph(
-            "Imagen satelital Sentinel-2 (composición RGB natural, bandas B4-B3-B2) "
-            "del área de estudio correspondiente a la fecha analizada:",
-            styles["CuerpoTextoChico"]
-        ))
+        story.append(Paragraph(t("pdf_imagen_satelital_texto", lang), styles["CuerpoTextoChico"]))
         story.append(Spacer(1, 0.2*cm))
         rgb_buf.seek(0)
         story.append(RLImage(rgb_buf, width=14*cm, height=8*cm))
         story.append(Spacer(1, 0.2*cm))
-        story.append(Paragraph(
-            "<i>Fuente: Copernicus Sentinel-2 SR Harmonized, vía Google Earth Engine.</i>",
-            styles["FootnoteCentro"]
-        ))
+        story.append(Paragraph(f"<i>{t('pdf_fuente_copernicus', lang)}</i>", styles["FootnoteCentro"]))
 
     story.append(Spacer(1, 0.4*cm))
 
     # ── ESTADÍSTICAS ──────────────────────────────────────────────────────────
-    story.append(Paragraph("4. Estadísticas por Parámetro", styles["SeccionTitulo"]))
-    story.append(build_stats_table(mapas, styles))
+    story.append(Paragraph(t("pdf_sec4_titulo", lang), styles["SeccionTitulo"]))
+    story.append(build_stats_table(mapas, styles, lang))
     story.append(Spacer(1, 0.3*cm))
-    story.append(Paragraph(
-        "<i>OOB R² (Out-of-Bag R²): métrica de validación interna del modelo "
-        "Random Forest, calculada con muestras no utilizadas en el entrenamiento "
-        "de cada árbol. Valores ≥ 0.60 se consideran de buena capacidad predictiva.</i>",
-        styles["CuerpoTextoChico"]
-    ))
+    story.append(Paragraph(t("pdf_oob_nota", lang), styles["CuerpoTextoChico"]))
     story.append(PageBreak())
 
     # ── DESCRIPCIÓN DE PARÁMETROS ─────────────────────────────────────────────
-    story.append(Paragraph("5. Descripción de Parámetros Analizados", styles["SeccionTitulo"]))
+    story.append(Paragraph(t("pdf_sec5_titulo", lang), styles["SeccionTitulo"]))
     for col, info in mapas.items():
+        label_t = get_param_label(col, lang) if col in ("P_TOT","N_NH3","N_TOT","N_TOTK") else info["label"]
+        desc_t  = get_param_desc(col, lang)  if col in ("P_TOT","N_NH3","N_TOT","N_TOTK") else info["desc"]
         story.append(Paragraph(
-            f"{info['icon']} {info['label']} ({info['unidad']})",
+            f"{info['icon']} {label_t} ({info['unidad']})",
             styles["SubseccionTitulo"]
         ))
-        story.append(Paragraph(info["desc"], styles["CuerpoTexto"]))
+        story.append(Paragraph(desc_t, styles["CuerpoTexto"]))
         story.append(Spacer(1, 0.15*cm))
 
     story.append(PageBreak())
 
     # ── MAPAS INDIVIDUALES ────────────────────────────────────────────────────
-    story.append(Paragraph("6. Mapas de Calidad de Agua por Parámetro", styles["SeccionTitulo"]))
-    story.append(Paragraph(
-        "Los siguientes mapas representan la interpolación espacial RBF de cada "
-        "parámetro sobre el área de estudio, con los 7 puntos de muestreo "
-        "señalados con su valor observado.",
-        styles["CuerpoTexto"]
-    ))
+    story.append(Paragraph(t("pdf_sec6_titulo", lang), styles["SeccionTitulo"]))
+    story.append(Paragraph(t("pdf_sec6_texto", lang), styles["CuerpoTexto"]))
     story.append(Spacer(1, 0.3*cm))
 
     for col, info in mapas.items():
+        label_t = get_param_label(col, lang) if col in ("P_TOT","N_NH3","N_TOT","N_TOTK") else info["label"]
         if info.get("individual_buf") is not None:
             info["individual_buf"].seek(0)
             story.append(KeepTogether([
-                Paragraph(f"{info['icon']} {info['label']}", styles["SubseccionTitulo"]),
+                Paragraph(f"{info['icon']} {label_t}", styles["SubseccionTitulo"]),
                 RLImage(info["individual_buf"], width=15.5*cm, height=7*cm),
                 Spacer(1, 0.4*cm),
             ]))
@@ -318,32 +270,20 @@ def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
     story.append(PageBreak())
 
     # ── CONCLUSIONES ──────────────────────────────────────────────────────────
-    story.append(Paragraph("7. Conclusiones y Limitaciones", styles["SeccionTitulo"]))
-    story.append(Paragraph(
-        "Este reporte presenta una estimación espacial de calidad de agua basada "
-        "en sensores remotos, calibrada con datos de campo. Los parámetros con "
-        "mayor confiabilidad predictiva (OOB R² ≥ 0.60) son Fósforo Total, "
-        "N-Amoniaco y N-Total Kjeldahl, asociados a procesos de eutrofización y "
-        "contaminación orgánica detectables ópticamente.<br/><br/>"
-        "<b>Limitaciones:</b> (1) La interpolación entre 7 puntos fijos introduce "
-        "incertidumbre creciente con la distancia a los sitios de muestreo. "
-        "(2) Parámetros sin señal óptica directa (pH, Oxígeno Disuelto) fueron "
-        "excluidos del modelo por su OOB R² negativo. (3) Los resultados son "
-        "válidos para las condiciones atmosféricas e hidrológicas de la fecha "
-        "analizada y no deben extrapolarse sin validación adicional.",
-        styles["CuerpoTexto"]
-    ))
+    story.append(Paragraph(t("pdf_sec7_titulo", lang), styles["SeccionTitulo"]))
+    story.append(Paragraph(t("pdf_conclusiones_texto", lang), styles["CuerpoTexto"]))
     story.append(Spacer(1, 0.5*cm))
 
     story.append(Paragraph(
-        "<b>Citar como:</b> Rodríguez González, K.D. (2026). Water Quality Mapping — "
-        "Río Pesquería [Aplicación web]. Universidad Autónoma de Nuevo León, "
-        "Facultad de Ingeniería Civil, Departamento de Geomática.",
+        f"<b>{t('pdf_citar_como', lang)}:</b> Rodríguez González, K.D. (2026). "
+        f"Water Quality Mapping — Río Pesquería [Web Application]. "
+        f"Universidad Autónoma de Nuevo León, Facultad de Ingeniería Civil, "
+        f"Departamento de Geomática.",
         styles["CuerpoTextoChico"]
     ))
 
     from functools import partial
-    header_fn = partial(_draw_header_footer, logo_geo_path=logo_geo_path)
+    header_fn = partial(_draw_header_footer, logo_geo_path=logo_geo_path, lang=lang)
     doc.build(story, onFirstPage=header_fn, onLaterPages=header_fn)
     buf.seek(0)
     return buf
@@ -351,54 +291,45 @@ def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
 
 # ── FUNCIÓN: generar PDF de serie temporal completa ───────────────────────────
 def generar_pdf_serie_temporal(resultados_por_fecha, params_sel, bbox, n_puntos, PARAMS_DICT,
-                               logo_geo_path=None):
+                               logo_geo_path=None, lang="es"):
     """
     Genera un reporte PDF con la evolución temporal de todos los parámetros.
     resultados_por_fecha: dict {fecha_str: {param: {mean, max, min}}}
+    lang: "es", "en" o "pt"
     """
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=letter,
         topMargin=2.2*cm, bottomMargin=2*cm,
         leftMargin=2*cm, rightMargin=2*cm,
-        title="Reporte Serie Temporal - Calidad de Agua Río Pesquería"
+        title="Time Series Report - Pesqueria River Water Quality"
     )
     styles = get_pdf_styles()
     story = []
 
     story.append(Spacer(1, 1.5*cm))
-    story.append(Paragraph("💧 REPORTE DE SERIE TEMPORAL", styles["TituloPortada"]))
-    story.append(Paragraph("Calidad de Agua — Río Pesquería 2016–2019", styles["SubtituloPortada"]))
+    story.append(Paragraph(t("pdf_serie_titulo", lang), styles["TituloPortada"]))
+    story.append(Paragraph(t("pdf_serie_subtitulo", lang), styles["SubtituloPortada"]))
     story.append(Spacer(1, 0.4*cm))
     story.append(HRFlowable(width="60%", thickness=1.2, color=PDF_TEAL, hAlign="CENTER"))
     story.append(Spacer(1, 0.5*cm))
 
     n_fechas = len(resultados_por_fecha)
     story.append(Paragraph(
-        f"<b>Período analizado:</b> {n_fechas} fechas de muestreo (2016–2019)<br/>"
-        f"<b>Parámetros:</b> {len(params_sel)} variables fisicoquímicas<br/>"
-        f"<b>Modelo:</b> Random Forest v3 · Sentinel-2 SR<br/>"
-        f"<b>Generado:</b> {date.today().strftime('%d/%m/%Y')}",
+        f"<b>{t('pdf_serie_periodo', lang)}:</b> {n_fechas} {t('pdf_serie_fechas_muestreo', lang)}<br/>"
+        f"<b>{t('pdf_serie_parametros', lang)}:</b> {len(params_sel)} {t('pdf_serie_variables', lang)}<br/>"
+        f"<b>{t('pdf_modelo', lang)}:</b> Random Forest v3 · Sentinel-2 SR<br/>"
+        f"<b>{t('pdf_generado', lang)}:</b> {date.today().strftime('%d/%m/%Y')}",
         styles["MetaPortada"]
     ))
     story.append(Spacer(1, 1*cm))
 
-    story.append(Paragraph(
-        "Reporte generado automáticamente por el sistema de mapeo de calidad "
-        "de agua del Río Pesquería, basado en sensores remotos Sentinel-2 y "
-        "modelos de aprendizaje automático.",
-        styles["FootnoteCentro"]
-    ))
+    story.append(Paragraph(t("pdf_nota_auto", lang), styles["FootnoteCentro"]))
     story.append(PageBreak())
 
     # ── GRÁFICOS DE EVOLUCIÓN TEMPORAL ────────────────────────────────────────
-    story.append(Paragraph("1. Evolución Temporal por Parámetro", styles["SeccionTitulo"]))
-    story.append(Paragraph(
-        "Los siguientes gráficos muestran la media espacial estimada de cada "
-        "parámetro a lo largo del período de estudio, calculada sobre el área "
-        "completa del wmask mediante interpolación RBF.",
-        styles["CuerpoTexto"]
-    ))
+    story.append(Paragraph(t("pdf_serie_sec1", lang), styles["SeccionTitulo"]))
+    story.append(Paragraph(t("pdf_serie_sec1_texto", lang), styles["CuerpoTexto"]))
     story.append(Spacer(1, 0.3*cm))
 
     fechas_dt = sorted(resultados_por_fecha.keys())
@@ -406,6 +337,7 @@ def generar_pdf_serie_temporal(resultados_por_fecha, params_sel, bbox, n_puntos,
     for param in params_sel:
         if param not in PARAMS_DICT: continue
         cfg = PARAMS_DICT[param]
+        label_t = get_param_label(param, lang) if param in ("P_TOT","N_NH3","N_TOT","N_TOTK") else cfg["label"]
 
         medias, maximos, fechas_validas = [], [], []
         for f in fechas_dt:
@@ -421,11 +353,14 @@ def generar_pdf_serie_temporal(resultados_por_fecha, params_sel, bbox, n_puntos,
         fig_t.patch.set_facecolor("white")
         ax_t.set_facecolor("#FAFBFC")
 
-        ax_t.plot(fechas_validas, medias, "o-", color="#2E8B8B", lw=2, ms=5, label="Media espacial")
-        ax_t.fill_between(fechas_validas, medias, maximos, alpha=0.15, color="#E74C3C")
-        ax_t.plot(fechas_validas, maximos, "s--", color="#E74C3C", lw=1, ms=3, label="Máximo espacial")
+        media_label = t("pdf_serie_media_espacial", lang)
+        max_label   = t("pdf_serie_maximo_espacial", lang)
 
-        ax_t.set_title(f"{cfg['label']} — Evolución 2016-2019",
+        ax_t.plot(fechas_validas, medias, "o-", color="#2E8B8B", lw=2, ms=5, label=media_label)
+        ax_t.fill_between(fechas_validas, medias, maximos, alpha=0.15, color="#E74C3C")
+        ax_t.plot(fechas_validas, maximos, "s--", color="#E74C3C", lw=1, ms=3, label=max_label)
+
+        ax_t.set_title(f"{label_t} — {t('pdf_serie_evolucion', lang)}",
                        fontsize=10, fontweight="bold", color="#1A4F7A")
         ax_t.set_ylabel(cfg["unidad"], fontsize=8)
         ax_t.tick_params(axis="x", rotation=40, labelsize=7)
@@ -448,9 +383,13 @@ def generar_pdf_serie_temporal(resultados_por_fecha, params_sel, bbox, n_puntos,
     story.append(PageBreak())
 
     # ── TABLA RESUMEN POR FECHA ───────────────────────────────────────────────
-    story.append(Paragraph("2. Tabla Resumen — Medias por Fecha", styles["SeccionTitulo"]))
+    story.append(Paragraph(t("pdf_serie_sec2", lang), styles["SeccionTitulo"]))
 
-    header = ["Fecha"] + [PARAMS_DICT[p]["label"] if p in PARAMS_DICT else p for p in params_sel]
+    header = [t("pdf_serie_fecha", lang)] + [
+        get_param_label(p, lang) if p in ("P_TOT","N_NH3","N_TOT","N_TOTK")
+        else (PARAMS_DICT[p]["label"] if p in PARAMS_DICT else p)
+        for p in params_sel
+    ]
     rows = [header]
     for f in fechas_dt:
         fila = [pd.to_datetime(f).strftime("%d/%m/%Y")]
@@ -479,39 +418,35 @@ def generar_pdf_serie_temporal(resultados_por_fecha, params_sel, bbox, n_puntos,
     story.append(PageBreak())
 
     # ── INTERPRETACIÓN TEMPORAL ───────────────────────────────────────────────
-    story.append(Paragraph("3. Interpretación de Tendencias", styles["SeccionTitulo"]))
+    story.append(Paragraph(t("pdf_serie_sec3", lang), styles["SeccionTitulo"]))
 
     interp_parts = []
     for param in params_sel:
         if param not in PARAMS_DICT: continue
         cfg = PARAMS_DICT[param]
+        label_t = get_param_label(param, lang) if param in ("P_TOT","N_NH3","N_TOT","N_TOTK") else cfg["label"]
         vals = [resultados_por_fecha[f][param]["mean"]
                for f in fechas_dt if param in resultados_por_fecha[f]]
         if len(vals) < 2: continue
 
-        tendencia = "incremento" if vals[-1] > vals[0] else "disminución"
+        tendencia = (t("pdf_serie_tendencia_incremento", lang) if vals[-1] > vals[0]
+                    else t("pdf_serie_tendencia_disminucion", lang))
         cambio_pct = abs((vals[-1] - vals[0]) / (vals[0] + 1e-9)) * 100
 
         interp_parts.append(
-            f"<b>{cfg['label']}</b>: se observa una tendencia de {tendencia} de "
-            f"aproximadamente {cambio_pct:.0f}% entre el inicio y el final del "
-            f"período analizado (de {vals[0]:.2f} a {vals[-1]:.2f} {cfg['unidad']})."
+            f"<b>{label_t}</b>: {t('pdf_serie_tendencia_texto', lang)} {tendencia} "
+            f"~{cambio_pct:.0f}% {t('pdf_serie_tendencia_texto2', lang)} "
+            f"{vals[0]:.2f} {t('pdf_serie_tendencia_texto3', lang)} "
+            f"{vals[-1]:.2f} {cfg['unidad']})."
         )
 
     story.append(Paragraph(" ".join(interp_parts), styles["CuerpoTexto"]))
     story.append(Spacer(1, 0.4*cm))
 
-    story.append(Paragraph(
-        "<b>Nota metodológica:</b> Las variaciones temporales pueden estar "
-        "influenciadas por estacionalidad (temporada seca vs. lluviosa), cambios "
-        "en el caudal del río, y eventos puntuales de descarga. Se recomienda "
-        "complementar este análisis con datos de precipitación y caudal para "
-        "una interpretación hidrológica completa.",
-        styles["CuerpoTextoChico"]
-    ))
+    story.append(Paragraph(t("pdf_serie_nota_metodologica", lang), styles["CuerpoTextoChico"]))
 
     from functools import partial
-    header_fn2 = partial(_draw_header_footer, logo_geo_path=logo_geo_path)
+    header_fn2 = partial(_draw_header_footer, logo_geo_path=logo_geo_path, lang=lang)
     doc.build(story, onFirstPage=header_fn2, onLaterPages=header_fn2)
     buf.seek(0)
     return buf

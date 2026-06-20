@@ -16,6 +16,7 @@ import ee
 import imageio.v2 as imageio
 from datetime import date as date_cls
 warnings.filterwarnings("ignore")
+from i18n import t, IDIOMAS, get_param_label, get_param_desc, get_indice_nombre, get_indice_desc
 from pdf_report_module import generar_pdf_fecha_unica, generar_pdf_serie_temporal
 
 # ── Assets ────────────────────────────────────────────────────────────────────
@@ -69,6 +70,11 @@ def make_cmap(pal):
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Water Quality RF — Río Pesquería", page_icon="💧", layout="wide")
+
+# ── Estado del idioma (debe inicializarse antes de cualquier texto) ──────────
+if "lang" not in st.session_state:
+    st.session_state["lang"] = "es"
+LANG = st.session_state["lang"]
 
 st.markdown("""
 <style>
@@ -619,93 +625,106 @@ logo_g = f'<img class="hdr-logo-img" src="data:image/png;base64,{GEO_B64}">'  if
 st.markdown(f"""
 <div class="hdr">
   <div class="hdr-logos">{logo_u}<div class="hdr-sep"></div>{logo_f}<div class="hdr-sep"></div>{logo_g}</div>
-  <div class="app-title">💧 Water Quality Mapping</div>
-  <div class="app-sub">Río Pesquería, Nuevo León, México &nbsp;·&nbsp;
-    Random Forest v3 · Sentinel-2 SR 2016–2019 &nbsp;·&nbsp;
-    Universidad Autónoma de Nuevo León · FIC · Depto. Geomática</div>
+  <div class="app-title">{t("app_title", LANG)}</div>
+  <div class="app-sub">{t("app_subtitle", LANG)}</div>
 </div>
 """, unsafe_allow_html=True)
 
 if model_data is None:
-    _err = st.session_state.get("_model_load_error", "Causa desconocida")
-    st.error(f"⚠️ No se pudo cargar el modelo. Detalle: {_err}")
+    _err = st.session_state.get("_model_load_error", "Unknown")
+    st.error(f'{t("error_modelo", LANG)} {_err}')
     st.stop()
-if df_global  is None: st.error("⚠️ INDICES_completo.csv no encontrado"); st.stop()
+if df_global is None:
+    st.error(t("error_csv", LANG)); st.stop()
 
 col_status1, col_status2 = st.columns(2)
 with col_status1:
-    st.success("✅  Modelo cargado  ·  Datos de muestreo 2016–2019 listos")
+    st.success(t("modelo_cargado", LANG))
 with col_status2:
     if GEE_OK:
-        st.success("✅  Conexión a Google Earth Engine activa")
+        st.success(t("gee_activo", LANG))
     else:
-        st.warning(f"⚠️  GEE no disponible — se usará imagen de referencia.")
+        st.warning(t("gee_no_disponible", LANG))
 
 st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown('<div class="slabel">📍 Área de estudio</div>', unsafe_allow_html=True)
-    st.caption("Comprime: .shp + .dbf + .prj + .cpg → ZIP")
-    wmask_zip = st.file_uploader("Sube wmask.zip", type=["zip"])
+    st.markdown(f'<div class="slabel">{t("sidebar_idioma", LANG)}</div>', unsafe_allow_html=True)
+    lang_sel = st.selectbox(
+        "", options=list(IDIOMAS.keys()),
+        index=list(IDIOMAS.keys()).index(LANG),
+        format_func=lambda k: IDIOMAS[k],
+        key="lang_selectbox", label_visibility="collapsed"
+    )
+    if lang_sel != st.session_state["lang"]:
+        st.session_state["lang"] = lang_sel
+        st.rerun()
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown('<div class="slabel">🧪 Fecha de muestreo</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="slabel">{t("sidebar_area", LANG)}</div>', unsafe_allow_html=True)
+    st.caption(t("sidebar_area_caption", LANG))
+    wmask_zip = st.file_uploader(t("sidebar_upload", LANG), type=["zip"])
+
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
+    st.markdown(f'<div class="slabel">{t("sidebar_fecha_muestreo", LANG)}</div>', unsafe_allow_html=True)
     fecha_campo = st.selectbox("", FECHAS_CAMPO, index=16,
         format_func=lambda f: pd.to_datetime(f, format="%m/%d/%Y").strftime("%d %b %Y"))
     fecha_dt = pd.to_datetime(fecha_campo, format="%m/%d/%Y")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown('<div class="slabel">🛰️ Rango imagen Sentinel-2</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="slabel">{t("sidebar_rango_s2", LANG)}</div>', unsafe_allow_html=True)
     col_d1, col_d2 = st.columns(2)
     with col_d1:
-        fecha_ini = st.date_input("Desde", value=fecha_dt.date()-timedelta(days=8),
+        fecha_ini = st.date_input(t("sidebar_desde", LANG), value=fecha_dt.date()-timedelta(days=8),
                                   min_value=date(2015,6,1), max_value=date(2025,12,31))
     with col_d2:
-        fecha_fin = st.date_input("Hasta", value=fecha_dt.date()+timedelta(days=8),
+        fecha_fin = st.date_input(t("sidebar_hasta", LANG), value=fecha_dt.date()+timedelta(days=8),
                                   min_value=date(2015,6,1), max_value=date(2025,12,31))
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown('<div class="slabel">☁️ Filtro de nubes</div>', unsafe_allow_html=True)
-    max_nubes = st.slider("Máx. cobertura (%)", 0, 50, 15, 5)
+    st.markdown(f'<div class="slabel">{t("sidebar_filtro_nubes", LANG)}</div>', unsafe_allow_html=True)
+    max_nubes = st.slider(t("sidebar_max_nubes", LANG), 0, 50, 15, 5)
 
     if fecha_ini >= fecha_fin:
-        st.error("⚠️ Fecha inicio debe ser anterior a fin")
+        st.error(t("sidebar_fecha_error", LANG))
     else:
         dias = (fecha_fin - fecha_ini).days
         mid  = fecha_ini + (fecha_fin - fecha_ini)/2
         des  = abs((fecha_dt.date() - mid).days)
-        if des <= 5:   st.success(f"✅ Desfase: {des} días")
-        elif des <= 12: st.warning(f"⚠️ Desfase: {des} días")
-        else:           st.error(f"❌ Desfase: {des} días")
+        _d_word = t("sidebar_dias", LANG)
+        if des <= 5:   st.success(f"✅ {t('sidebar_desfase', LANG)}: {des} {_d_word}")
+        elif des <= 12: st.warning(f"⚠️ {t('sidebar_desfase', LANG)}: {des} {_d_word}")
+        else:           st.error(f"❌ {t('sidebar_desfase', LANG)}: {des} {_d_word}")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown('<div class="slabel">🔬 Parámetros a mapear</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="slabel">{t("sidebar_parametros", LANG)}</div>', unsafe_allow_html=True)
     params_sel = st.multiselect("", list(PARAMS.keys()), default=list(PARAMS.keys()),
-        format_func=lambda p: f"{PARAMS[p]['label']} ({PARAMS[p]['unidad']})")
+        format_func=lambda p: f"{get_param_label(p, LANG)} ({PARAMS[p]['unidad']})")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown('<div class="slabel">🎯 Resolución</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="slabel">{t("sidebar_resolucion", LANG)}</div>', unsafe_allow_html=True)
     resolucion = st.select_slider("", options=[200,300,400,500], value=400,
         format_func=lambda v: f"{v}×{v}")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
     valid = (wmask_zip is not None and params_sel and fecha_ini < fecha_fin)
-    correr = st.button("🗺️  Generar Mapas", type="primary",
+    correr = st.button(t("sidebar_generar_mapas", LANG), type="primary",
                        use_container_width=True, disabled=not valid)
     if wmask_zip is None:
-        st.warning("⬆️  Sube tu wmask.zip para continuar")
+        st.warning(t("sidebar_sube_wmask_warn", LANG))
 
 # ── PANTALLA INICIAL ──────────────────────────────────────────────────────────
 if not correr:
     c1,c2,c3 = st.columns(3)
-    for col,(t,b) in zip([c1,c2,c3],[
-        ("① Configura","Sube tu <b>wmask.zip</b>, elige fecha de muestreo y rango Sentinel-2."),
-        ("② Verifica imagen","Se busca automáticamente en GEE la imagen real con menos nubes del período."),
-        ("③ Genera y Descarga","Panel PNG · Mapas individuales ZIP · Estadísticas espaciales"),
-    ]):
+    for col, paso_titulo, paso_texto in zip(
+        [c1,c2,c3],
+        [t("paso1_titulo",LANG), t("paso2_titulo",LANG), t("paso3_titulo",LANG)],
+        [t("paso1_texto",LANG), t("paso2_texto",LANG), t("paso3_texto",LANG)],
+    ):
         with col:
-            st.markdown(f'<div class="step-box"><div class="step-t">{t}</div><div class="step-b">{b}</div></div>',
+            st.markdown(f'<div class="step-box"><div class="step-t">{paso_titulo}</div>'
+                       f'<div class="step-b">{paso_texto}</div></div>',
                        unsafe_allow_html=True)
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
@@ -725,17 +744,17 @@ if not correr:
                 st.error(f"Error: {e}"); wmask_prev = None
 
         if wmask_prev is not None:
-            st.markdown('<div class="sec-t">🛰️ Previsualización del Área de Estudio</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="sec-t">{t("previsualizacion_titulo", LANG)}</div>', unsafe_allow_html=True)
 
             tile_urls, s2_info = {}, {}
             if GEE_OK:
-                with st.spinner("Buscando imagen Sentinel-2 y calculando indices espectrales..."):
+                with st.spinner(t("buscando_imagen", LANG)):
                     s2_info, tile_urls = buscar_imagen_s2(
                         bbox_prev, fecha_ini.strftime("%Y-%m-%d"),
                         fecha_fin.strftime("%Y-%m-%d"), max_nubes)
 
             st.markdown('<div class="map-panel">', unsafe_allow_html=True)
-            st.markdown('<div class="map-title">🛰️ Imagen Satelital — Rio Pesqueria</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="map-title">{t("imagen_satelital_titulo", LANG)}</div>', unsafe_allow_html=True)
 
             mapa_f = build_folium_map_s2(wmask_prev, COORDS, bbox_prev, tile_urls=tile_urls, height=460)
             st_folium(mapa_f, width="100%", height=460, returned_objects=[])
@@ -743,42 +762,42 @@ if not correr:
             if s2_info.get("n_imagenes", 0) == 0:
                 st.markdown(f"""
                 <div class="map-meta">
-                  <span class="chip chip-bad">❌ Sin imágenes en este rango con &lt;{max_nubes}% nubes</span>
-                  <br>Amplía el rango de fechas o aumenta el umbral de nubes en el sidebar.
+                  <span class="chip chip-bad">{t("sin_imagenes", LANG)} (&lt;{max_nubes}%)</span>
+                  <br>{t("amplia_rango", LANG)}
                 </div></div>""", unsafe_allow_html=True)
             elif "error" in s2_info:
                 st.markdown(f"""
                 <div class="map-meta">
-                  <span class="chip chip-warn">⚠️ Mostrando capa de referencia (Esri actual)</span>
-                  <br>No se pudo conectar a GEE.
+                  <span class="chip chip-warn">{t("capa_referencia", LANG)}</span>
+                  <br>{t("no_conexion_gee", LANG)}
                 </div></div>""", unsafe_allow_html=True)
             else:
                 n_imgs   = s2_info.get("n_imagenes", 0)
                 nubes_real = s2_info.get("nubes_pct", "N/D")
                 st.markdown(f"""
                 <div class="map-meta">
-                  <span class="chip">✅ {n_imgs} imagen(es) encontrada(s)</span>
-                  <span class="chip">☁️ Nubes reales: {nubes_real}%</span>
+                  <span class="chip">✅ {n_imgs} {t("imagenes_encontradas", LANG)}</span>
+                  <span class="chip">☁️ {t("nubes_reales", LANG)}: {nubes_real}%</span>
                   <span class="chip">📅 {fecha_ini.strftime('%d %b')} → {fecha_fin.strftime('%d %b %Y')}</span>
-                  <span class="chip">🧪 Muestreo: {fecha_dt.strftime('%d %b %Y')}</span><br>
-                  <b style="color:#fff">5 capas disponibles</b>: usa el panel de capas a la derecha
-                  del mapa para alternar entre RGB, NDVI (vegetación), NDWI y MNDWI (agua),
-                  y NDTI (turbidez) — la misma imagen que usará el modelo.
+                  <span class="chip">🧪 {t("muestreo", LANG)}: {fecha_dt.strftime('%d %b %Y')}</span><br>
+                  {t("capas_disponibles", LANG)}
                 </div></div>""", unsafe_allow_html=True)
 
                 # Leyenda de indices espectrales disponibles
                 st.markdown('<div class="map-panel" style="margin-top:.6rem">', unsafe_allow_html=True)
-                st.markdown('<div class="map-title">📡 Indices Espectrales Disponibles en el Mapa</div>',
+                st.markdown(f'<div class="map-title">{t("indices_disponibles_titulo", LANG)}</div>',
                            unsafe_allow_html=True)
                 idx_cols = st.columns(5)
                 for ic, idx_key in zip(idx_cols, ["RGB","NDVI","NDWI","MNDWI","NDTI"]):
                     cfg = INDICES_VIZ[idx_key]
+                    idx_nombre_t = get_indice_nombre(idx_key, LANG)
+                    idx_desc_t = get_indice_desc(idx_key, LANG) if idx_key != "RGB" else ""
                     with ic:
                         st.markdown(f"""
                         <div style="font-size:.72rem;color:#8EAAC8;line-height:1.5;
                                     border-left:2px solid #2E8B8B;padding-left:8px">
-                          <b style="color:#fff;font-size:.78rem">{cfg['nombre']}</b><br>
-                          {cfg['desc']}
+                          <b style="color:#fff;font-size:.78rem">{idx_nombre_t}</b><br>
+                          {idx_desc_t}
                         </div>""", unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -786,163 +805,143 @@ if not correr:
                 if GEE_OK and s2_info.get("n_imagenes", 0) > 0:
                     st.markdown('<div class="map-panel" style="margin-top:.6rem">',
                                unsafe_allow_html=True)
-                    st.markdown('<div class="map-title">⬇️ Descargar Capas en GeoTIFF</div>',
+                    st.markdown(f'<div class="map-title">{t("tiff_titulo", LANG)}</div>',
                                unsafe_allow_html=True)
-                    st.caption("Descarga cada banda/índice como archivo .tif georreferenciado "
-                              "(EPSG:4326, 10m/píxel) listo para QGIS o ArcGIS.")
+                    st.caption(t("tiff_caption", LANG))
 
                     tiff_cols = st.columns(5)
                     for tc, idx_key in zip(tiff_cols, ["RGB","NDVI","NDWI","MNDWI","NDTI"]):
                         with tc:
                             if st.button(f"📥 {idx_key}", key=f"tiff_{idx_key}",
                                         use_container_width=True):
-                                with st.spinner(f"Generando enlace de descarga {idx_key}..."):
+                                with st.spinner(f'{t("tiff_generando", LANG)} {idx_key}...'):
                                     url_tiff = obtener_url_descarga_tiff(
                                         bbox_prev, fecha_ini.strftime("%Y-%m-%d"),
                                         fecha_fin.strftime("%Y-%m-%d"), max_nubes, idx_key
                                     )
                                 if url_tiff:
-                                    st.success("✅ Listo")
-                                    st.markdown(f"[⬇️ Descargar {idx_key}.tif]({url_tiff})")
+                                    st.success(t("tiff_listo", LANG))
+                                    st.markdown(f"[{t('tiff_descargar', LANG)} {idx_key}.tif]({url_tiff})")
                                 else:
-                                    st.error("No se pudo generar el enlace")
+                                    st.error(t("tiff_error", LANG))
                     st.markdown("</div>", unsafe_allow_html=True)
 
                 # ── Animación GIF Sentinel-2 (RGB e índices reales) ──────────
                 if GEE_OK and s2_info.get("n_imagenes", 0) > 0:
                     st.markdown('<div class="map-panel" style="margin-top:.6rem">',
                                unsafe_allow_html=True)
-                    st.markdown('<div class="map-title">🎬 Animación Temporal Sentinel-2 (GIF)</div>',
+                    st.markdown(f'<div class="map-title">{t("gif_titulo", LANG)}</div>',
                                unsafe_allow_html=True)
-                    st.caption(
-                        "Genera un GIF animado con imágenes Sentinel-2 reales del rango de "
-                        "fechas que definiste arriba en el sidebar (🛰️ Rango imagen Sentinel-2). "
-                        "El rango se divide automáticamente en sub-períodos para mostrar la "
-                        "evolución temporal real del área de estudio."
-                    )
+                    st.caption(t("gif_caption", LANG))
 
                     col_gifc1, col_gifc2 = st.columns([2,1])
                     with col_gifc1:
                         capa_gif_sel = st.selectbox(
-                            "Capa a animar",
+                            t("gif_capa_animar", LANG),
                             options=["RGB","NDVI","NDWI","MNDWI","NDTI"],
-                            format_func=lambda k: INDICES_VIZ[k]["nombre"],
+                            format_func=lambda k: get_indice_nombre(k, LANG),
                             key="capa_gif_select"
                         )
                     with col_gifc2:
-                        n_frames_sel = st.slider("Máx. fotogramas", 2, 10, 6,
+                        n_frames_sel = st.slider(t("gif_max_fotogramas", LANG), 2, 10, 6,
                                                  key="n_frames_gif")
 
                     dias_rango = (fecha_fin - fecha_ini).days
-                    st.caption(f"📅 Rango actual: {fecha_ini.strftime('%d %b %Y')} → "
-                              f"{fecha_fin.strftime('%d %b %Y')} ({dias_rango} días) · "
-                              f"☁️ Nubes < {max_nubes}%")
+                    st.caption(f'📅 {t("gif_rango_actual", LANG)}: {fecha_ini.strftime("%d %b %Y")} → '
+                              f'{fecha_fin.strftime("%d %b %Y")} ({dias_rango} {t("sidebar_dias", LANG)}) · '
+                              f'☁️ {t("gif_nubes", LANG)} < {max_nubes}%')
 
                     if dias_rango < 30:
-                        st.warning(
-                            "⚠️ El rango de fechas es corto para una animación significativa. "
-                            "Amplía el rango '🛰️ Rango imagen Sentinel-2' en el sidebar para "
-                            "cubrir varios meses o años."
-                        )
+                        st.warning(t("gif_rango_corto_warn", LANG))
 
                     gen_gif_s2 = st.button(
-                        "🎬  Generar Animación Sentinel-2", use_container_width=True,
+                        t("gif_generar_btn", LANG), use_container_width=True,
                         type="primary", key="btn_gif_s2"
                     )
 
                     if gen_gif_s2:
-                        with st.spinner(
-                            f"Descargando imágenes Sentinel-2 y generando animación... "
-                            f"(puede tardar 1-3 minutos según el número de fotogramas)"
-                        ):
+                        with st.spinner(t("gif_generando", LANG)):
                             buf_gif_s2, n_frames_ok, fechas_usadas_gif = generar_gif_sentinel2(
                                 capa_gif_sel, bbox_prev, fecha_ini, fecha_fin, max_nubes,
                                 n_frames_max=n_frames_sel, wmask_gdf=wmask_prev
                             )
 
                         if buf_gif_s2 is not None:
-                            st.success(f"✅ Animación generada con {n_frames_ok} fotogramas: "
-                                      f"{', '.join(fechas_usadas_gif)}")
+                            st.success(f'{t("gif_exito", LANG)} {n_frames_ok} {t("gif_fotogramas", LANG)}: '
+                                      f'{", ".join(fechas_usadas_gif)}')
                             st.image(buf_gif_s2.getvalue(),
-                                    caption=f"{INDICES_VIZ[capa_gif_sel]['nombre']} — "
-                                            f"evolución temporal real")
+                                    caption=f"{get_indice_nombre(capa_gif_sel, LANG)}")
                             st.download_button(
-                                "📥  Descargar Animación GIF",
+                                t("gif_descargar_btn", LANG),
                                 buf_gif_s2.getvalue(),
                                 f"Animacion_S2_{capa_gif_sel}_"
                                 f"{fecha_ini.strftime('%Y%m%d')}_{fecha_fin.strftime('%Y%m%d')}.gif",
                                 "image/gif", use_container_width=True
                             )
                         else:
-                            st.warning(
-                                "No se encontraron suficientes imágenes Sentinel-2 sin nubes "
-                                "en el rango seleccionado. Intenta ampliar el rango de fechas "
-                                "o aumentar el umbral de nubes permitido."
-                            )
+                            st.warning(t("gif_sin_imagenes", LANG))
                     st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown('<hr class="divider">', unsafe_allow_html=True)
             ci1,ci2,ci3 = st.columns(3)
             with ci1:
-                st.markdown('<div class="info-panel"><div class="info-title">📐 Bbox</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="info-panel"><div class="info-title">{t("bbox_titulo", LANG)}</div>', unsafe_allow_html=True)
                 st.markdown(f"""<div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">
                   <b style="color:#fff">Lon</b>: {lon_min:.5f}° → {lon_max:.5f}°<br>
                   <b style="color:#fff">Lat</b>: {lat_min:.5f}° → {lat_max:.5f}°<br>
-                  <b style="color:#fff">Polígonos</b>: {len(wmask_prev)}
+                  <b style="color:#fff">{t("bbox_poligonos", LANG)}</b>: {len(wmask_prev)}
                 </div></div>""", unsafe_allow_html=True)
             with ci2:
-                st.markdown('<div class="info-panel"><div class="info-title">🛰️ Sentinel-2</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="info-panel"><div class="info-title">{t("s2_titulo", LANG)}</div>', unsafe_allow_html=True)
                 dias=(fecha_fin-fecha_ini).days
                 st.markdown(f"""<div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">
-                  <b style="color:#fff">Colección</b>: S2_SR_HARMONIZED<br>
+                  <b style="color:#fff">{t("s2_coleccion", LANG)}</b>: S2_SR_HARMONIZED<br>
                   <b style="color:#fff">RGB</b>: B4·B3·B2 (10m)<br>
-                  <b style="color:#fff">Rango</b>: {dias} días · Nubes&lt;{max_nubes}%
+                  <b style="color:#fff">{t("s2_rango", LANG)}</b>: {dias} {t("sidebar_dias", LANG)} · Clouds&lt;{max_nubes}%
                 </div></div>""", unsafe_allow_html=True)
             with ci3:
-                st.markdown('<div class="info-panel"><div class="info-title">🔬 Parámetros</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="info-panel"><div class="info-title">{t("parametros_titulo_corto", LANG)}</div>', unsafe_allow_html=True)
                 ph = "".join(f'<div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">'
                             f'<span style="color:{PARAMS[p]["color"]}">{PARAMS[p]["icon"]}</span> '
-                            f'<b style="color:#fff">{PARAMS[p]["label"]}</b></div>' for p in params_sel)
+                            f'<b style="color:#fff">{get_param_label(p, LANG)}</b></div>' for p in params_sel)
                 st.markdown(ph + "</div>", unsafe_allow_html=True)
     else:
-        st.markdown('<div class="sec-t">📍 Puntos de Muestreo</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="sec-t">{t("puntos_titulo", LANG)}</div>', unsafe_allow_html=True)
         st.map(pd.DataFrame([{"lat":c[1],"lon":c[0]} for c in COORDS.values()]))
-        st.info("⬅️  Sube tu **wmask.zip** para ver la imagen Sentinel-2 real del área.")
+        st.info(t("sube_wmask_para_ver", LANG))
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown('<div class="sec-t">📊 Parámetros Fisicoquímicos del Modelo</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sec-t">{t("parametros_seccion_titulo", LANG)}</div>', unsafe_allow_html=True)
     for col,cfg in PARAMS.items():
+        label_t = get_param_label(col, LANG)
+        desc_t  = get_param_desc(col, LANG)
         st.markdown(f"""<div class="param-card">
-          <div class="param-hdr"><div class="param-name">{cfg["icon"]} &nbsp;{cfg["label"]}</div>
-          <span class="param-oob">OOB R² = {cfg["oob"]:.3f} · Validado ✓</span></div>
-          <div class="param-desc">{cfg["desc"]}</div>
+          <div class="param-hdr"><div class="param-name">{cfg["icon"]} &nbsp;{label_t}</div>
+          <span class="param-oob">OOB R² = {cfg["oob"]:.3f} · {t("param_validado", LANG)}</span></div>
+          <div class="param-desc">{desc_t}</div>
           <div class="param-meta">
-            <div class="pmi">Unidad: <span class="pmv">{cfg["unidad"]}</span></div>
-            <div class="pmi">Rango: <span class="pmv">{cfg["vmin"]}–{cfg["vmax"]} {cfg["unidad"]}</span></div>
-            <div class="pmi">Estado: <span class="pmv">🟢 Bueno</span></div>
+            <div class="pmi">{t("param_unidad", LANG)}: <span class="pmv">{cfg["unidad"]}</span></div>
+            <div class="pmi">{t("param_rango", LANG)}: <span class="pmv">{cfg["vmin"]}–{cfg["vmax"]} {cfg["unidad"]}</span></div>
+            <div class="pmi">{t("param_estado", LANG)}: <span class="pmv">{t("param_bueno", LANG)}</span></div>
           </div></div>""", unsafe_allow_html=True)
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
 
     # ── Reporte de Serie Temporal Completa (opcional) ──────────────────────────
-    st.markdown('<div class="sec-t">📈 Reporte de Serie Temporal Completa</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sec-t">{t("serie_titulo", LANG)}</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="step-box"><div class="step-b">Genera un PDF con la '
-        'evolución 2016–2019 de los parámetros seleccionados, incluyendo '
-        'gráficos de tendencia, tabla resumen e interpretación automática. '
-        'Requiere haber subido tu wmask.zip.</div></div>',
+        f'<div class="step-box"><div class="step-b">{t("serie_caption", LANG)}</div></div>',
         unsafe_allow_html=True
     )
     st.markdown("<br>", unsafe_allow_html=True)
 
-    gen_serie = st.button("📈  Generar Reporte de Serie Temporal (PDF)",
+    gen_serie = st.button(t("serie_generar_btn", LANG),
                           use_container_width=True,
                           disabled=(wmask_zip is None or not params_sel))
 
     if gen_serie and wmask_zip is not None:
-        with st.spinner("Calculando serie temporal para todas las fechas disponibles... "
-                        "(puede tardar 1-2 minutos)"):
+        with st.spinner(t("serie_calculando", LANG)):
             try:
                 with tempfile.TemporaryDirectory() as tmpdir2:
                     with zipfile.ZipFile(wmask_zip, "r") as z: z.extractall(tmpdir2)
@@ -1014,34 +1013,34 @@ if not correr:
                         resultados_por_fecha, params_sel, bounds_serie,
                         len(puntos_uniq_s), PARAMS, logo_geo_path=_logo_geo_path_s
                     )
-                    st.success(f"✅ Reporte generado con {len(resultados_por_fecha)} fechas")
+                    st.success(f'{t("serie_exito", LANG)} {len(resultados_por_fecha)} {t("serie_fechas", LANG)}')
                     st.download_button(
-                        "📥  Descargar Reporte de Serie Temporal (PDF)",
+                        t("serie_descargar_btn", LANG),
                         pdf_serie_buf.getvalue(),
                         f"Reporte_SerieTemporal_Pesqueria_{date_cls.today().strftime('%Y%m%d')}.pdf",
                         "application/pdf", use_container_width=True, type="primary"
                     )
                 else:
-                    st.warning("No hay suficientes fechas con datos válidos para generar la serie.")
+                    st.warning(t("serie_sin_datos", LANG))
 
             except Exception as e:
-                st.error(f"Error generando reporte de serie temporal: {e}")
+                st.error(f'{t("serie_error", LANG)} {e}')
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    st.markdown('<div class="sec-t">👨‍🔬 Investigador Principal</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sec-t">{t("investigador_titulo", LANG)}</div>', unsafe_allow_html=True)
     photo_src = f"data:image/png;base64,{PHOTO_B64}" if PHOTO_B64 else ""
     st.markdown(f"""<div class="researcher-card">
       <img class="rphoto" src="{photo_src}">
       <div><div class="rname">Kevin David Rodríguez González</div>
-      <div class="rtitle">PhD Student · Environmental Water Quality &amp; Remote Sensing</div>
-      <div class="rdept">Departamento de Geomática · Facultad de Ingeniería Civil · UANL</div>
+      <div class="rtitle">{t("investigador_cargo", LANG)}</div>
+      <div class="rdept">{t("investigador_depto", LANG)}</div>
       <div class="rlinks">
         <a class="rlink" href="mailto:krodriguezge@uanl.edu.mx">✉ krodriguezge@uanl.edu.mx</a>
         <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">🔗 ORCID</a>
       </div></div></div>""", unsafe_allow_html=True)
 
-    st.markdown("""<div class="footer">Sentinel-2 SR · UANL · FIC · Depto. Geomática</div>""",
+    st.markdown(f"""<div class="footer">{t("footer_texto", LANG)}</div>""",
                unsafe_allow_html=True)
     st.stop()
 
@@ -1059,7 +1058,7 @@ fecha_campo_dt = pd.to_datetime(fecha_campo, format="%m/%d/%Y")
 df_fecha = df_global[df_global["target_date"]==fecha_campo_dt]
 progress.progress(10)
 
-status.text("Cargando shapefile...")
+status.text(t("cargando_shapefile", LANG))
 with tempfile.TemporaryDirectory() as tmpdir:
     with zipfile.ZipFile(wmask_zip,"r") as z: z.extractall(tmpdir)
     shp=[f for f in os.listdir(tmpdir) if f.endswith(".shp")]
@@ -1073,7 +1072,7 @@ progress.progress(25)
 # Capturar imagen RGB satelital del area de estudio para el reporte PDF
 rgb_satelital_buf = None
 if GEE_OK:
-    status.text("Obteniendo imagen satelital del área de estudio...")
+    status.text(t("obteniendo_imagen", LANG))
     try:
         _, tile_urls_pdf = buscar_imagen_s2(
             tuple(bounds), fecha_ini.strftime("%Y-%m-%d"),
@@ -1102,7 +1101,7 @@ if GEE_OK:
         rgb_satelital_buf = None
 progress.progress(35)
 
-status.text("Generando grilla...")
+status.text(t("generando_grilla", LANG))
 lon_min,lat_min,lon_max,lat_max = bounds
 RES = resolucion
 lon_vec=np.linspace(lon_min,lon_max,RES); lat_vec=np.linspace(lat_min,lat_max,RES)
@@ -1113,7 +1112,7 @@ mask_flat=np.array([union_geom.contains(Point(x,y)) for x,y in pts_grid])
 mask_2d=mask_flat.reshape(RES,RES)
 progress.progress(60)
 
-status.text("Aplicando modelo RF...")
+status.text(t("aplicando_modelo", LANG))
 mapas={}
 for col in params_sel:
     if col not in PARAMS or col not in modelos: continue
@@ -1134,7 +1133,7 @@ for col in params_sel:
     mapas[col]={"data":z_2d,"vals_puntos":vals,**cfg}
 progress.progress(80)
 
-status.text("Generando visualizaciones...")
+status.text(t("generando_visualizaciones", LANG))
 n=len(mapas); ncols=min(n,2); nrows=(n+ncols-1)//ncols
 fig,axes=plt.subplots(nrows,ncols,figsize=(ncols*7,nrows*5.5))
 fig.patch.set_facecolor("#0D1117")
@@ -1200,22 +1199,22 @@ buf_panel=io.BytesIO()
 fig.savefig(buf_panel,dpi=150,bbox_inches="tight",facecolor="#0D1117")
 plt.close(fig); progress.progress(100); status.empty()
 
-st.success(f"✅  {n} mapas — {fecha_campo_dt.strftime('%d/%m/%Y')} · {temp}")
-st.image(buf_panel,caption="Panel de calidad de agua · Río Pesquería · UANL",use_column_width=True)
+st.success(f'✅  {n} {t("mapas_generados", LANG)} {fecha_campo_dt.strftime("%d/%m/%Y")} · {temp}')
+st.image(buf_panel,caption=t("panel_caption", LANG),use_column_width=True)
 
-st.markdown('<div class="sec-t">📥 Descargar resultados</div>',unsafe_allow_html=True)
+st.markdown(f'<div class="sec-t">{t("descargar_resultados", LANG)}</div>',unsafe_allow_html=True)
 dl1,dl2,dl3=st.columns(3)
 with dl1:
-    st.download_button("⬇️  Panel completo PNG",buf_panel.getvalue(),
+    st.download_button(t("descargar_panel_png", LANG),buf_panel.getvalue(),
         f"WaterQuality_{fecha_campo_dt.strftime('%Y%m%d')}.png","image/png",use_container_width=True)
 with dl2:
     bz=io.BytesIO()
     with zipfile.ZipFile(bz,"w") as zf:
         for col,buf in buf_ind.items(): zf.writestr(f"mapa_{col}_{fecha_campo_dt.strftime('%Y%m%d')}.png",buf.getvalue())
-    st.download_button("⬇️  Mapas individuales ZIP",bz.getvalue(),
+    st.download_button(t("descargar_mapas_zip", LANG),bz.getvalue(),
         f"mapas_{fecha_campo_dt.strftime('%Y%m%d')}.zip","application/zip",use_container_width=True)
 with dl3:
-    with st.spinner("Generando reporte PDF..."):
+    with st.spinner(t("generando_pdf", LANG)):
         try:
             _logo_geo_path = os.path.join(os.path.dirname(__file__), "logo_geomatica.png")
             if not os.path.exists(_logo_geo_path):
@@ -1223,36 +1222,38 @@ with dl3:
             pdf_buf = generar_pdf_fecha_unica(
                 mapas, fecha_campo_dt, temp, buf_panel,
                 bounds, len(puntos_uniq), PARAMS,
-                rgb_buf=rgb_satelital_buf, logo_geo_path=_logo_geo_path
+                rgb_buf=rgb_satelital_buf, logo_geo_path=_logo_geo_path,
+                lang=LANG
             )
-            st.download_button("📄  Reporte PDF completo", pdf_buf.getvalue(),
+            st.download_button(t("descargar_pdf_btn", LANG), pdf_buf.getvalue(),
                 f"Reporte_CalidadAgua_{fecha_campo_dt.strftime('%Y%m%d')}.pdf",
                 "application/pdf", use_container_width=True, type="primary")
         except Exception as e:
-            st.error(f"Error generando PDF: {e}")
+            st.error(f'{t("error_pdf", LANG)} {e}')
 
 st.markdown('<hr class="divider">',unsafe_allow_html=True)
-st.markdown('<div class="sec-t">📊 Estadísticas espaciales</div>',unsafe_allow_html=True)
+st.markdown(f'<div class="sec-t">{t("estadisticas_espaciales", LANG)}</div>',unsafe_allow_html=True)
 cols_st=st.columns(len(mapas))
 for cs,(param,info) in zip(cols_st,mapas.items()):
     d=info["data"][np.isfinite(info["data"])]
+    label_stat_t = get_param_label(param, LANG)
     with cs:
-        st.markdown(f"**{info['label']}**")
-        st.metric("Media",f"{d.mean():.2f} {info['unidad']}")
-        st.metric("Máximo",f"{d.max():.2f} {info['unidad']}")
-        st.metric("Mínimo",f"{d.min():.2f} {info['unidad']}")
+        st.markdown(f"**{label_stat_t}**")
+        st.metric(t("stat_media", LANG),f"{d.mean():.2f} {info['unidad']}")
+        st.metric(t("stat_maximo", LANG),f"{d.max():.2f} {info['unidad']}")
+        st.metric(t("stat_minimo", LANG),f"{d.min():.2f} {info['unidad']}")
 
 st.markdown('<hr class="divider">',unsafe_allow_html=True)
-st.markdown('<div class="sec-t">👨‍🔬 Investigador Principal</div>',unsafe_allow_html=True)
+st.markdown(f'<div class="sec-t">{t("investigador_titulo", LANG)}</div>',unsafe_allow_html=True)
 st.markdown(f"""<div class="researcher-card">
   <img class="rphoto" src="data:image/png;base64,{PHOTO_B64}">
   <div><div class="rname">Kevin David Rodríguez González</div>
-  <div class="rtitle">PhD Student · Environmental Water Quality &amp; Remote Sensing</div>
-  <div class="rdept">Departamento de Geomática · Facultad de Ingeniería Civil · UANL</div>
+  <div class="rtitle">{t("investigador_cargo", LANG)}</div>
+  <div class="rdept">{t("investigador_depto", LANG)}</div>
   <div class="rlinks">
     <a class="rlink" href="mailto:krodriguezge@uanl.edu.mx">✉ krodriguezge@uanl.edu.mx</a>
     <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">🔗 ORCID</a>
   </div></div></div>""",unsafe_allow_html=True)
 
-st.markdown("""<div class="footer">Sentinel-2 SR · UANL · FIC · Depto. Geomática</div>""",
+st.markdown(f"""<div class="footer">{t("footer_texto", LANG)}</div>""",
            unsafe_allow_html=True)
