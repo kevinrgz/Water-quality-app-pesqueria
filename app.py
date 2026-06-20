@@ -270,11 +270,17 @@ def calcular_indice_gee(img, indice):
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nubes):
+def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nubes,
+                                    geojson_poligono=None):
     """
     Construye el paquete de datos necesario para el reporte PDF de índices
     espectrales: estadísticas zonales reales (vía reduceRegion) y thumbnails
     de cada capa (RGB + 4 índices), válido para cualquier zona del mundo.
+
+    geojson_poligono: dict __geo_interface__ del wmask (forma exacta, no el
+        bbox rectangular). Si se provee, las imágenes y estadísticas se
+        recortan a la silueta real del polígono subido por el usuario en
+        lugar de a su rectángulo envolvente.
 
     Retorna: (info_dict, stats_por_indice, thumbnails_por_capa) o
              (None, {}, {}) si no hay imagen disponible.
@@ -284,7 +290,12 @@ def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nube
     try:
         import requests as _requests
         lon_min, lat_min, lon_max, lat_max = bbox
-        geom = ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max])
+
+        if geojson_poligono is not None:
+            # Geometría exacta del polígono (recorta con la silueta real)
+            geom = ee.Geometry(geojson_poligono, opt_geodesic=False)
+        else:
+            geom = ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max])
 
         coll = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
                   .filterBounds(geom)
@@ -363,7 +374,8 @@ def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nube
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes):
+def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes,
+                     geojson_poligono=None):
     """
     Busca y compone una imagen Sentinel-2 que cubra TODO el bbox solicitado.
 
@@ -373,12 +385,22 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes):
     un MOSAICO (.mosaic()) combinando todas las escenas disponibles en el
     rango de fechas/nubes, asegurando cobertura completa del área subida,
     sea un río angosto o un municipio entero.
+
+    geojson_poligono: dict __geo_interface__ del wmask. Si se provee, el
+        clip final se hace con la silueta EXACTA del polígono (no su bbox
+        rectangular), de modo que el tile mostrado en el mapa solo pinta
+        dentro de la forma real que subió el usuario.
     """
     if not GEE_OK:
         return None, {}
     try:
         lon_min, lat_min, lon_max, lat_max = bbox
-        geom = ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max])
+        geom_busqueda = ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max])
+        # La búsqueda de escenas (filterBounds) siempre usa el bbox —
+        # es más eficiente y no afecta qué imágenes se encuentran.
+        # El recorte visual final sí usa la geometría exacta si está disponible.
+        geom = (ee.Geometry(geojson_poligono, opt_geodesic=False)
+               if geojson_poligono is not None else geom_busqueda)
         coll = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
                   .filterBounds(geom)
                   .filterDate(fecha_ini_str, fecha_fin_str)
@@ -927,7 +949,8 @@ if not correr:
                 with st.spinner(t("buscando_imagen", LANG)):
                     s2_info, tile_urls = buscar_imagen_s2(
                         bbox_prev, fecha_ini.strftime("%Y-%m-%d"),
-                        fecha_fin.strftime("%Y-%m-%d"), max_nubes)
+                        fecha_fin.strftime("%Y-%m-%d"), max_nubes,
+                        geojson_poligono=wmask_prev.geometry.union_all().__geo_interface__)
 
             st.markdown('<div class="map-panel">', unsafe_allow_html=True)
             st.markdown(f'<div class="map-title">{t("imagen_satelital_titulo", LANG)}</div>', unsafe_allow_html=True)
@@ -1096,7 +1119,8 @@ if not correr:
                             with st.spinner(t("reporte_espectral_generando", LANG)):
                                 rep_info, rep_stats, rep_thumbs = obtener_datos_reporte_espectral(
                                     bbox_prev, fecha_ini.strftime("%Y-%m-%d"),
-                                    fecha_fin.strftime("%Y-%m-%d"), max_nubes
+                                    fecha_fin.strftime("%Y-%m-%d"), max_nubes,
+                                    geojson_poligono=wmask_prev.geometry.union_all().__geo_interface__
                                 )
 
                             if rep_info and rep_info.get("n_imagenes", 0) > 0 and rep_thumbs:
@@ -1320,20 +1344,25 @@ rgb_satelital_buf = None
 if GEE_OK:
     status.text(t("obteniendo_imagen", LANG))
     try:
+        _wmask_geojson = wmask.geometry.union_all().__geo_interface__
         _, tile_urls_pdf = buscar_imagen_s2(
             tuple(bounds), fecha_ini.strftime("%Y-%m-%d"),
-            fecha_fin.strftime("%Y-%m-%d"), max_nubes
+            fecha_fin.strftime("%Y-%m-%d"), max_nubes,
+            geojson_poligono=_wmask_geojson
         )
         if tile_urls_pdf and "RGB" in tile_urls_pdf:
-            lon_min_r, lat_min_r, lon_max_r, lat_max_r = bounds
-            geom_r = ee.Geometry.Rectangle([lon_min_r, lat_min_r, lon_max_r, lat_max_r])
+            # Geometría exacta del polígono (no el bbox rectangular) para
+            # que el thumbnail del reporte PDF se recorte con la silueta
+            # real del área de estudio subida por el usuario.
+            geom_r = ee.Geometry(_wmask_geojson, opt_geodesic=False)
             coll_r = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
                         .filterBounds(geom_r)
                         .filterDate(fecha_ini.strftime("%Y-%m-%d"), fecha_fin.strftime("%Y-%m-%d"))
                         .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_nubes))
                         .sort("CLOUDY_PIXEL_PERCENTAGE"))
             if coll_r.size().getInfo() > 0:
-                img_r = coll_r.first().clip(geom_r)
+                # Mosaico (no .first()) para cubrir el área completa sin huecos
+                img_r = coll_r.sort("CLOUDY_PIXEL_PERCENTAGE", False).mosaic().clip(geom_r)
                 thumb_url = img_r.getThumbURL({
                     "bands": ["B4","B3","B2"], "min": 0, "max": 3000,
                     "gamma": 1.3, "dimensions": 800, "format": "png",
