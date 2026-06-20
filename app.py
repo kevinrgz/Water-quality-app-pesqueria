@@ -17,7 +17,8 @@ import imageio.v2 as imageio
 from datetime import date as date_cls
 warnings.filterwarnings("ignore")
 from i18n import t, IDIOMAS, get_param_label, get_param_desc, get_indice_nombre, get_indice_desc
-from pdf_report_module import generar_pdf_fecha_unica, generar_pdf_serie_temporal
+from pdf_report_module import (generar_pdf_fecha_unica, generar_pdf_serie_temporal,
+                               generar_pdf_reporte_espectral)
 
 # ── Assets ────────────────────────────────────────────────────────────────────
 def _b64(fn):
@@ -266,6 +267,99 @@ def calcular_indice_gee(img, indice):
     elif indice == "NDTI":
         return img.normalizedDifference(["B4","B3"]).rename("NDTI")
     return None
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nubes):
+    """
+    Construye el paquete de datos necesario para el reporte PDF de índices
+    espectrales: estadísticas zonales reales (vía reduceRegion) y thumbnails
+    de cada capa (RGB + 4 índices), válido para cualquier zona del mundo.
+
+    Retorna: (info_dict, stats_por_indice, thumbnails_por_capa) o
+             (None, {}, {}) si no hay imagen disponible.
+    """
+    if not GEE_OK:
+        return None, {}, {}
+    try:
+        import requests as _requests
+        lon_min, lat_min, lon_max, lat_max = bbox
+        geom = ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max])
+
+        coll = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+                  .filterBounds(geom)
+                  .filterDate(fecha_ini_str, fecha_fin_str)
+                  .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_nubes))
+                  .sort("CLOUDY_PIXEL_PERCENTAGE"))
+
+        n_imgs = coll.size().getInfo()
+        if n_imgs == 0:
+            return {"n_imagenes": 0}, {}, {}
+
+        img_ref = coll.first()
+        props   = img_ref.getInfo().get("properties", {})
+        fecha_real = props.get("PRODUCT_ID", "")[7:15] if "PRODUCT_ID" in props else "N/D"
+        nubes_pct  = props.get("CLOUDY_PIXEL_PERCENTAGE", None)
+
+        # Mosaico para cubrir el bbox completo (ver buscar_imagen_s2)
+        img = coll.sort("CLOUDY_PIXEL_PERCENTAGE", False).mosaic().clip(geom)
+
+        # Área real del bbox en km² (geodésica, no aproximada)
+        area_km2 = geom.area(maxError=10).divide(1_000_000).getInfo()
+
+        stats = {}
+        thumbnails = {}
+
+        # RGB: solo thumbnail, sin estadística de índice
+        thumb_rgb_url = img.getThumbURL({
+            **INDICES_VIZ["RGB"]["vis"], "dimensions": 500,
+            "format": "png", "region": geom,
+        })
+        r = _requests.get(thumb_rgb_url, timeout=20)
+        if r.status_code == 200:
+            thumbnails["RGB"] = io.BytesIO(r.content)
+
+        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI"]:
+            idx_img = calcular_indice_gee(img, idx_name)
+
+            # Estadísticas zonales reales sobre el área del bbox completo
+            reducer = (ee.Reducer.mean()
+                      .combine(ee.Reducer.stdDev(), sharedInputs=True)
+                      .combine(ee.Reducer.minMax(), sharedInputs=True)
+                      .combine(ee.Reducer.percentile([10, 50, 90]), sharedInputs=True))
+            stat_result = idx_img.reduceRegion(
+                reducer=reducer, geometry=geom, scale=20,
+                maxPixels=1e9, bestEffort=True
+            ).getInfo()
+
+            stats[idx_name] = {
+                "mean":   stat_result.get(f"{idx_name}_mean"),
+                "std":    stat_result.get(f"{idx_name}_stdDev"),
+                "min":    stat_result.get(f"{idx_name}_min"),
+                "max":    stat_result.get(f"{idx_name}_max"),
+                "p10":    stat_result.get(f"{idx_name}_p10"),
+                "p50":    stat_result.get(f"{idx_name}_p50"),
+                "p90":    stat_result.get(f"{idx_name}_p90"),
+            }
+
+            cfg = INDICES_VIZ[idx_name]
+            thumb_url = idx_img.getThumbURL({
+                **cfg["vis"], "dimensions": 500, "format": "png", "region": geom,
+            })
+            r2 = _requests.get(thumb_url, timeout=20)
+            if r2.status_code == 200:
+                thumbnails[idx_name] = io.BytesIO(r2.content)
+
+        info = {
+            "n_imagenes": n_imgs,
+            "nubes_pct": round(nubes_pct, 1) if nubes_pct is not None else None,
+            "fecha_real": fecha_real,
+            "area_km2": round(area_km2, 2),
+        }
+        return info, stats, thumbnails
+
+    except Exception as e:
+        return {"error": str(e)}, {}, {}
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -962,6 +1056,76 @@ if not correr:
                             )
                         else:
                             st.warning(t("gif_sin_imagenes", LANG))
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                # ── Reportes PDF: Calidad de Agua vs Índices Espectrales ─────
+                if GEE_OK and s2_info.get("n_imagenes", 0) > 0:
+                    st.markdown('<div class="map-panel" style="margin-top:.6rem">',
+                               unsafe_allow_html=True)
+                    st.markdown(f'<div class="map-title">{t("reportes_titulo", LANG)}</div>',
+                               unsafe_allow_html=True)
+                    st.caption(t("reportes_caption", LANG))
+
+                    col_rep1, col_rep2 = st.columns(2)
+
+                    # ── Reporte 1: Calidad de Agua (solo zona Pesquería) ──────
+                    with col_rep1:
+                        st.markdown(f"**{t('reporte_calidad_titulo', LANG)}**")
+                        if es_zona_pesqueria:
+                            st.caption(t("reporte_calidad_disponible", LANG))
+                            if st.button(t("reporte_calidad_btn", LANG),
+                                        use_container_width=True, key="btn_rep_calidad"):
+                                st.info(t("reporte_calidad_redirigir", LANG))
+                        else:
+                            st.caption(t("reporte_calidad_no_disponible", LANG))
+                            st.button(t("reporte_calidad_btn", LANG),
+                                     use_container_width=True, disabled=True,
+                                     key="btn_rep_calidad_disabled")
+
+                    # ── Reporte 2: Índices Espectrales (cualquier zona) ───────
+                    with col_rep2:
+                        st.markdown(f"**{t('reporte_espectral_titulo', LANG)}**")
+                        st.caption(t("reporte_espectral_disponible", LANG))
+                        gen_rep_espectral = st.button(
+                            t("reporte_espectral_btn", LANG),
+                            use_container_width=True, type="primary",
+                            key="btn_rep_espectral"
+                        )
+
+                        if gen_rep_espectral:
+                            with st.spinner(t("reporte_espectral_generando", LANG)):
+                                rep_info, rep_stats, rep_thumbs = obtener_datos_reporte_espectral(
+                                    bbox_prev, fecha_ini.strftime("%Y-%m-%d"),
+                                    fecha_fin.strftime("%Y-%m-%d"), max_nubes
+                                )
+
+                            if rep_info and rep_info.get("n_imagenes", 0) > 0 and rep_thumbs:
+                                try:
+                                    _logo_path_rep = os.path.join(
+                                        os.path.dirname(__file__), "logo_geomatica.png")
+                                    if not os.path.exists(_logo_path_rep):
+                                        _logo_path_rep = None
+
+                                    pdf_espectral_buf = generar_pdf_reporte_espectral(
+                                        rep_info, rep_stats, rep_thumbs,
+                                        ["NDVI","NDWI","MNDWI","NDTI"],
+                                        bbox_prev, fecha_ini, fecha_fin,
+                                        logo_geo_path=_logo_path_rep, lang=LANG
+                                    )
+                                    st.success(t("reporte_espectral_exito", LANG))
+                                    st.download_button(
+                                        t("reporte_espectral_descargar", LANG),
+                                        pdf_espectral_buf.getvalue(),
+                                        f"Reporte_Espectral_{fecha_ini.strftime('%Y%m%d')}_"
+                                        f"{fecha_fin.strftime('%Y%m%d')}.pdf",
+                                        "application/pdf", use_container_width=True,
+                                        key="dl_rep_espectral"
+                                    )
+                                except Exception as e:
+                                    st.error(f'{t("reporte_espectral_error", LANG)} {e}')
+                            else:
+                                st.warning(t("reporte_espectral_sin_datos", LANG))
+
                     st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown('<hr class="divider">', unsafe_allow_html=True)

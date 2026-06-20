@@ -142,6 +142,92 @@ T = {
               "do Rio Pesquería. Use RGB/índices/GIF/TIFF para esta zona.",
     },
 
+    # ── Reportes duales: Calidad de Agua vs Índices Espectrales ───────────────
+    "reportes_titulo": {
+        "es": "📄 Generar Reporte PDF", "en": "📄 Generate PDF Report",
+        "pt": "📄 Gerar Relatório PDF",
+    },
+    "reportes_caption": {
+        "es": "Elige el tipo de reporte que necesitas: calidad de agua "
+              "(exclusivo Río Pesquería) o índices espectrales (cualquier "
+              "zona del mundo).",
+        "en": "Choose the type of report you need: water quality "
+              "(Pesquería River exclusive) or spectral indices (any area "
+              "in the world).",
+        "pt": "Escolha o tipo de relatório que você precisa: qualidade da "
+              "água (exclusivo do Rio Pesquería) ou índices espectrais "
+              "(qualquer área do mundo).",
+    },
+    "reporte_calidad_titulo": {
+        "es": "💧 Calidad de Agua", "en": "💧 Water Quality", "pt": "💧 Qualidade da Água",
+    },
+    "reporte_calidad_disponible": {
+        "es": "Disponible — modelo RF validado para esta zona.",
+        "en": "Available — RF model validated for this area.",
+        "pt": "Disponível — modelo RF validado para esta área.",
+    },
+    "reporte_calidad_no_disponible": {
+        "es": "No disponible — el modelo solo aplica al Río Pesquería.",
+        "en": "Not available — the model only applies to the Pesquería River.",
+        "pt": "Não disponível — o modelo aplica-se apenas ao Rio Pesquería.",
+    },
+    "reporte_calidad_btn": {
+        "es": "Generar Reporte de Calidad de Agua",
+        "en": "Generate Water Quality Report",
+        "pt": "Gerar Relatório de Qualidade da Água",
+    },
+    "reporte_calidad_redirigir": {
+        "es": "Usa el botón 🗺️ Generar Mapas en el sidebar y luego descarga "
+              "el reporte PDF en la pantalla de resultados.",
+        "en": "Use the 🗺️ Generate Maps button in the sidebar, then "
+              "download the PDF report on the results screen.",
+        "pt": "Use o botão 🗺️ Gerar Mapas na barra lateral e depois baixe "
+              "o relatório PDF na tela de resultados.",
+    },
+    "reporte_espectral_titulo": {
+        "es": "📡 Índices Espectrales", "en": "📡 Spectral Indices",
+        "pt": "📡 Índices Espectrais",
+    },
+    "reporte_espectral_disponible": {
+        "es": "Disponible para cualquier zona del mundo.",
+        "en": "Available for any area in the world.",
+        "pt": "Disponível para qualquer área do mundo.",
+    },
+    "reporte_espectral_btn": {
+        "es": "Generar Reporte Espectral", "en": "Generate Spectral Report",
+        "pt": "Gerar Relatório Espectral",
+    },
+    "reporte_espectral_generando": {
+        "es": "Calculando estadísticas zonales y generando reporte... "
+              "(puede tardar 1-2 minutos)",
+        "en": "Calculating zonal statistics and generating report... "
+              "(may take 1-2 minutes)",
+        "pt": "Calculando estatísticas zonais e gerando relatório... "
+              "(pode levar 1-2 minutos)",
+    },
+    "reporte_espectral_exito": {
+        "es": "✅ Reporte de índices espectrales generado",
+        "en": "✅ Spectral indices report generated",
+        "pt": "✅ Relatório de índices espectrais gerado",
+    },
+    "reporte_espectral_descargar": {
+        "es": "📥 Descargar Reporte Espectral (PDF)",
+        "en": "📥 Download Spectral Report (PDF)",
+        "pt": "📥 Baixar Relatório Espectral (PDF)",
+    },
+    "reporte_espectral_error": {
+        "es": "Error generando reporte:", "en": "Error generating report:",
+        "pt": "Erro ao gerar relatório:",
+    },
+    "reporte_espectral_sin_datos": {
+        "es": "No se pudieron obtener suficientes datos para el reporte. "
+              "Intenta ampliar el rango de fechas o el umbral de nubes.",
+        "en": "Could not retrieve enough data for the report. Try widening "
+              "the date range or cloud threshold.",
+        "pt": "Não foi possível obter dados suficientes para o relatório. "
+              "Tente ampliar o intervalo de datas ou o limite de nuvens.",
+    },
+
     # ── Pasos de uso ───────────────────────────────────────────────────────────
     "paso1_titulo": {"es": "① Shapefile", "en": "① Shapefile", "pt": "① Shapefile"},
     "paso1_texto": {
@@ -948,7 +1034,313 @@ T = {
               "para cada parâmetro, sendo mais confiáveis aqueles com OOB R² "
               "superior a 0.60.",
     },
+    # ── PDF: Reporte de Índices Espectrales (cualquier zona del mundo) ───────
+    "pdf_idx_titulo_reporte": {
+        "es": "📡 REPORTE DE ÍNDICES ESPECTRALES",
+        "en": "📡 SPECTRAL INDICES REPORT",
+        "pt": "📡 RELATÓRIO DE ÍNDICES ESPECTRAIS",
+    },
+    "pdf_idx_subtitulo": {
+        "es": "Análisis Sentinel-2 — RGB, Vegetación, Agua y Turbidez",
+        "en": "Sentinel-2 Analysis — RGB, Vegetation, Water, and Turbidity",
+        "pt": "Análise Sentinel-2 — RGB, Vegetação, Água e Turbidez",
+    },
+    "pdf_idx_periodo_imagen": {
+        "es": "Período de búsqueda", "en": "Search period", "pt": "Período de busca",
+    },
+    "pdf_idx_fecha_real": {
+        "es": "Fecha de la imagen", "en": "Image date", "pt": "Data da imagem",
+    },
+    "pdf_idx_area": {
+        "es": "Área del polígono", "en": "Polygon area", "pt": "Área do polígono",
+    },
+    "pdf_idx_nubes": {"es": "Nubes", "en": "Clouds", "pt": "Nuvens"},
+    "pdf_idx_nota_auto": {
+        "es": "Reporte generado automáticamente a partir de imágenes Sentinel-2 "
+              "(Copernicus), procesadas en Google Earth Engine. Válido para "
+              "cualquier área de estudio del planeta.",
+        "en": "Report automatically generated from Sentinel-2 imagery "
+              "(Copernicus), processed in Google Earth Engine. Valid for "
+              "any study area on the planet.",
+        "pt": "Relatório gerado automaticamente a partir de imagens Sentinel-2 "
+              "(Copernicus), processadas no Google Earth Engine. Válido para "
+              "qualquer área de estudo do planeta.",
+    },
+    "pdf_idx_sec1_titulo": {
+        "es": "1. Resumen Interpretativo", "en": "1. Interpretive Summary",
+        "pt": "1. Resumo Interpretativo",
+    },
+    "pdf_idx_interp_intro": {
+        "es": "El presente análisis caracteriza espectralmente el área de "
+              "estudio a partir de una imagen Sentinel-2 SR, calculando "
+              "índices estandarizados de vegetación, cuerpos de agua y "
+              "turbidez relativa.",
+        "en": "This analysis spectrally characterizes the study area using "
+              "a Sentinel-2 SR image, calculating standardized indices for "
+              "vegetation, water bodies, and relative turbidity.",
+        "pt": "Esta análise caracteriza espectralmente a área de estudo a "
+              "partir de uma imagem Sentinel-2 SR, calculando índices "
+              "padronizados de vegetação, corpos d'água e turbidez relativa.",
+    },
+    "pdf_idx_interp_valor_medio": {
+        "es": "valor medio en el área", "en": "area mean value",
+        "pt": "valor médio na área",
+    },
+    "pdf_idx_interp_cierre": {
+        "es": "Estos índices son adimensionales (rango −1 a 1) y se calculan "
+              "directamente de la reflectancia de superficie, sin necesidad "
+              "de calibración local ni datos de campo — son aplicables a "
+              "cualquier ecosistema o región del mundo.",
+        "en": "These indices are dimensionless (range −1 to 1) and are "
+              "calculated directly from surface reflectance, requiring no "
+              "local calibration or field data — they are applicable to "
+              "any ecosystem or region in the world.",
+        "pt": "Esses índices são adimensionais (faixa −1 a 1) e são "
+              "calculados diretamente a partir da refletância de "
+              "superfície, sem necessidade de calibração local ou dados de "
+              "campo — são aplicáveis a qualquer ecossistema ou região do "
+              "mundo.",
+    },
+    "pdf_idx_sec2_titulo": {
+        "es": "2. Metodología", "en": "2. Methodology", "pt": "2. Metodologia",
+    },
+    "pdf_idx_metodologia_texto": {
+        "es": "<b>Fuente de datos:</b> Sentinel-2 SR Harmonized (Copernicus), "
+              "procesado vía Google Earth Engine. Se construye un mosaico de "
+              "todas las escenas disponibles en el rango de fechas con menor "
+              "cobertura de nubes, garantizando cobertura completa del área "
+              "de estudio sin huecos.<br/><br/>"
+              "<b>Índices calculados:</b><br/>"
+              "• NDVI = (B8−B4)/(B8+B4) — vegetación (Tucker, 1979)<br/>"
+              "• NDWI = (B3−B8)/(B3+B8) — agua superficial (McFeeters, 1996)<br/>"
+              "• MNDWI = (B3−B11)/(B3+B11) — agua en zonas urbanas/turbias (Xu, 2006)<br/>"
+              "• NDTI = (B4−B3)/(B4+B3) — turbidez relativa<br/><br/>"
+              "<b>Estadísticas zonales:</b> calculadas mediante reduceRegion "
+              "sobre la geometría completa del polígono subido, a 20 m de "
+              "resolución espacial.",
+        "en": "<b>Data source:</b> Sentinel-2 SR Harmonized (Copernicus), "
+              "processed via Google Earth Engine. A mosaic is built from all "
+              "available scenes in the date range with the lowest cloud "
+              "cover, ensuring complete coverage of the study area with no "
+              "gaps.<br/><br/>"
+              "<b>Calculated indices:</b><br/>"
+              "• NDVI = (B8−B4)/(B8+B4) — vegetation (Tucker, 1979)<br/>"
+              "• NDWI = (B3−B8)/(B3+B8) — surface water (McFeeters, 1996)<br/>"
+              "• MNDWI = (B3−B11)/(B3+B11) — water in urban/turbid areas (Xu, 2006)<br/>"
+              "• NDTI = (B4−B3)/(B4+B3) — relative turbidity<br/><br/>"
+              "<b>Zonal statistics:</b> calculated via reduceRegion over the "
+              "complete geometry of the uploaded polygon, at 20 m spatial "
+              "resolution.",
+        "pt": "<b>Fonte de dados:</b> Sentinel-2 SR Harmonized (Copernicus), "
+              "processado via Google Earth Engine. É construído um mosaico "
+              "de todas as cenas disponíveis no intervalo de datas com menor "
+              "cobertura de nuvens, garantindo cobertura completa da área de "
+              "estudo sem lacunas.<br/><br/>"
+              "<b>Índices calculados:</b><br/>"
+              "• NDVI = (B8−B4)/(B8+B4) — vegetação (Tucker, 1979)<br/>"
+              "• NDWI = (B3−B8)/(B3+B8) — água superficial (McFeeters, 1996)<br/>"
+              "• MNDWI = (B3−B11)/(B3+B11) — água em áreas urbanas/turvas (Xu, 2006)<br/>"
+              "• NDTI = (B4−B3)/(B4+B3) — turbidez relativa<br/><br/>"
+              "<b>Estatísticas zonais:</b> calculadas via reduceRegion sobre "
+              "a geometria completa do polígono enviado, com resolução "
+              "espacial de 20 m.",
+    },
+    "pdf_idx_sec3_titulo": {
+        "es": "3. Área de Estudio", "en": "3. Study Area", "pt": "3. Área de Estudo",
+    },
+    "pdf_idx_sec4_titulo": {
+        "es": "4. Estadísticas Zonales por Índice",
+        "en": "4. Zonal Statistics by Index",
+        "pt": "4. Estatísticas Zonais por Índice",
+    },
+    "pdf_idx_tabla_indice": {"es": "Índice", "en": "Index", "pt": "Índice"},
+    "pdf_idx_tabla_desv": {"es": "Desv. Est.", "en": "Std. Dev.", "pt": "Desv. Pad."},
+    "pdf_idx_stats_nota": {
+        "es": "<i>Estadísticas calculadas sobre la totalidad del área del "
+              "polígono subido (reduceRegion, 20 m/píxel). σ = desviación "
+              "estándar; P50 = mediana.</i>",
+        "en": "<i>Statistics calculated over the entire uploaded polygon "
+              "area (reduceRegion, 20 m/pixel). σ = standard deviation; "
+              "P50 = median.</i>",
+        "pt": "<i>Estatísticas calculadas sobre toda a área do polígono "
+              "enviado (reduceRegion, 20 m/pixel). σ = desvio padrão; "
+              "P50 = mediana.</i>",
+    },
+    "pdf_idx_sec5_titulo": {
+        "es": "5. Mapas por Índice e Interpretación",
+        "en": "5. Maps by Index and Interpretation",
+        "pt": "5. Mapas por Índice e Interpretação",
+    },
+    "pdf_idx_sec5_texto": {
+        "es": "Cada mapa muestra la distribución espacial del índice "
+              "correspondiente sobre el área de estudio, junto con su valor "
+              "medio y la clasificación interpretativa asociada.",
+        "en": "Each map shows the spatial distribution of the corresponding "
+              "index over the study area, along with its mean value and "
+              "associated interpretive classification.",
+        "pt": "Cada mapa mostra a distribuição espacial do índice "
+              "correspondente sobre a área de estudo, junto com seu valor "
+              "médio e a classificação interpretativa associada.",
+    },
+    "pdf_idx_valor_medio_zona": {
+        "es": "Valor medio en la zona", "en": "Zone mean value",
+        "pt": "Valor médio na zona",
+    },
+    "pdf_idx_sin_datos": {
+        "es": "sin datos suficientes", "en": "insufficient data",
+        "pt": "dados insuficientes",
+    },
+    "pdf_idx_sec6_titulo": {
+        "es": "6. Aplicaciones y Recomendaciones",
+        "en": "6. Applications and Recommendations",
+        "pt": "6. Aplicações e Recomendações",
+    },
+    "pdf_idx_sec6_texto": {
+        "es": "Estos índices espectrales son herramientas de diagnóstico "
+              "rápido aplicables a monitoreo ambiental, agricultura de "
+              "precisión, gestión de cuencas, planeación urbana y estudios "
+              "de cambio de cobertura del suelo. Para análisis cuantitativos "
+              "que requieran unidades físicas (mg/L, NTU, etc.), se "
+              "recomienda complementar con datos de campo y, si aplica, un "
+              "modelo de calibración específico para la zona de interés, "
+              "similar al desarrollado para el Río Pesquería en esta misma "
+              "plataforma.",
+        "en": "These spectral indices are rapid diagnostic tools applicable "
+              "to environmental monitoring, precision agriculture, "
+              "watershed management, urban planning, and land cover change "
+              "studies. For quantitative analyses requiring physical units "
+              "(mg/L, NTU, etc.), it is recommended to complement with "
+              "field data and, if applicable, a site-specific calibration "
+              "model, similar to the one developed for the Pesquería River "
+              "on this same platform.",
+        "pt": "Esses índices espectrais são ferramentas de diagnóstico "
+              "rápido aplicáveis ao monitoramento ambiental, agricultura de "
+              "precisão, gestão de bacias hidrográficas, planejamento "
+              "urbano e estudos de mudança de cobertura do solo. Para "
+              "análises quantitativas que exijam unidades físicas (mg/L, "
+              "NTU, etc.), recomenda-se complementar com dados de campo e, "
+              "se aplicável, um modelo de calibração específico para a "
+              "área de interesse, semelhante ao desenvolvido para o Rio "
+              "Pesquería nesta mesma plataforma.",
+    },
+
+    # ── Interpretación NDVI ────────────────────────────────────────────────────
+    "pdf_idx_sin_datos_corto": {"es": "sin datos", "en": "no data", "pt": "sem dados"},
+    "pdf_ndvi_agua_suelo": {
+        "es": "valor negativo, típico de agua, suelo desnudo o superficies "
+              "artificiales sin vegetación",
+        "en": "negative value, typical of water, bare soil, or "
+              "non-vegetated artificial surfaces",
+        "pt": "valor negativo, típico de água, solo exposto ou superfícies "
+              "artificiais sem vegetação",
+    },
+    "pdf_ndvi_muy_baja": {
+        "es": "vegetación muy escasa o ausente (zona urbana, roca, suelo "
+              "desnudo)",
+        "en": "very sparse or absent vegetation (urban area, rock, bare soil)",
+        "pt": "vegetação muito escassa ou ausente (área urbana, rocha, "
+              "solo exposto)",
+    },
+    "pdf_ndvi_baja": {
+        "es": "vegetación baja o dispersa (pastizal ralo, vegetación "
+              "estresada o en transición)",
+        "en": "low or sparse vegetation (thin grassland, stressed or "
+              "transitional vegetation)",
+        "pt": "vegetação baixa ou dispersa (pastagem rala, vegetação "
+              "estressada ou em transição)",
+    },
+    "pdf_ndvi_moderada": {
+        "es": "vegetación moderada (pastizal denso, cultivo en desarrollo, "
+              "matorral)",
+        "en": "moderate vegetation (dense grassland, developing crops, "
+              "shrubland)",
+        "pt": "vegetação moderada (pastagem densa, cultivo em "
+              "desenvolvimento, arbusto)",
+    },
+    "pdf_ndvi_alta": {
+        "es": "vegetación densa y vigorosa (bosque, cultivo en plenitud, "
+              "vegetación ribereña sana)",
+        "en": "dense and vigorous vegetation (forest, crops at peak growth, "
+              "healthy riparian vegetation)",
+        "pt": "vegetação densa e vigorosa (floresta, cultivo em pleno "
+              "desenvolvimento, vegetação ribeirinha saudável)",
+    },
+
+    # ── Interpretación NDWI ────────────────────────────────────────────────────
+    "pdf_ndwi_agua_clara": {
+        "es": "alta probabilidad de cuerpo de agua, bien delimitado",
+        "en": "high probability of a well-delineated water body",
+        "pt": "alta probabilidade de corpo d'água bem delimitado",
+    },
+    "pdf_ndwi_agua_posible": {
+        "es": "posible presencia de agua superficial o suelo saturado",
+        "en": "possible presence of surface water or saturated soil",
+        "pt": "possível presença de água superficial ou solo saturado",
+    },
+    "pdf_ndwi_suelo_mixto": {
+        "es": "suelo o vegetación mixta, sin agua superficial dominante",
+        "en": "mixed soil or vegetation, no dominant surface water",
+        "pt": "solo ou vegetação mista, sem água superficial dominante",
+    },
+    "pdf_ndwi_vegetacion_suelo": {
+        "es": "vegetación densa o suelo seco, sin señal de agua",
+        "en": "dense vegetation or dry soil, no water signal",
+        "pt": "vegetação densa ou solo seco, sem sinal de água",
+    },
+
+    # ── Interpretación MNDWI ───────────────────────────────────────────────────
+    "pdf_mndwi_agua_clara": {
+        "es": "cuerpo de agua claramente delimitado, incluso en entornos "
+              "urbanos o con sombras",
+        "en": "clearly delineated water body, even in urban or shadowed "
+              "environments",
+        "pt": "corpo d'água claramente delimitado, mesmo em ambientes "
+              "urbanos ou com sombras",
+    },
+    "pdf_mndwi_agua_turbia": {
+        "es": "agua probable, posiblemente con alta turbidez o sedimentos",
+        "en": "probable water, possibly with high turbidity or sediments",
+        "pt": "água provável, possivelmente com alta turbidez ou sedimentos",
+    },
+    "pdf_mndwi_suelo_humedo": {
+        "es": "suelo húmedo o vegetación con alto contenido de agua",
+        "en": "moist soil or vegetation with high water content",
+        "pt": "solo úmido ou vegetação com alto teor de água",
+    },
+    "pdf_mndwi_suelo_seco": {
+        "es": "superficie seca, urbana o con vegetación densa",
+        "en": "dry, urban, or densely vegetated surface",
+        "pt": "superfície seca, urbana ou com vegetação densa",
+    },
+
+    # ── Interpretación NDTI ────────────────────────────────────────────────────
+    "pdf_ndti_muy_baja": {
+        "es": "turbidez muy baja — agua ópticamente clara",
+        "en": "very low turbidity — optically clear water",
+        "pt": "turbidez muito baixa — água opticamente clara",
+    },
+    "pdf_ndti_baja": {
+        "es": "turbidez baja — agua relativamente clara",
+        "en": "low turbidity — relatively clear water",
+        "pt": "turbidez baixa — água relativamente clara",
+    },
+    "pdf_ndti_moderada": {
+        "es": "turbidez moderada — presencia visible de sedimentos en "
+              "suspensión",
+        "en": "moderate turbidity — visible presence of suspended sediments",
+        "pt": "turbidez moderada — presença visível de sedimentos em "
+              "suspensão",
+    },
+    "pdf_ndti_alta": {
+        "es": "turbidez alta — fuerte carga de sedimentos o materia "
+              "orgánica en suspensión",
+        "en": "high turbidity — strong load of sediments or suspended "
+              "organic matter",
+        "pt": "turbidez alta — forte carga de sedimentos ou matéria "
+              "orgânica em suspensão",
+    },
 }
+
 
 
 def t(key, lang="es"):

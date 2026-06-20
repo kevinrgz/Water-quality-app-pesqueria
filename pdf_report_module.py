@@ -450,3 +450,237 @@ def generar_pdf_serie_temporal(resultados_por_fecha, params_sel, bbox, n_puntos,
     doc.build(story, onFirstPage=header_fn2, onLaterPages=header_fn2)
     buf.seek(0)
     return buf
+
+
+# =============================================================================
+# REPORTE DE ÍNDICES ESPECTRALES — válido para cualquier zona del mundo
+# =============================================================================
+
+def _interpretar_ndvi(valor, lang="es"):
+    """Clasifica NDVI según umbrales estándar (Tucker, 1979; Huete et al.)."""
+    if valor is None: return t("pdf_idx_sin_datos", lang)
+    if valor < 0.0:   return t("pdf_ndvi_agua_suelo", lang)
+    if valor < 0.2:   return t("pdf_ndvi_muy_baja", lang)
+    if valor < 0.4:   return t("pdf_ndvi_baja", lang)
+    if valor < 0.6:   return t("pdf_ndvi_moderada", lang)
+    return t("pdf_ndvi_alta", lang)
+
+def _interpretar_ndwi(valor, lang="es"):
+    """Clasifica NDWI según McFeeters (1996)."""
+    if valor is None: return t("pdf_idx_sin_datos", lang)
+    if valor > 0.3:   return t("pdf_ndwi_agua_clara", lang)
+    if valor > 0.0:   return t("pdf_ndwi_agua_posible", lang)
+    if valor > -0.3:  return t("pdf_ndwi_suelo_mixto", lang)
+    return t("pdf_ndwi_vegetacion_suelo", lang)
+
+def _interpretar_mndwi(valor, lang="es"):
+    """Clasifica MNDWI según Xu (2006), mejor para zonas urbanas/turbias."""
+    if valor is None: return t("pdf_idx_sin_datos", lang)
+    if valor > 0.3:   return t("pdf_mndwi_agua_clara", lang)
+    if valor > 0.0:   return t("pdf_mndwi_agua_turbia", lang)
+    if valor > -0.3:  return t("pdf_mndwi_suelo_humedo", lang)
+    return t("pdf_mndwi_suelo_seco", lang)
+
+def _interpretar_ndti(valor, lang="es"):
+    """Clasifica NDTI (turbidez relativa, sin unidades absolutas en NTU)."""
+    if valor is None: return t("pdf_idx_sin_datos", lang)
+    if valor < -0.1:  return t("pdf_ndti_muy_baja", lang)
+    if valor < 0.05:  return t("pdf_ndti_baja", lang)
+    if valor < 0.15:  return t("pdf_ndti_moderada", lang)
+    return t("pdf_ndti_alta", lang)
+
+_INTERPRETADORES = {
+    "NDVI": _interpretar_ndvi, "NDWI": _interpretar_ndwi,
+    "MNDWI": _interpretar_mndwi, "NDTI": _interpretar_ndti,
+}
+
+
+def build_indices_stats_table(stats, indices_sel, styles, lang="es"):
+    """Tabla de estadísticas zonales reales por índice espectral."""
+    header = [t("pdf_idx_tabla_indice", lang), t("pdf_tabla_media", lang),
+              t("pdf_idx_tabla_desv", lang), t("pdf_tabla_min", lang),
+              t("pdf_tabla_max", lang), "P50 (mediana)"]
+    rows = [header]
+    for idx_name in indices_sel:
+        s = stats.get(idx_name, {})
+        mean_v = s.get("mean")
+        rows.append([
+            idx_name,
+            f"{mean_v:.3f}" if mean_v is not None else "—",
+            f"{s.get('std'):.3f}" if s.get('std') is not None else "—",
+            f"{s.get('min'):.3f}" if s.get('min') is not None else "—",
+            f"{s.get('max'):.3f}" if s.get('max') is not None else "—",
+            f"{s.get('p50'):.3f}" if s.get('p50') is not None else "—",
+        ])
+
+    tbl = Table(rows, colWidths=[2.5*cm, 2.6*cm, 2.6*cm, 2.5*cm, 2.5*cm, 2.8*cm])
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), PDF_TEAL),
+        ("TEXTCOLOR",  (0,0), (-1,0), colors.white),
+        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE",   (0,0), (-1,-1), 8.5),
+        ("ALIGN",      (1,0), (-1,-1), "CENTER"),
+        ("ALIGN",      (0,0), (0,-1), "LEFT"),
+        ("VALIGN",     (0,0), (-1,-1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, PDF_LIGHT]),
+        ("GRID",       (0,0), (-1,-1), 0.4, colors.HexColor("#D0D8E0")),
+        ("TOPPADDING", (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+    ]))
+    return tbl
+
+
+def generar_interpretacion_espectral(stats, indices_sel, lang="es"):
+    """Genera un párrafo interpretativo automático para el reporte espectral."""
+    partes = [t("pdf_idx_interp_intro", lang)]
+
+    for idx_name in indices_sel:
+        s = stats.get(idx_name, {})
+        mean_v = s.get("mean")
+        if mean_v is None:
+            continue
+        interpretador = _INTERPRETADORES.get(idx_name)
+        clase = interpretador(mean_v, lang) if interpretador else ""
+        partes.append(
+            f"<b>{idx_name}</b>: {t('pdf_idx_interp_valor_medio', lang)} "
+            f"{mean_v:.3f} — {clase}."
+        )
+
+    partes.append(t("pdf_idx_interp_cierre", lang))
+    return " ".join(partes)
+
+
+def generar_pdf_reporte_espectral(info, stats, thumbnails, indices_sel, bbox,
+                                  fecha_ini, fecha_fin, logo_geo_path=None,
+                                  lang="es"):
+    """
+    Genera un reporte PDF de índices espectrales (RGB + NDVI/NDWI/MNDWI/NDTI)
+    válido para CUALQUIER zona del mundo — no depende de ningún modelo
+    entrenado, solo de la imagen Sentinel-2 real y sus bandas.
+
+    info: dict con n_imagenes, nubes_pct, fecha_real, area_km2
+    stats: dict {indice: {mean, std, min, max, p10, p50, p90}}
+    thumbnails: dict {capa: BytesIO} con las imágenes PNG de cada capa
+    indices_sel: lista de índices a incluir (ej. ["NDVI","NDWI","MNDWI","NDTI"])
+    bbox: (lon_min, lat_min, lon_max, lat_max)
+    """
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=letter,
+        topMargin=2.2*cm, bottomMargin=2*cm,
+        leftMargin=2*cm, rightMargin=2*cm,
+        title="Spectral Indices Report"
+    )
+    styles = get_pdf_styles()
+    story = []
+
+    # ── PORTADA ────────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 1.2*cm))
+    story.append(Paragraph(t("pdf_idx_titulo_reporte", lang), styles["TituloPortada"]))
+    story.append(Paragraph(t("pdf_idx_subtitulo", lang), styles["SubtituloPortada"]))
+    story.append(Spacer(1, 0.4*cm))
+    story.append(HRFlowable(width="60%", thickness=1.2, color=PDF_TEAL, hAlign="CENTER"))
+    story.append(Spacer(1, 0.5*cm))
+
+    lon_min, lat_min, lon_max, lat_max = bbox
+    story.append(Paragraph(
+        f"<b>{t('pdf_idx_periodo_imagen', lang)}:</b> "
+        f"{fecha_ini.strftime('%d %b %Y')} → {fecha_fin.strftime('%d %b %Y')}<br/>"
+        f"<b>{t('pdf_idx_fecha_real', lang)}:</b> {info.get('fecha_real', 'N/D')}<br/>"
+        f"<b>{t('pdf_idx_area', lang)}:</b> {info.get('area_km2', '—')} km² &nbsp;·&nbsp; "
+        f"<b>{t('pdf_idx_nubes', lang)}:</b> {info.get('nubes_pct', '—')}%<br/>"
+        f"<b>{t('pdf_generado', lang)}:</b> {date.today().strftime('%d/%m/%Y')}",
+        styles["MetaPortada"]
+    ))
+    story.append(Spacer(1, 0.7*cm))
+
+    if "RGB" in thumbnails:
+        thumbnails["RGB"].seek(0)
+        story.append(RLImage(thumbnails["RGB"], width=13*cm, height=9*cm))
+        story.append(Spacer(1, 0.2*cm))
+        story.append(Paragraph(f"<i>{t('pdf_fuente_copernicus', lang)}</i>",
+                               styles["FootnoteCentro"]))
+
+    story.append(Spacer(1, 0.5*cm))
+    story.append(Paragraph(t("pdf_idx_nota_auto", lang), styles["FootnoteCentro"]))
+    story.append(PageBreak())
+
+    # ── RESUMEN INTERPRETATIVO ────────────────────────────────────────────────
+    story.append(Paragraph(t("pdf_idx_sec1_titulo", lang), styles["SeccionTitulo"]))
+    story.append(Paragraph(
+        generar_interpretacion_espectral(stats, indices_sel, lang),
+        styles["CuerpoTexto"]
+    ))
+    story.append(Spacer(1, 0.3*cm))
+
+    # ── METODOLOGÍA ───────────────────────────────────────────────────────────
+    story.append(Paragraph(t("pdf_idx_sec2_titulo", lang), styles["SeccionTitulo"]))
+    story.append(Paragraph(t("pdf_idx_metodologia_texto", lang), styles["CuerpoTexto"]))
+    story.append(Spacer(1, 0.3*cm))
+
+    # ── ÁREA DE ESTUDIO ───────────────────────────────────────────────────────
+    story.append(Paragraph(t("pdf_idx_sec3_titulo", lang), styles["SeccionTitulo"]))
+    story.append(Paragraph(
+        f"<b>{t('pdf_coordenadas', lang)}:</b> {t('pdf_longitud', lang)} "
+        f"{lon_min:.5f}° a {lon_max:.5f}° · {t('pdf_latitud', lang)} "
+        f"{lat_min:.5f}° a {lat_max:.5f}°<br/>"
+        f"<b>{t('pdf_idx_area', lang)}:</b> {info.get('area_km2', '—')} km²<br/>"
+        f"<b>{t('pdf_resolucion_s2', lang)}:</b> {t('pdf_res_detalle', lang)}",
+        styles["CuerpoTexto"]
+    ))
+    story.append(Spacer(1, 0.4*cm))
+
+    # ── TABLA DE ESTADÍSTICAS ZONALES ─────────────────────────────────────────
+    story.append(Paragraph(t("pdf_idx_sec4_titulo", lang), styles["SeccionTitulo"]))
+    story.append(build_indices_stats_table(stats, indices_sel, styles, lang))
+    story.append(Spacer(1, 0.3*cm))
+    story.append(Paragraph(t("pdf_idx_stats_nota", lang), styles["CuerpoTextoChico"]))
+    story.append(PageBreak())
+
+    # ── MAPAS DE CADA ÍNDICE CON INTERPRETACIÓN ───────────────────────────────
+    story.append(Paragraph(t("pdf_idx_sec5_titulo", lang), styles["SeccionTitulo"]))
+    story.append(Paragraph(t("pdf_idx_sec5_texto", lang), styles["CuerpoTexto"]))
+    story.append(Spacer(1, 0.3*cm))
+
+    for idx_name in indices_sel:
+        if idx_name not in thumbnails:
+            continue
+        s = stats.get(idx_name, {})
+        mean_v = s.get("mean")
+        interpretador = _INTERPRETADORES.get(idx_name)
+        clase = interpretador(mean_v, lang) if interpretador else ""
+
+        thumbnails[idx_name].seek(0)
+        bloque = [
+            Paragraph(idx_name, styles["SubseccionTitulo"]),
+            RLImage(thumbnails[idx_name], width=11*cm, height=7.7*cm),
+            Spacer(1, 0.15*cm),
+            Paragraph(
+                f"{t('pdf_idx_valor_medio_zona', lang)}: <b>{mean_v:.3f}</b> "
+                f"(σ={s.get('std', 0):.3f}) — {clase}",
+                styles["CuerpoTextoChico"]
+            ),
+            Spacer(1, 0.4*cm),
+        ]
+        story.append(KeepTogether(bloque))
+
+    story.append(PageBreak())
+
+    # ── APLICACIONES Y RECOMENDACIONES ────────────────────────────────────────
+    story.append(Paragraph(t("pdf_idx_sec6_titulo", lang), styles["SeccionTitulo"]))
+    story.append(Paragraph(t("pdf_idx_sec6_texto", lang), styles["CuerpoTexto"]))
+    story.append(Spacer(1, 0.4*cm))
+
+    story.append(Paragraph(
+        f"<b>{t('pdf_citar_como', lang)}:</b> Water Quality &amp; Spectral "
+        f"Indices Mapping Tool. Universidad Autónoma de Nuevo León, "
+        f"Facultad de Ingeniería Civil, Departamento de Geomática.",
+        styles["CuerpoTextoChico"]
+    ))
+
+    from functools import partial
+    header_fn3 = partial(_draw_header_footer, logo_geo_path=logo_geo_path, lang=lang,
+                         titulo_corto="Spectral Indices Report")
+    doc.build(story, onFirstPage=header_fn3, onLaterPages=header_fn3)
+    buf.seek(0)
+    return buf
