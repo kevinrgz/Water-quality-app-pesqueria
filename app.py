@@ -66,118 +66,6 @@ def make_cmap(pal):
     return LinearSegmentedColormap.from_list("wq", pal, N=256)
 
 
-def generar_gif_animacion(param_key, fechas_animar, df_global, wmask_gdf, bounds,
-                          coords_dict, model_data, PARAMS_DICT, resolucion_gif=150,
-                          duracion_frame_ms=900):
-    """
-    Genera un GIF animado mostrando la evolución espacial de un parámetro
-    a lo largo de las fechas seleccionadas.
-    Retorna BytesIO con el GIF, o None si no hay suficientes datos.
-    """
-    from PIL import Image as PILImage
-
-    cfg = PARAMS_DICT[param_key]
-    lon_min, lat_min, lon_max, lat_max = bounds
-    RES = resolucion_gif
-    lon_vec = np.linspace(lon_min, lon_max, RES)
-    lat_vec = np.linspace(lat_min, lat_max, RES)
-    lon_grid, lat_grid = np.meshgrid(lon_vec, lat_vec)
-    pts_grid = np.column_stack([lon_grid.ravel(), lat_grid.ravel()])
-    extent = [lon_min, lon_max, lat_min, lat_max]
-
-    union_geom = wmask_gdf.geometry.unary_union
-    mask_flat = np.array([union_geom.contains(Point(x, y)) for x, y in pts_grid])
-    mask_2d = mask_flat.reshape(RES, RES)
-
-    puntos_uniq = sorted(coords_dict.keys())
-    lons = np.array([coords_dict[p][0] for p in puntos_uniq])
-    lats = np.array([coords_dict[p][1] for p in puntos_uniq])
-    pts_known = np.column_stack([lons, lats])
-
-    frames = []
-    fechas_validas_render = []
-
-    for fecha_str in fechas_animar:
-        fecha_dt = pd.to_datetime(fecha_str, format="%m/%d/%Y")
-        df_fecha = df_global[df_global["target_date"] == fecha_dt]
-        if len(df_fecha) == 0:
-            continue
-
-        vals = []
-        for p in puntos_uniq:
-            fila = df_fecha[df_fecha["nombre"] == p]
-            vals.append(float(fila[param_key].values[0]) if len(fila) > 0 else np.nan)
-        vals = np.array(vals)
-        ok = np.isfinite(vals)
-        if ok.sum() < 3:
-            continue
-
-        try:
-            rbf = RBFInterpolator(pts_known[ok], vals[ok],
-                                  kernel="thin_plate_spline", smoothing=0.1)
-            z_flat = rbf(pts_grid)
-        except Exception:
-            z_flat = griddata(pts_known[ok], vals[ok], pts_grid, method="nearest")
-
-        z_2d = np.where(mask_2d, z_flat.reshape(RES, RES), np.nan)
-
-        # Render del frame con matplotlib
-        fig, ax = plt.subplots(figsize=(7, 5))
-        fig.patch.set_facecolor("#0D1117")
-        ax.set_facecolor("#161B22")
-
-        cmap = make_cmap(cfg["pal"])
-        im = ax.imshow(np.clip(z_2d, cfg["vmin"], cfg["vmax"]), cmap=cmap,
-                       vmin=cfg["vmin"], vmax=cfg["vmax"],
-                       extent=extent, aspect="auto",
-                       interpolation="bilinear", origin="upper")
-
-        wmask_gdf.boundary.plot(ax=ax, color="#2E8B8B", linewidth=1.2, alpha=0.8)
-
-        for j, p in enumerate(puntos_uniq):
-            lon, lat = coords_dict[p]
-            ax.scatter(lon, lat, c="white", s=50, zorder=5,
-                      edgecolors="#0D1117", linewidths=0.6)
-            if np.isfinite(vals[j]):
-                ax.annotate(f" P{j+1}", (lon, lat), fontsize=7,
-                          color="white", fontweight="bold", zorder=6)
-
-        cbar = plt.colorbar(im, ax=ax, fraction=0.04, pad=0.02)
-        cbar.set_label(f"{cfg['label']} ({cfg['unidad']})", color="white", fontsize=9)
-        plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="white", fontsize=7)
-
-        ax.set_title(f"{cfg['label']} — {fecha_dt.strftime('%d %b %Y')}",
-                    color="white", fontsize=12, fontweight="bold")
-        ax.tick_params(colors="#8EAAC8", labelsize=7)
-        ax.set_xlabel("Longitud (°)", color="#8EAAC8", fontsize=7)
-        ax.set_ylabel("Latitud (°)", color="#8EAAC8", fontsize=7)
-        for sp in ax.spines.values(): sp.set_edgecolor("#2E8B8B44")
-
-        plt.tight_layout()
-        buf_frame = io.BytesIO()
-        fig.savefig(buf_frame, dpi=110, bbox_inches="tight", facecolor="#0D1117")
-        plt.close(fig)
-        buf_frame.seek(0)
-
-        frames.append(PILImage.open(buf_frame).convert("RGB"))
-        fechas_validas_render.append(fecha_dt)
-
-    if len(frames) < 2:
-        return None, 0
-
-    # Normalizar tamaño de todos los frames (matplotlib puede variar +-1px)
-    w0, h0 = frames[0].size
-    frames = [f.resize((w0, h0)) for f in frames]
-
-    buf_gif = io.BytesIO()
-    frames[0].save(
-        buf_gif, format="GIF", save_all=True,
-        append_images=frames[1:], duration=duracion_frame_ms,
-        loop=0, optimize=True,
-    )
-    buf_gif.seek(0)
-    return buf_gif, len(frames)
-
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Water Quality RF — Río Pesquería", page_icon="💧", layout="wide")
@@ -558,6 +446,118 @@ def obtener_url_descarga_tiff(_bbox, fecha_ini_str, fecha_fin_str, max_nubes, in
         return None
 
 
+def generar_gif_sentinel2(capa_key, bbox, fecha_ini, fecha_fin, max_nubes,
+                          n_frames_max=8, wmask_gdf=None):
+    """
+    Genera un GIF animado a partir de imágenes Sentinel-2 reales (RGB o índice
+    espectral), descargando una imagen representativa por cada sub-período
+    dentro del rango de fechas elegido por el usuario.
+
+    capa_key: "RGB", "NDVI", "NDWI", "MNDWI" o "NDTI"
+    bbox: (lon_min, lat_min, lon_max, lat_max)
+    fecha_ini, fecha_fin: objetos date
+    Retorna: (BytesIO del GIF, n_frames_generados, lista_fechas_usadas) o (None, 0, [])
+    """
+    if not GEE_OK:
+        return None, 0, []
+
+    import requests as _requests
+    from PIL import Image as PILImage
+
+    try:
+        lon_min, lat_min, lon_max, lat_max = bbox
+        geom = ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max])
+
+        dias_totales = (fecha_fin - fecha_ini).days
+        if dias_totales < 1:
+            return None, 0, []
+
+        n_periodos = min(n_frames_max, max(2, dias_totales // 30 + 1))
+        cortes = pd.date_range(fecha_ini, fecha_fin, periods=n_periodos + 1)
+
+        cfg = INDICES_VIZ[capa_key]
+        frames = []
+        fechas_usadas = []
+
+        for i in range(n_periodos):
+            sub_ini = cortes[i].strftime("%Y-%m-%d")
+            sub_fin = cortes[i+1].strftime("%Y-%m-%d")
+
+            coll = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+                      .filterBounds(geom)
+                      .filterDate(sub_ini, sub_fin)
+                      .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_nubes))
+                      .sort("CLOUDY_PIXEL_PERCENTAGE"))
+
+            if coll.size().getInfo() == 0:
+                continue
+
+            img = coll.first().clip(geom)
+            props = img.getInfo().get("properties", {})
+            fecha_real_str = props.get("PRODUCT_ID", "")[7:15]
+            try:
+                fecha_legible = pd.to_datetime(fecha_real_str, format="%Y%m%d").strftime("%d %b %Y")
+            except Exception:
+                fecha_legible = f"{sub_ini} a {sub_fin}"
+
+            if capa_key == "RGB":
+                img_vis = img
+                vis_params = cfg["vis"]
+            else:
+                img_vis = calcular_indice_gee(img, capa_key)
+                vis_params = cfg["vis"]
+
+            thumb_url = img_vis.getThumbURL({
+                **vis_params, "dimensions": 500, "format": "png", "region": geom,
+            })
+            resp = _requests.get(thumb_url, timeout=20)
+            if resp.status_code != 200:
+                continue
+
+            base_img = PILImage.open(io.BytesIO(resp.content)).convert("RGB")
+
+            # Anotar fecha sobre el frame con matplotlib para overlay consistente
+            fig_f, ax_f = plt.subplots(figsize=(6, 5))
+            fig_f.patch.set_facecolor("#0D1117")
+            ax_f.set_facecolor("#0D1117")
+            ax_f.imshow(base_img, extent=[lon_min, lon_max, lat_min, lat_max], aspect="auto")
+
+            if wmask_gdf is not None:
+                wmask_gdf.boundary.plot(ax=ax_f, color="#00FFCC", linewidth=1.3, alpha=0.85)
+
+            ax_f.set_title(f"{cfg['nombre']}\n{fecha_legible}",
+                           color="white", fontsize=12, fontweight="bold")
+            ax_f.set_xticks([]); ax_f.set_yticks([])
+            for sp in ax_f.spines.values(): sp.set_edgecolor("#2E8B8B44")
+
+            plt.tight_layout()
+            buf_frame = io.BytesIO()
+            fig_f.savefig(buf_frame, dpi=100, facecolor="#0D1117")
+            plt.close(fig_f)
+            buf_frame.seek(0)
+
+            frames.append(PILImage.open(buf_frame).convert("RGB"))
+            fechas_usadas.append(fecha_legible)
+
+        if len(frames) < 2:
+            return None, 0, []
+
+        w0, h0 = frames[0].size
+        frames = [f.resize((w0, h0)) for f in frames]
+
+        buf_gif = io.BytesIO()
+        frames[0].save(
+            buf_gif, format="GIF", save_all=True,
+            append_images=frames[1:], duration=1000,
+            loop=0, optimize=True,
+        )
+        buf_gif.seek(0)
+        return buf_gif, len(frames), fechas_usadas
+
+    except Exception:
+        return None, 0, []
+
+
 def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460):
     lon_min, lat_min, lon_max, lat_max = bbox
     cx, cy = (lon_min+lon_max)/2, (lat_min+lat_max)/2
@@ -808,6 +808,79 @@ if not correr:
                                     st.error("No se pudo generar el enlace")
                     st.markdown("</div>", unsafe_allow_html=True)
 
+                # ── Animación GIF Sentinel-2 (RGB e índices reales) ──────────
+                if GEE_OK and s2_info.get("n_imagenes", 0) > 0:
+                    st.markdown('<div class="map-panel" style="margin-top:.6rem">',
+                               unsafe_allow_html=True)
+                    st.markdown('<div class="map-title">🎬 Animación Temporal Sentinel-2 (GIF)</div>',
+                               unsafe_allow_html=True)
+                    st.caption(
+                        "Genera un GIF animado con imágenes Sentinel-2 reales del rango de "
+                        "fechas que definiste arriba en el sidebar (🛰️ Rango imagen Sentinel-2). "
+                        "El rango se divide automáticamente en sub-períodos para mostrar la "
+                        "evolución temporal real del área de estudio."
+                    )
+
+                    col_gifc1, col_gifc2 = st.columns([2,1])
+                    with col_gifc1:
+                        capa_gif_sel = st.selectbox(
+                            "Capa a animar",
+                            options=["RGB","NDVI","NDWI","MNDWI","NDTI"],
+                            format_func=lambda k: INDICES_VIZ[k]["nombre"],
+                            key="capa_gif_select"
+                        )
+                    with col_gifc2:
+                        n_frames_sel = st.slider("Máx. fotogramas", 2, 10, 6,
+                                                 key="n_frames_gif")
+
+                    dias_rango = (fecha_fin - fecha_ini).days
+                    st.caption(f"📅 Rango actual: {fecha_ini.strftime('%d %b %Y')} → "
+                              f"{fecha_fin.strftime('%d %b %Y')} ({dias_rango} días) · "
+                              f"☁️ Nubes < {max_nubes}%")
+
+                    if dias_rango < 30:
+                        st.warning(
+                            "⚠️ El rango de fechas es corto para una animación significativa. "
+                            "Amplía el rango '🛰️ Rango imagen Sentinel-2' en el sidebar para "
+                            "cubrir varios meses o años."
+                        )
+
+                    gen_gif_s2 = st.button(
+                        "🎬  Generar Animación Sentinel-2", use_container_width=True,
+                        type="primary", key="btn_gif_s2"
+                    )
+
+                    if gen_gif_s2:
+                        with st.spinner(
+                            f"Descargando imágenes Sentinel-2 y generando animación... "
+                            f"(puede tardar 1-3 minutos según el número de fotogramas)"
+                        ):
+                            buf_gif_s2, n_frames_ok, fechas_usadas_gif = generar_gif_sentinel2(
+                                capa_gif_sel, bbox_prev, fecha_ini, fecha_fin, max_nubes,
+                                n_frames_max=n_frames_sel, wmask_gdf=wmask_prev
+                            )
+
+                        if buf_gif_s2 is not None:
+                            st.success(f"✅ Animación generada con {n_frames_ok} fotogramas: "
+                                      f"{', '.join(fechas_usadas_gif)}")
+                            st.image(buf_gif_s2.getvalue(),
+                                    caption=f"{INDICES_VIZ[capa_gif_sel]['nombre']} — "
+                                            f"evolución temporal real")
+                            st.download_button(
+                                "📥  Descargar Animación GIF",
+                                buf_gif_s2.getvalue(),
+                                f"Animacion_S2_{capa_gif_sel}_"
+                                f"{fecha_ini.strftime('%Y%m%d')}_{fecha_fin.strftime('%Y%m%d')}.gif",
+                                "image/gif", use_container_width=True
+                            )
+                        else:
+                            st.warning(
+                                "No se encontraron suficientes imágenes Sentinel-2 sin nubes "
+                                "en el rango seleccionado. Intenta ampliar el rango de fechas "
+                                "o aumentar el umbral de nubes permitido."
+                            )
+                    st.markdown("</div>", unsafe_allow_html=True)
+
             st.markdown('<hr class="divider">', unsafe_allow_html=True)
             ci1,ci2,ci3 = st.columns(3)
             with ci1:
@@ -851,83 +924,6 @@ if not correr:
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    # ── Animación GIF de evolución temporal ────────────────────────────────────
-    st.markdown('<div class="sec-t">🎞️ Animación de Evolución Temporal (GIF)</div>',
-               unsafe_allow_html=True)
-    st.markdown(
-        '<div class="step-box"><div class="step-b">Genera un GIF animado mostrando '
-        'cómo cambia un parámetro o índice espectral a lo largo del tiempo en el '
-        'área de estudio. Compatible con cualquier dispositivo o presentación. '
-        'Requiere haber subido tu wmask.zip.</div></div>',
-        unsafe_allow_html=True
-    )
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    gif_c1, gif_c2 = st.columns(2)
-    with gif_c1:
-        gif_param = st.selectbox(
-            "Parámetro o índice a animar",
-            options=list(PARAMS.keys()),
-            format_func=lambda p: f"{PARAMS[p]['icon']} {PARAMS[p]['label']}",
-            key="gif_param_select"
-        )
-    with gif_c2:
-        gif_fechas_rango = st.select_slider(
-            "Rango de fechas a animar",
-            options=list(range(len(FECHAS_CAMPO))),
-            value=(0, len(FECHAS_CAMPO)-1),
-            format_func=lambda i: pd.to_datetime(FECHAS_CAMPO[i], format="%m/%d/%Y").strftime("%b %Y"),
-            key="gif_fechas_slider"
-        )
-
-    fechas_gif_sel = FECHAS_CAMPO[gif_fechas_rango[0]:gif_fechas_rango[1]+1]
-    st.caption(f"📅 {len(fechas_gif_sel)} fechas seleccionadas: "
-              f"{pd.to_datetime(fechas_gif_sel[0], format='%m/%d/%Y').strftime('%d %b %Y')} "
-              f"→ {pd.to_datetime(fechas_gif_sel[-1], format='%m/%d/%Y').strftime('%d %b %Y')}")
-
-    gen_gif = st.button("🎞️  Generar Animación GIF", use_container_width=True,
-                        disabled=(wmask_zip is None or len(fechas_gif_sel) < 2))
-
-    if wmask_zip is None:
-        st.caption("⬅️ Sube tu wmask.zip para habilitar esta función")
-    elif len(fechas_gif_sel) < 2:
-        st.caption("⚠️ Selecciona al menos 2 fechas para animar")
-
-    if gen_gif and wmask_zip is not None:
-        with st.spinner(f"Generando animación con {len(fechas_gif_sel)} fechas... "
-                        "(puede tardar 1-2 minutos)"):
-            try:
-                with tempfile.TemporaryDirectory() as tmpdir3:
-                    with zipfile.ZipFile(wmask_zip, "r") as z: z.extractall(tmpdir3)
-                    shp3 = [f for f in os.listdir(tmpdir3) if f.endswith(".shp")]
-                    wmask_gif = gpd.read_file(os.path.join(tmpdir3, shp3[0]))
-                    if wmask_gif.crs is None or wmask_gif.crs.to_epsg() != 4326:
-                        wmask_gif = wmask_gif.to_crs(4326)
-                    bounds_gif = tuple(wmask_gif.total_bounds)
-
-                buf_gif, n_frames = generar_gif_animacion(
-                    gif_param, fechas_gif_sel, df_global, wmask_gif,
-                    bounds_gif, COORDS, model_data, PARAMS,
-                    resolucion_gif=150, duracion_frame_ms=900
-                )
-
-                if buf_gif is not None:
-                    st.success(f"✅ GIF generado con {n_frames} fotogramas")
-                    st.image(buf_gif, caption=f"Vista previa — {PARAMS[gif_param]['label']}")
-                    st.download_button(
-                        "📥  Descargar Animación GIF",
-                        buf_gif.getvalue(),
-                        f"Animacion_{gif_param}_{fechas_gif_sel[0].replace('/','')}_"
-                        f"{fechas_gif_sel[-1].replace('/','')}.gif",
-                        "image/gif", use_container_width=True, type="primary"
-                    )
-                else:
-                    st.warning("No hay suficientes fechas con datos válidos en el rango seleccionado.")
-
-            except Exception as e:
-                st.error(f"Error generando animación: {e}")
-
-    st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
     # ── Reporte de Serie Temporal Completa (opcional) ──────────────────────────
     st.markdown('<div class="sec-t">📈 Reporte de Serie Temporal Completa</div>', unsafe_allow_html=True)
@@ -1033,84 +1029,6 @@ if not correr:
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    # ── Animación GIF temporal ─────────────────────────────────────────────────
-    st.markdown('<div class="sec-t">🎬 Animación Temporal (GIF)</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="step-box"><div class="step-b">Genera una animación GIF mostrando '
-        'cómo cambia un parámetro fisicoquímico en el espacio a lo largo de las fechas '
-        'que elijas. Formato GIF — se abre en cualquier navegador, visor de imágenes '
-        'o se inserta directo en presentaciones y documentos Word.</div></div>',
-        unsafe_allow_html=True
-    )
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    col_gif1, col_gif2 = st.columns(2)
-    with col_gif1:
-        param_gif = st.selectbox(
-            "Parámetro a animar",
-            options=list(PARAMS.keys()),
-            format_func=lambda p: f"{PARAMS[p]['icon']} {PARAMS[p]['label']} ({PARAMS[p]['unidad']})",
-            key="param_gif_select"
-        )
-    with col_gif2:
-        fechas_gif_sel = st.multiselect(
-            "Fechas a incluir (mínimo 2, recomendado 4-8)",
-            options=FECHAS_CAMPO,
-            default=FECHAS_CAMPO[::3][:6],
-            format_func=lambda f: pd.to_datetime(f, format="%m/%d/%Y").strftime("%d %b %Y"),
-            key="fechas_gif_select"
-        )
-
-    gen_gif = st.button(
-        "🎬  Generar Animación GIF",
-        use_container_width=True,
-        disabled=(wmask_zip is None or len(fechas_gif_sel) < 2)
-    )
-
-    if wmask_zip is None:
-        st.caption("⬅️ Sube tu wmask.zip para habilitar esta función.")
-    elif len(fechas_gif_sel) < 2:
-        st.caption("Selecciona al menos 2 fechas para crear la animación.")
-
-    if gen_gif and wmask_zip is not None and len(fechas_gif_sel) >= 2:
-        # Ordenar fechas cronológicamente antes de animar
-        fechas_ordenadas = sorted(fechas_gif_sel,
-                                  key=lambda f: pd.to_datetime(f, format="%m/%d/%Y"))
-
-        with st.spinner(f"Generando animación con {len(fechas_ordenadas)} fechas... "
-                        "(puede tardar 30-90 segundos)"):
-            try:
-                with tempfile.TemporaryDirectory() as tmpdir3:
-                    with zipfile.ZipFile(wmask_zip, "r") as z: z.extractall(tmpdir3)
-                    shp3 = [f for f in os.listdir(tmpdir3) if f.endswith(".shp")]
-                    wmask_gif = gpd.read_file(os.path.join(tmpdir3, shp3[0]))
-                    if wmask_gif.crs is None or wmask_gif.crs.to_epsg()!=4326:
-                        wmask_gif = wmask_gif.to_crs(4326)
-                    bounds_gif = tuple(wmask_gif.total_bounds)
-
-                gif_buf, n_frames = generar_gif_animacion(
-                    param_gif, fechas_ordenadas, wmask_gif, bounds_gif,
-                    resolucion_gif=120
-                )
-
-                if gif_buf is not None:
-                    st.success(f"✅ Animación generada con {n_frames} fechas")
-                    st.image(gif_buf.getvalue(), use_column_width=True)
-                    st.download_button(
-                        "📥  Descargar Animación GIF",
-                        gif_buf.getvalue(),
-                        f"Animacion_{param_gif}_{date_cls.today().strftime('%Y%m%d')}.gif",
-                        "image/gif", use_container_width=True, type="primary"
-                    )
-                else:
-                    st.warning(
-                        "No se pudo generar la animación. Verifica que las fechas "
-                        "seleccionadas tengan datos de muestreo válidos."
-                    )
-            except Exception as e:
-                st.error(f"Error generando animación: {e}")
-
-    st.markdown('<hr class="divider">', unsafe_allow_html=True)
     st.markdown('<div class="sec-t">👨‍🔬 Investigador Principal</div>', unsafe_allow_html=True)
     photo_src = f"data:image/png;base64,{PHOTO_B64}" if PHOTO_B64 else ""
     st.markdown(f"""<div class="researcher-card">
