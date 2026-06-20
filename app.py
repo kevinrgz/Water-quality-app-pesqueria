@@ -99,87 +99,142 @@ if "lang" not in st.session_state:
 LANG = st.session_state["lang"]
 
 st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-body,.stApp{background-color:#0D1117!important}
-section[data-testid="stSidebar"]{background-color:#161B22!important}
-.hdr{background:linear-gradient(135deg,#1A4F7A 0%,#0D1117 65%);
-     border-bottom:2px solid #2E8B8B;padding:1.2rem 2rem .9rem;
-     margin-bottom:1.2rem;border-radius:0 0 14px 14px}
-.hdr-logos{display:flex;align-items:center;gap:16px;margin-bottom:.8rem;flex-wrap:wrap}
-.hdr-logo-img{height:54px;object-fit:contain}
-.hdr-sep{width:1px;height:46px;background:#2E8B8B55;flex-shrink:0}
-.app-title{font-size:2.1rem;font-weight:800;color:#fff;margin:0;letter-spacing:-.5px}
-.app-sub{font-size:.88rem;color:#8EAAC8;margin:.3rem 0 0}
-.metric-row{display:flex;gap:12px;margin:1rem 0;flex-wrap:wrap}
-.metric-card{flex:1;min-width:130px;background:linear-gradient(145deg,#161B22,#1A2030);
-             border:1px solid #2E8B8B44;border-radius:14px;padding:1rem;text-align:center}
-.metric-value{font-size:1.85rem;font-weight:700;color:#2E8B8B}
-.metric-label{font-size:.68rem;color:#8EAAC8;text-transform:uppercase;letter-spacing:.07em;margin-top:4px}
-.badge-ok{display:inline-block;margin-top:8px;background:#1A3A2A;color:#3DBA7A;
-          border:1px solid #3DBA7A55;padding:2px 12px;border-radius:20px;font-size:.68rem;font-weight:700}
-.map-panel{background:#161B22;border:1px solid #2E8B8B44;border-radius:14px;padding:.8rem 1rem;margin-bottom:1rem}
-.map-title{font-size:.75rem;font-weight:700;color:#2E8B8B;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
-.map-meta{font-size:.72rem;color:#8EAAC8;margin-top:.5rem;line-height:1.5}
-.chip{display:inline-block;background:#0D1F2D;border:1px solid #2E8B8B44;color:#2E8B8B;
-      font-size:.67rem;border-radius:4px;padding:2px 8px;margin:2px}
-.chip-warn{border-color:#FFD70066;color:#FFD700}
-.chip-bad{border-color:#E74C3C66;color:#E74C3C}
-.info-panel{background:#161B22;border:1px solid #FFFFFF0F;border-radius:14px;padding:.8rem 1rem;margin-bottom:1rem}
-.info-title{font-size:.75rem;font-weight:700;color:#8EAAC8;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
-.param-card{background:#161B22;border:1px solid #FFFFFF12;border-left:3px solid #2E8B8B;
-            border-radius:0 12px 12px 0;padding:1.1rem 1.4rem;margin-bottom:.75rem}
-.param-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.55rem;flex-wrap:wrap;gap:8px}
-.param-name{font-size:.95rem;font-weight:700;color:#FFFFFF}
-.param-oob{font-size:.68rem;color:#2E8B8B;background:#0D1F2D;border:1px solid #2E8B8B44;border-radius:20px;padding:2px 10px}
-.param-desc{font-size:.78rem;color:#8EAAC8;line-height:1.65;margin-bottom:.65rem}
-.param-meta{display:flex;gap:20px;flex-wrap:wrap}
-.pmi{font-size:.72rem;color:#8EAAC8}
-.pmv{color:#2E8B8B;font-weight:600}
-.step-box{background:#161B22;border:1px solid #FFFFFF0F;border-left:3px solid #2E8B8B;
-          border-radius:0 10px 10px 0;padding:1rem 1.2rem}
-.step-t{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:.5rem}
-.step-b{font-size:.76rem;color:#8EAAC8;line-height:1.65}
-.researcher-card{background:linear-gradient(145deg,#161B22,#1A2030);border:1px solid #2E8B8B44;
-                 border-radius:16px;padding:1.3rem 1.7rem;display:flex;gap:20px;align-items:center}
-.rphoto{width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid #2E8B8B;flex-shrink:0}
-.rname{font-size:1rem;font-weight:700;color:#fff;margin:0 0 2px}
-.rtitle{font-size:.8rem;color:#2E8B8B;font-weight:600;margin:0 0 3px}
-.rdept{font-size:.76rem;color:#8EAAC8;margin:0 0 9px}
-.rlinks{display:flex;gap:9px;flex-wrap:wrap}
-.rlink{font-size:.70rem;color:#8EAAC8;background:#FFFFFF0D;border:1px solid #FFFFFF22;
-       border-radius:20px;padding:3px 11px;text-decoration:none}
-.divider{border:0;border-top:1px solid #FFFFFF0F;margin:1.1rem 0}
-.sec-t{font-size:.73rem;font-weight:700;color:#8EAAC8;letter-spacing:.09em;text-transform:uppercase;margin:1.1rem 0 .6rem}
-.slabel{font-size:.68rem;color:#8EAAC8;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:.3rem}
-.footer{text-align:center;font-size:.68rem;color:#3A4A5C;margin-top:2rem;padding-top:1rem;border-top:1px solid #FFFFFF0D}
+:root{
+  --bg:#0B0C0E; --surface:#121317; --surface-2:#17181D;
+  --border:#212328; --border-soft:#1A1B20;
+  --text:#FAFAFA; --text-2:#9B9FA6; --text-3:#6B6F76;
+  --accent:#7C5CFC; --accent-soft:#7C5CFC22; --accent-text:#B8A6FF;
+  --good:#2DD4A7; --warn:#F5A623; --bad:#F5564A;
+  --font:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+html,body,.stApp{background-color:var(--bg)!important;font-family:var(--font)!important}
+.stApp *{font-family:var(--font)}
+section[data-testid="stSidebar"]{background-color:var(--surface)!important;
+  border-right:1px solid var(--border)!important}
+h1,h2,h3,h4,h5,h6,p,span,div,label{color:var(--text)}
 
-/* Control de capas Folium/Leaflet - estilo tecnico compacto */
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+.hdr{padding:2.75rem 0 2.25rem;margin-bottom:1.5rem;border-bottom:1px solid var(--border-soft)}
+.hdr-logos{display:flex;align-items:center;gap:18px;margin-bottom:1.75rem;opacity:.85}
+.hdr-logo-img{height:30px;object-fit:contain;filter:grayscale(1) brightness(1.6)}
+.hdr-sep{width:1px;height:22px;background:var(--border)}
+.hdr-eyebrow{font-family:var(--mono);font-size:.72rem;color:var(--text-3);
+  letter-spacing:.08em;text-transform:uppercase;margin-bottom:.9rem}
+.app-title{font-size:2.6rem;font-weight:600;color:var(--text);margin:0 0 .6rem;
+  letter-spacing:-.025em;line-height:1.08}
+.app-sub{font-size:1rem;color:var(--text-2);margin:0 0 1.75rem;max-width:560px;line-height:1.6}
+.hero-stats{display:flex;gap:2.5rem;flex-wrap:wrap}
+.hero-stat-value{font-size:1.5rem;font-weight:600;color:var(--text);letter-spacing:-.01em}
+.hero-stat-label{font-size:.78rem;color:var(--text-3);margin-top:.15rem}
+
+/* ── Status banners (replace old st.success/warning visually) ──────────── */
+.stAlert{background:var(--surface)!important;border:1px solid var(--border)!important;
+  border-radius:10px!important}
+div[data-testid="stAlertContentSuccess"]{color:var(--good)!important}
+div[data-testid="stAlertContentInfo"]{color:var(--accent-text)!important}
+div[data-testid="stAlertContentWarning"]{color:var(--warn)!important}
+div[data-testid="stAlertContentError"]{color:var(--bad)!important}
+
+/* ── Panels / cards (flat, low-contrast borders, no gradients) ─────────── */
+.map-panel{background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:1.1rem 1.3rem;margin-bottom:1rem}
+.map-title{font-family:var(--mono);font-size:.72rem;font-weight:500;color:var(--text-2);
+  letter-spacing:.06em;text-transform:uppercase;margin-bottom:.6rem}
+.map-meta{font-size:.82rem;color:var(--text-2);margin-top:.6rem;line-height:1.7}
+
+.info-panel{background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:1.1rem 1.3rem;margin-bottom:1rem}
+.info-title{font-family:var(--mono);font-size:.72rem;font-weight:500;color:var(--text-2);
+  letter-spacing:.06em;text-transform:uppercase;margin-bottom:.6rem}
+
+/* ── Telemetry chips → minimal pills, no heavy borders ──────────────────── */
+.chip{display:inline-block;background:var(--surface-2);color:var(--text-2);
+  font-family:var(--mono);font-size:.72rem;border-radius:6px;padding:3px 10px;margin:2px 4px 2px 0}
+.chip-warn{color:var(--warn)}
+.chip-bad{color:var(--bad)}
+
+/* ── Parameter cards ─────────────────────────────────────────────────────── */
+.param-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:1.3rem 1.5rem;margin-bottom:.8rem}
+.param-hdr{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:.7rem;flex-wrap:wrap;gap:8px}
+.param-name{font-size:1.02rem;font-weight:600;color:var(--text);letter-spacing:-.01em}
+.param-oob{font-family:var(--mono);font-size:.72rem;color:var(--accent-text);
+  background:var(--accent-soft);border-radius:6px;padding:3px 10px}
+.param-desc{font-size:.88rem;color:var(--text-2);line-height:1.7;margin-bottom:.8rem}
+.param-meta{display:flex;gap:24px;flex-wrap:wrap}
+.pmi{font-size:.78rem;color:var(--text-3)}
+.pmv{color:var(--text);font-weight:500;font-family:var(--mono)}
+
+/* ── Step / instruction boxes ────────────────────────────────────────────── */
+.step-box{background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:1.3rem 1.4rem}
+.step-t{font-size:.95rem;font-weight:600;color:var(--text);margin-bottom:.6rem}
+.step-b{font-size:.84rem;color:var(--text-2);line-height:1.7}
+
+/* ── Researcher card ──────────────────────────────────────────────────────── */
+.researcher-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:1.5rem 1.75rem;display:flex;gap:22px;align-items:center}
+.rphoto{width:72px;height:72px;border-radius:50%;object-fit:cover;
+  border:1px solid var(--border);flex-shrink:0}
+.rname{font-size:1.05rem;font-weight:600;color:var(--text);margin:0 0 3px;letter-spacing:-.01em}
+.rtitle{font-size:.84rem;color:var(--accent-text);font-weight:500;margin:0 0 4px}
+.rdept{font-size:.82rem;color:var(--text-2);margin:0 0 12px}
+.rlinks{display:flex;gap:10px;flex-wrap:wrap}
+.rlink{font-size:.78rem;color:var(--text-2);background:var(--surface-2);
+  border:1px solid var(--border);border-radius:8px;padding:5px 12px;text-decoration:none;
+  transition:border-color .15s}
+.rlink:hover{border-color:var(--accent)}
+
+/* ── Dividers / section titles / sidebar labels ──────────────────────────── */
+.divider{border:0;border-top:1px solid var(--border-soft);margin:1.5rem 0}
+.sec-t{font-family:var(--mono);font-size:.74rem;font-weight:500;color:var(--text-3);
+  letter-spacing:.07em;text-transform:uppercase;margin:1.6rem 0 .9rem}
+.slabel{font-family:var(--mono);font-size:.68rem;color:var(--text-3);
+  text-transform:uppercase;letter-spacing:.07em;font-weight:500;margin-bottom:.4rem}
+.footer{text-align:center;font-size:.76rem;color:var(--text-3);margin-top:2.5rem;
+  padding-top:1.5rem;border-top:1px solid var(--border-soft)}
+
+/* ── Buttons: violet accent only on primary ──────────────────────────────── */
+.stButton button[kind="primary"]{background:var(--accent)!important;
+  border:1px solid var(--accent)!important;border-radius:8px!important;
+  font-weight:500!important;color:#fff!important}
+.stButton button[kind="primary"]:hover{background:#6B4DE8!important}
+.stButton button[kind="secondary"],.stDownloadButton button{
+  background:var(--surface)!important;border:1px solid var(--border)!important;
+  border-radius:8px!important;color:var(--text)!important}
+.stButton button[kind="secondary"]:hover,.stDownloadButton button:hover{
+  border-color:var(--accent)!important;color:var(--accent-text)!important}
+
+/* ── Inputs ────────────────────────────────────────────────────────────────── */
+.stSelectbox div[data-baseweb="select"]>div,.stDateInput input,
+.stMultiSelect div[data-baseweb="select"]>div{
+  background:var(--surface-2)!important;border-color:var(--border)!important;
+  border-radius:8px!important}
+.stSlider [data-baseweb="slider"] div[role="slider"]{background:var(--accent)!important}
+
+/* ── Leaflet layer control: match the new system ─────────────────────────── */
 .leaflet-control-layers{
-    font-size:11px!important;
-    font-family:'Helvetica Neue',Arial,sans-serif!important;
-    background:#161B22!important;
-    border:1px solid #2E8B8B66!important;
-    border-radius:8px!important;
-    box-shadow:0 2px 8px rgba(0,0,0,.4)!important;
+    font-family:var(--font)!important;font-size:12px!important;
+    background:var(--surface)!important;border:1px solid var(--border)!important;
+    border-radius:10px!important;box-shadow:0 8px 24px rgba(0,0,0,.4)!important;
 }
-.leaflet-control-layers-list{padding:6px 8px!important}
+.leaflet-control-layers-list{padding:8px 10px!important}
 .leaflet-control-layers label{
-    color:#D6E2EC!important;
-    font-size:11px!important;
-    line-height:1.6!important;
-    font-weight:500!important;
-    margin-bottom:2px!important;
+    color:var(--text-2)!important;font-size:12px!important;
+    line-height:1.7!important;font-weight:400!important;margin-bottom:2px!important;
 }
-.leaflet-control-layers-separator{border-color:#2E8B8B44!important;margin:4px 0!important}
+.leaflet-control-layers-separator{border-color:var(--border)!important;margin:6px 0!important}
 .leaflet-control-layers-base label,.leaflet-control-layers-overlays label{
-    display:flex!important;align-items:center!important;gap:4px!important;
+    display:flex!important;align-items:center!important;gap:6px!important;
 }
-.leaflet-control-layers-toggle{
-    background-color:#161B22!important;
-    border-radius:8px!important;
-}
+.leaflet-control-layers-toggle{background-color:var(--surface)!important;border-radius:10px!important}
 </style>
 """, unsafe_allow_html=True)
+
 
 # ── Conexión a GEE con Service Account ────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
@@ -791,33 +846,38 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
 
 
 # ── HEADER ────────────────────────────────────────────────────────────────────
-logo_u = f'<img class="hdr-logo-img" src="data:image/png;base64,{UANL_B64}">' if UANL_B64 else "<span style='color:#8EAAC8'>UANL</span>"
+logo_u = f'<img class="hdr-logo-img" src="data:image/png;base64,{UANL_B64}">' if UANL_B64 else "<span style='color:var(--text-3);font-family:var(--mono);font-size:.75rem'>UANL</span>"
 logo_f = f'<img class="hdr-logo-img" src="data:image/png;base64,{FIC_B64}">'  if FIC_B64  else ""
 logo_g = f'<img class="hdr-logo-img" src="data:image/png;base64,{GEO_B64}">'  if GEO_B64  else ""
+
+if model_data is None:
+    _err = st.session_state.get("_model_load_error", "Unknown")
+    _model_status_ok = False
+else:
+    _model_status_ok = True
+
+_gee_label = t("gee_activo", LANG) if GEE_OK else t("gee_no_disponible", LANG)
+_gee_color = "var(--good)" if GEE_OK else "var(--warn)"
 
 st.markdown(f"""
 <div class="hdr">
   <div class="hdr-logos">{logo_u}<div class="hdr-sep"></div>{logo_f}<div class="hdr-sep"></div>{logo_g}</div>
+  <div class="hdr-eyebrow">Río Pesquería · Nuevo León, México</div>
   <div class="app-title">{t("app_title", LANG)}</div>
   <div class="app-sub">{t("app_subtitle", LANG)}</div>
+  <div class="hero-stats">
+    <div><div class="hero-stat-value">0.684</div><div class="hero-stat-label">OOB R&sup2; · {get_param_label("P_TOT", LANG)}</div></div>
+    <div><div class="hero-stat-value">19</div><div class="hero-stat-label">{t("serie_fechas", LANG)} 2016–2019</div></div>
+    <div><div class="hero-stat-value" style="color:{_gee_color}">●</div><div class="hero-stat-label">{_gee_label}</div></div>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
-if model_data is None:
-    _err = st.session_state.get("_model_load_error", "Unknown")
+if not _model_status_ok:
     st.error(f'{t("error_modelo", LANG)} {_err}')
     st.stop()
 if df_global is None:
     st.error(t("error_csv", LANG)); st.stop()
-
-col_status1, col_status2 = st.columns(2)
-with col_status1:
-    st.success(t("modelo_cargado", LANG))
-with col_status2:
-    if GEE_OK:
-        st.success(t("gee_activo", LANG))
-    else:
-        st.warning(t("gee_no_disponible", LANG))
 
 st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
