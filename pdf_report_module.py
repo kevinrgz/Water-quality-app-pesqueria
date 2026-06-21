@@ -62,25 +62,31 @@ def _draw_header_footer(canvas_obj, doc, titulo_corto="Calidad de Agua — Río 
     canvas_obj.saveState()
     width, height = letter
 
-    # Logo encima de la línea (usa versión original con texto negro)
+    # Logo: ratio 4.89:1 — ancho 3.6cm → alto 0.74cm
+    # Se dibuja en la esquina superior derecha, ENCIMA de la línea
+    _logo_w, _logo_h = 3.6*cm, 0.74*cm
+    _logo_x = width - _logo_w - 1.5*cm
+    _logo_y = height - _logo_h - 0.35*cm   # margen desde el borde superior
     if logo_geo_path:
         try:
             import os as _os
             _orig = logo_geo_path.replace("logo_geomatica.png", "logo_geomatica_original.png")
             _logo_pdf = _orig if _os.path.exists(_orig) else logo_geo_path
-            canvas_obj.drawImage(_logo_pdf, width - 4.5*cm, height - 1.3*cm,
-                                 width=2.5*cm, height=0.65*cm,
+            canvas_obj.drawImage(_logo_pdf, _logo_x, _logo_y,
+                                 width=_logo_w, height=_logo_h,
                                  preserveAspectRatio=True, mask="auto")
         except Exception:
             pass
 
+    # Línea teal debajo del logo con margen
+    _line_y = _logo_y - 0.18*cm
     canvas_obj.setStrokeColor(PDF_TEAL)
     canvas_obj.setLineWidth(1.2)
-    canvas_obj.line(2*cm, height - 1.45*cm, width - 4.8*cm, height - 1.45*cm)
+    canvas_obj.line(2*cm, _line_y, width - 2*cm, _line_y)
 
     canvas_obj.setFont("Helvetica", 7.5)
     canvas_obj.setFillColor(PDF_GREY)
-    canvas_obj.drawString(2*cm, height - 1.2*cm, titulo_corto)
+    canvas_obj.drawString(2*cm, _line_y + 0.22*cm, titulo_corto)
 
     canvas_obj.setLineWidth(0.6)
     canvas_obj.line(2*cm, 1.5*cm, width - 2*cm, 1.5*cm)
