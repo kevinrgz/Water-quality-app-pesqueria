@@ -2188,14 +2188,11 @@ with st.sidebar:
         format_func=lambda v: f"{v}×{v}")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    valid = (wmask_zip is not None and params_sel and fecha_ini < fecha_fin
-            and es_zona_pesqueria)
+    valid = (wmask_zip is not None and params_sel and fecha_ini < fecha_fin)
     correr = st.button(t("sidebar_generar_mapas", LANG), type="primary",
                        use_container_width=True, disabled=not valid)
     if wmask_zip is None:
         st.warning(t("sidebar_sube_wmask_warn", LANG))
-    elif not es_zona_pesqueria:
-        st.caption(t("zona_pesqueria_boton_disabled", LANG))
 
 # ── PANTALLA INICIAL ──────────────────────────────────────────────────────────
 if not correr:
