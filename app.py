@@ -1382,33 +1382,39 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes,
                 tile_urls[idx_name] = map_id["tile_fetcher"].url_format
 
         # ── LST desde Landsat 8/9 Collection 2 con downscaling via NDVI S2 ──
-        try:
-            def _lst_kelvin_to_celsius(image):
-                return image.select("ST_B10").multiply(0.00341802).add(149.0).subtract(273.15)
+        def _lst_to_celsius(image):
+            return (image.select("ST_B10")
+                    .multiply(0.00341802).add(149.0).subtract(273.15)
+                    .rename("LST"))
 
-            lst_coll = (ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
-                        .filterBounds(geom)
-                        .filterDate(fecha_ini_str, fecha_fin_str)
-                        .filter(ee.Filter.lt("CLOUD_COVER", max_nubes)))
-            lst_coll9 = (ee.ImageCollection("LANDSAT/LC09/C02/T1_L2")
-                         .filterBounds(geom)
-                         .filterDate(fecha_ini_str, fecha_fin_str)
-                         .filter(ee.Filter.lt("CLOUD_COVER", max_nubes)))
-            lst_merged = lst_coll.merge(lst_coll9)
-            if lst_merged.size().getInfo() > 0:
-                lst_30m = lst_merged.map(_lst_kelvin_to_celsius).median().clip(geom)
-                # TsHARP downscaling: modulate 30m LST using 10m NDVI ratio
-                ndvi_s2_10m  = img.normalizedDifference(["B8","B4"]).rename("NDVI")
-                ndvi_30m     = ndvi_s2_10m.reduceResolution(
-                    reducer=ee.Reducer.mean(), maxPixels=256
-                ).reproject(crs="EPSG:4326", scale=30)
-                ndvi_ratio   = ndvi_s2_10m.divide(ndvi_30m.where(ndvi_30m.eq(0), 1))
-                lst_sharp    = lst_30m.multiply(ndvi_ratio).reproject(crs="EPSG:4326", scale=10)
-                vis_lst = INDICES_VIZ["LST"]["vis"]
-                map_id_lst = lst_sharp.getMapId(vis_lst)
-                tile_urls["LST"] = map_id_lst["tile_fetcher"].url_format
-        except Exception:
-            pass  # LST opcional — no bloquea el resto de índices
+        lst_merged = (
+            ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
+              .filterBounds(geom).filterDate(fecha_ini_str, fecha_fin_str)
+              .filter(ee.Filter.lt("CLOUD_COVER", max_nubes))
+            .merge(
+            ee.ImageCollection("LANDSAT/LC09/C02/T1_L2")
+              .filterBounds(geom).filterDate(fecha_ini_str, fecha_fin_str)
+              .filter(ee.Filter.lt("CLOUD_COVER", max_nubes))
+            )
+        )
+        if lst_merged.size().getInfo() > 0:
+            lst_30m  = lst_merged.map(_lst_to_celsius).median().clip(geom)
+            vis_lst  = INDICES_VIZ["LST"]["vis"]
+            # Intenta TsHARP 10m; si falla usa 30m nativo
+            try:
+                ndvi_10m = img.normalizedDifference(["B8","B4"])
+                proj_30m = ee.Projection("EPSG:4326").atScale(30)
+                ndvi_30m = (ndvi_10m
+                            .reduceResolution(ee.Reducer.mean(), maxPixels=1024)
+                            .reproject(proj_30m))
+                safe_30m = ndvi_30m.where(ndvi_30m.abs().lt(0.01), 0.01)
+                lst_10m  = (lst_30m
+                            .multiply(ndvi_10m.divide(safe_30m))
+                            .reproject(ee.Projection("EPSG:4326").atScale(10)))
+                tile_urls["LST"] = lst_10m.getMapId(vis_lst)["tile_fetcher"].url_format
+            except Exception:
+                # Fallback: LST a resolución nativa Landsat 30m
+                tile_urls["LST"] = lst_30m.getMapId(vis_lst)["tile_fetcher"].url_format
 
         info = {"n_imagenes": n_imgs,
                 "nubes_pct": round(nubes_pct, 1) if nubes_pct is not None else None,
