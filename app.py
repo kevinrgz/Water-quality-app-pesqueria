@@ -116,7 +116,8 @@ st.markdown("""
 }
 
 /* ── BASE ──────────────────────────────────────────────────────────────── */
-html,body,.stApp,*:not(code):not(pre){font-family:var(--f-sans)!important}
+html,body,.stApp,*:not(code):not(pre):not(.material-symbols-rounded):not(.material-symbols-outlined):not(.material-icons):not([data-testid="stIconMaterial"]){font-family:var(--f-sans)!important}
+.material-symbols-rounded,.material-symbols-outlined,.material-icons,[data-testid="stIconMaterial"]{font-family:'Material Symbols Rounded','Material Symbols Outlined','Material Icons'!important}
 code,pre,.stCode{font-family:var(--f-mono)!important}
 body,.stApp{background:var(--bg)!important}
 
