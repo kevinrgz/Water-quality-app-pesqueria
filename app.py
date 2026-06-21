@@ -221,7 +221,7 @@ body,.stApp{background:var(--bg)!important}
 /* ── SATELLITE ────────────────────────────────────────────────────────────── */
 .satellite{
   position:fixed;z-index:9999;pointer-events:none;
-  width:32px;height:32px;
+  width:58px;height:58px;
   animation:satellitePass 35s linear infinite;
   opacity:.75;
 }
