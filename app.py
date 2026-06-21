@@ -1696,7 +1696,7 @@ body{
 /* ── LAYOUT ── */
 .hero{
   position:relative;z-index:10;
-  display:flex;height:100vh;
+  display:flex;height:100%;min-height:540px;
 }
 
 /* ── LIQUID GLASS LIGHT ── */
@@ -1749,7 +1749,7 @@ body{
 
 /* ── LEFT PANEL ── */
 .panel-l{
-  flex:0 0 54%;
+  flex:1 1 100%;
   position:relative;
   padding:20px;
 }
@@ -1842,9 +1842,10 @@ body{
 }
 
 .hero-h1{
-  font-size:clamp(1.85rem,3.6vw,2.95rem);
-  font-weight:500;line-height:1.12;letter-spacing:-.04em;
+  font-size:clamp(2.4rem,5.5vw,4.8rem);
+  font-weight:500;line-height:1.08;letter-spacing:-.04em;
   color:rgba(255,255,255,.95);
+  max-width:720px;
 }
 
 .hero-h1 em{
@@ -1855,8 +1856,8 @@ body{
 
 .hero-sub{
   font-family:'JetBrains Mono',monospace;
-  font-size:.7rem;color:rgba(255,255,255,.45);
-  line-height:1.7;max-width:360px;
+  font-size:.72rem;color:rgba(255,255,255,.45);
+  line-height:1.7;max-width:520px;
 }
 
 /* CTA */
@@ -2057,34 +2058,12 @@ _hero_body = f"""<div class="bg-wrap">
 </div>
 </div>
 </div>
-<div class="panel-r">
-<div class="r-top">
-<div class="band-pill lg" style="border-radius:40px">
-<span class="band-tag">B2</span><span class="band-tag">B3</span><span class="band-tag">B4</span><span class="band-tag">B8</span><span class="band-tag">B11</span><span class="arr">&#8594;</span>
-</div>
-<div class="sparkle lg" style="border-radius:50%">&#10022;</div>
-</div>
-<div class="comm lg" style="border-radius:18px">
-<div class="comm-t">Zona de Monitoreo</div>
-<div class="comm-d">Cuenca del R&iacute;o Pesquer&iacute;a, Nuevo Le&oacute;n. An&aacute;lisis continuo de par&aacute;metros de calidad h&iacute;drica mediante IA y teledeteccion satelital.</div>
-</div>
-<div class="feat-outer lg" style="border-radius:26px">
-<div class="feat-row">
-<div class="feat-card lg" style="border-radius:18px"><div class="feat-ic">&#9889;</div><div class="feat-t">Procesamiento GEE</div><div class="feat-s">Cloud API</div></div>
-<div class="feat-card lg" style="border-radius:18px"><div class="feat-ic">&#128230;</div><div class="feat-t">Archivo Espectral</div><div class="feat-s">GeoTIFF &middot; EPSG:4326</div></div>
-</div>
-<div class="feat-bot lg" style="border-radius:18px">
-<div class="thumb">&#127754;</div>
-<div><div class="bt">Modelado Espectral Avanzado</div><div class="bs">NDVI &middot; NDWI &middot; MNDWI &middot; NDTI<br>P_TOT &middot; N_NH3 &middot; N_TOT &middot; N_TOTK</div></div>
-<div class="plus">+</div>
-</div>
-</div>
 </div>
 </div>"""
 
 components.html(
     f"<!DOCTYPE html><html><head><meta charset='utf-8'>{_hero_css}</head><body>{_hero_body}</body></html>",
-    height=680,
+    height=580,
     scrolling=False
 )
 
