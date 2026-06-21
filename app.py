@@ -2719,7 +2719,58 @@ if not correr:
           <div class="empty-coords">Río Pesquería · 7 puntos · 25.77°N – 25.83°N · 100.02°W – 100.35°W · EPSG:4326 · Modelo RF activo solo para esta zona</div>
         </div>""", unsafe_allow_html=True)
         st.markdown(f'<div class="sec-t">{t("puntos_titulo", LANG)}</div>', unsafe_allow_html=True)
-        st.map(pd.DataFrame([{"lat": c[1], "lon": c[0]} for c in COORDS.values()]))
+        # Mapa Folium con marcadores animados
+        _pts = list(COORDS.items())
+        _lats = [c[1] for _,c in _pts]; _lons = [c[0] for _,c in _pts]
+        _center = [sum(_lats)/len(_lats), sum(_lons)/len(_lons)]
+        _mapa_pts = folium.Map(location=_center, zoom_start=11, tiles=None,
+                               width="100%", height=320)
+        folium.TileLayer("CartoDB dark_matter", name="Dark", attr="CARTO").add_to(_mapa_pts)
+        # Línea del río (conecta puntos ordenados por longitud)
+        _sorted_pts = sorted(_pts, key=lambda x: x[1][0])
+        folium.PolyLine(
+            locations=[[c[1], c[0]] for _,c in _sorted_pts],
+            color="#22D3EE", weight=2.5, opacity=0.6, dash_array="6 4"
+        ).add_to(_mapa_pts)
+        # Marcadores con pulso CSS + popup
+        _pulse_css = """
+        <style>
+        .pulse-marker{width:16px;height:16px;position:relative}
+        .pulse-dot{width:10px;height:10px;border-radius:50%;background:#EF4444;
+          position:absolute;top:3px;left:3px;
+          box-shadow:0 0 0 0 rgba(239,68,68,.6)}
+        .pulse-dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;
+          border:2px solid rgba(239,68,68,.5);
+          animation:pulseRing 1.8s ease-out infinite}
+        @keyframes pulseRing{0%{transform:scale(.8);opacity:1}100%{transform:scale(2.2);opacity:0}}
+        </style>"""
+        for i, (nombre, (lon, lat)) in enumerate(_pts):
+            icon_html = f"""{_pulse_css}
+            <div class="pulse-marker"><div class="pulse-dot"></div></div>"""
+            folium.Marker(
+                location=[lat, lon],
+                icon=folium.DivIcon(html=icon_html, icon_size=(16,16), icon_anchor=(8,8)),
+                popup=folium.Popup(
+                    f"<b style='font-family:monospace;font-size:11px'>{nombre}</b><br>"
+                    f"<span style='font-family:monospace;font-size:10px;color:#666'>"
+                    f"Lat: {lat:.5f}°N<br>Lon: {lon:.5f}°W</span>",
+                    max_width=160
+                ),
+                tooltip=f"📍 {nombre}"
+            ).add_to(_mapa_pts)
+        # Badge número de punto
+        for i, (nombre, (lon, lat)) in enumerate(_pts):
+            folium.Marker(
+                location=[lat+0.003, lon],
+                icon=folium.DivIcon(
+                    html=f"<div style='font-family:monospace;font-size:9px;font-weight:700;"
+                         f"color:#22D3EE;background:rgba(2,6,14,.75);padding:1px 4px;"
+                         f"border-radius:3px;border:1px solid rgba(34,211,238,.3);white-space:nowrap'>"
+                         f"P{i+1}</div>",
+                    icon_size=(24, 14), icon_anchor=(12, 14)
+                )
+            ).add_to(_mapa_pts)
+        st_folium(_mapa_pts, width="100%", height=320, returned_objects=[])
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
     st.markdown(f'<div class="sec-t">🔬&nbsp; {t("parametros_seccion_titulo", LANG)}</div>', unsafe_allow_html=True)
