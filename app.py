@@ -1305,113 +1305,46 @@ logo_u = f'<img class="hdr-logo-img" src="data:image/png;base64,{UANL_B64}">' if
 logo_f = f'<img class="hdr-logo-img" src="data:image/png;base64,{FIC_B64}">'  if FIC_B64  else ""
 logo_g = f'<img class="hdr-logo-img" src="data:image/png;base64,{GEO_B64}">'  if GEO_B64  else ""
 
-st.markdown(f"""
-<div class="aurora-bg"></div>
+st.markdown(f"""<div class="aurora-bg"></div>
 <div class="hdr">
-
-  <!-- LEFT PANEL — liquid glass strong -->
-  <div class="hdr-left lqg-s">
-    <div class="hdr-orb hdr-orb-1"></div>
-    <div class="hdr-orb hdr-orb-2"></div>
-    <div class="hdr-orb hdr-orb-3"></div>
-
-    <!-- nav row -->
-    <div class="hdr-logos">
-      {logo_u}
-      <div class="hdr-sep"></div>{logo_f}
-      <div class="hdr-sep"></div>{logo_g}
-      <span class="hdr-live" style="margin-left:auto">
-        <span class="hdr-live-dot"></span>LIVE
-      </span>
-    </div>
-
-    <!-- hero -->
-    <div class="hdr-body">
-      <div class="hdr-eyebrow">TELEDETECCIÓN · NL, MÉXICO · UANL</div>
-      <div>
-        <span class="app-title">{t("app_title", LANG)}</span>
-      </div>
-      <div class="app-sub">{t("app_subtitle", LANG)}</div>
-    </div>
-
-    <!-- pills -->
-    <div class="hdr-pills">
-      <span class="hdr-pill">🛰 Sentinel-2 SR</span>
-      <span class="hdr-pill">🌊 Calidad del Agua</span>
-      <span class="hdr-pill">📊 Índices Espectrales</span>
-      <span class="hdr-pill">🤖 Random Forest</span>
-    </div>
-
-    <!-- meta -->
-    <div class="hdr-meta">
-      <span class="hdr-tag"><b>SAT</b> Sentinel-2 SR · 10 m</span>
-      <span class="hdr-tag"><b>MDL</b> Random Forest · 4 params</span>
-      <span class="hdr-tag"><b>LAT</b> 25.77° – 25.83° N</span>
-      <span class="hdr-tag"><b>LON</b> 100.34° – 100.02° W</span>
-      <span class="hdr-tag"><b>EPSG</b> 4326</span>
-    </div>
-  </div>
-
-  <!-- RIGHT PANEL -->
-  <div class="hdr-right">
-
-    <!-- top feature cards grid -->
-    <div class="hdr-feat-grid">
-      <div class="hdr-feat-card">
-        <div class="hdr-feat-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-          </svg>
-        </div>
-        <div class="hdr-feat-t">Bandas Espectrales</div>
-        <div class="hdr-feat-s">B2 · B3 · B4 · B8 · B11</div>
-      </div>
-      <div class="hdr-feat-card">
-        <div class="hdr-feat-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-            <circle cx="12" cy="12" r="3"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"/>
-          </svg>
-        </div>
-        <div class="hdr-feat-t">Modelo Predictivo</div>
-        <div class="hdr-feat-s">P_TOT · N_NH3 · N_TOT · N_TOTK</div>
-      </div>
-    </div>
-
-    <!-- second row -->
-    <div class="hdr-feat-grid">
-      <div class="hdr-feat-card">
-        <div class="hdr-feat-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-          </svg>
-        </div>
-        <div class="hdr-feat-t">Índices NDVI / NDWI</div>
-        <div class="hdr-feat-s">MNDWI · NDTI · RGB</div>
-      </div>
-      <div class="hdr-feat-card">
-        <div class="hdr-feat-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-          </svg>
-        </div>
-        <div class="hdr-feat-t">Análisis Temporal</div>
-        <div class="hdr-feat-s">Serie multifecha · GIF</div>
-      </div>
-    </div>
-
-    <!-- bottom wide card -->
-    <div class="hdr-feat-bottom">
-      <div class="hdr-feat-thumb">🌊</div>
-      <div>
-        <div class="hdr-feat-bt">Río Pesquería, Nuevo León</div>
-        <div class="hdr-feat-bs">Zona de monitoreo activa<br>10 m · COPERNICUS/S2_SR_HARMONIZED</div>
-      </div>
-      <div class="hdr-feat-plus">+</div>
-    </div>
-
-  </div>
+<div class="hdr-left lqg-s">
+<div class="hdr-orb hdr-orb-1"></div><div class="hdr-orb hdr-orb-2"></div><div class="hdr-orb hdr-orb-3"></div>
+<div class="hdr-logos">{logo_u}<div class="hdr-sep"></div>{logo_f}<div class="hdr-sep"></div>{logo_g}<span class="hdr-live" style="margin-left:auto"><span class="hdr-live-dot"></span>LIVE</span></div>
+<div class="hdr-body">
+<div class="hdr-eyebrow">TELEDETECCION · NL, MEXICO · UANL</div>
+<span class="app-title">{t("app_title", LANG)}</span>
+<div class="app-sub">{t("app_subtitle", LANG)}</div>
 </div>
-""", unsafe_allow_html=True)
+<div class="hdr-pills">
+<span class="hdr-pill">Sentinel-2 SR</span>
+<span class="hdr-pill">Calidad del Agua</span>
+<span class="hdr-pill">Indices Espectrales</span>
+<span class="hdr-pill">Random Forest</span>
+</div>
+<div class="hdr-meta">
+<span class="hdr-tag"><b>SAT</b> Sentinel-2 SR 10m</span>
+<span class="hdr-tag"><b>MDL</b> Random Forest 4 params</span>
+<span class="hdr-tag"><b>LAT</b> 25.77 25.83 N</span>
+<span class="hdr-tag"><b>LON</b> 100.34 100.02 W</span>
+<span class="hdr-tag"><b>EPSG</b> 4326</span>
+</div>
+</div>
+<div class="hdr-right">
+<div class="hdr-feat-grid">
+<div class="hdr-feat-card"><div class="hdr-feat-icon">&#128752;</div><div class="hdr-feat-t">Bandas Espectrales</div><div class="hdr-feat-s">B2 B3 B4 B8 B11</div></div>
+<div class="hdr-feat-card"><div class="hdr-feat-icon">&#129302;</div><div class="hdr-feat-t">Modelo RF</div><div class="hdr-feat-s">P_TOT N_NH3 N_TOT N_TOTK</div></div>
+</div>
+<div class="hdr-feat-grid">
+<div class="hdr-feat-card"><div class="hdr-feat-icon">&#127988;</div><div class="hdr-feat-t">NDVI NDWI MNDWI</div><div class="hdr-feat-s">NDTI RGB</div></div>
+<div class="hdr-feat-card"><div class="hdr-feat-icon">&#128247;</div><div class="hdr-feat-t">Serie Temporal</div><div class="hdr-feat-s">Multifecha GIF</div></div>
+</div>
+<div class="hdr-feat-bottom">
+<div class="hdr-feat-thumb">&#127754;</div>
+<div><div class="hdr-feat-bt">Rio Pesqueria, Nuevo Leon</div><div class="hdr-feat-bs">Zona de monitoreo activa 10m COPERNICUS</div></div>
+<div class="hdr-feat-plus">&#43;</div>
+</div>
+</div>
+</div>""", unsafe_allow_html=True)
 
 if model_data is None:
     _err = st.session_state.get("_model_load_error", "Unknown")
