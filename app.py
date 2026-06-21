@@ -51,6 +51,13 @@ PARAMS = {
              "para evaluar carga orgánica y potencial de demanda bioquímica de oxígeno."),
 }
 
+NOM_LIMITS = {
+    "P_TOT":  {"lim": 5.0,  "ref": "NOM-001 Tabla 3"},
+    "N_NH3":  {"lim": 25.0, "ref": "NOM-001 Tabla 3"},
+    "N_TOT":  {"lim": 40.0, "ref": "Referencia"},
+    "N_TOTK": {"lim": 40.0, "ref": "Referencia"},
+}
+
 COORDS = {
     "Punto_1": (-100.34495, 25.81193), "Punto_2": (-100.29269, 25.80148),
     "Punto_3": (-100.28059, 25.80205), "Punto_4": (-100.21237, 25.83095),
@@ -728,6 +735,255 @@ section[data-testid="stSidebar"]{
   display:flex;align-items:center;gap:6px;margin-bottom:.5rem;
 }
 .dl-label::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(34,211,238,.15),transparent)}
+
+/* ── STREAMLIT DEEP OVERRIDES ────────────────────────────────────────────── */
+/* Selectbox + multiselect */
+[data-testid="stSelectbox"] label,[data-testid="stMultiSelect"] label,
+[data-testid="stSlider"] label,[data-testid="stDateInput"] label,
+[data-testid="stFileUploader"] label,[data-testid="stNumberInput"] label{
+  font-family:var(--f-mono)!important;font-size:.6rem!important;
+  color:rgba(255,255,255,.38)!important;text-transform:uppercase!important;
+  letter-spacing:.12em!important;font-weight:600!important;margin-bottom:4px!important;
+}
+/* Selectbox dropdown container */
+[data-baseweb="select"] [data-baseweb="popover"] ul{
+  background:rgba(4,10,22,.98)!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-radius:10px!important;
+  backdrop-filter:blur(20px)!important;
+}
+[data-baseweb="select"] [data-baseweb="popover"] li{
+  font-size:.78rem!important;color:rgba(255,255,255,.7)!important;
+  padding:6px 12px!important;transition:background .15s!important;
+}
+[data-baseweb="select"] [data-baseweb="popover"] li:hover{
+  background:rgba(14,165,233,.1)!important;color:#fff!important;
+}
+/* Selectbox selected value text */
+[data-baseweb="select"] [data-baseweb="tag"],[data-baseweb="select"] span{
+  color:rgba(255,255,255,.8)!important;font-size:.78rem!important;
+}
+/* Date inputs */
+[data-testid="stDateInput"] input{
+  background:rgba(255,255,255,.03)!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  color:rgba(255,255,255,.85)!important;
+  font-family:var(--f-mono)!important;font-size:.72rem!important;
+  border-radius:8px!important;padding:5px 10px!important;
+}
+[data-testid="stDateInput"] input:focus{
+  border-color:rgba(14,165,233,.4)!important;
+  box-shadow:0 0 0 2px rgba(14,165,233,.1)!important;
+  outline:none!important;
+}
+/* Slider track */
+[data-testid="stSlider"] [data-baseweb="slider"]{
+  padding:0 4px!important;
+}
+[data-testid="stSlider"] div[data-baseweb="slider"]>div>div{
+  background:rgba(255,255,255,.08)!important;height:3px!important;
+}
+[data-testid="stSliderTrackFill"]{
+  background:linear-gradient(90deg,rgba(14,165,233,.6),rgba(34,211,238,.8))!important;
+  height:3px!important;
+}
+[data-testid="stSlider"] [role="slider"]{
+  background:#fff!important;width:14px!important;height:14px!important;
+  box-shadow:0 0 0 3px rgba(14,165,233,.3),0 2px 8px rgba(0,0,0,.4)!important;
+  border:none!important;top:-6px!important;
+}
+/* File uploader */
+[data-testid="stFileUploader"]>section{
+  background:rgba(255,255,255,.01)!important;
+  border:1px dashed rgba(255,255,255,.1)!important;
+  border-radius:10px!important;padding:12px!important;
+  transition:all .2s!important;
+}
+[data-testid="stFileUploader"]>section:hover{
+  border-color:rgba(14,165,233,.3)!important;
+  background:rgba(14,165,233,.02)!important;
+}
+[data-testid="stFileUploader"] p,[data-testid="stFileUploader"] small{
+  color:rgba(255,255,255,.45)!important;font-size:.72rem!important;
+}
+/* Captions */
+[data-testid="stCaptionContainer"] p{
+  color:rgba(255,255,255,.38)!important;font-size:.68rem!important;
+  font-family:var(--f-mono)!important;letter-spacing:.02em!important;
+}
+/* Alert / info / success / warning boxes */
+[data-testid="stAlert"]{
+  border-radius:10px!important;border-width:1px!important;
+  backdrop-filter:blur(8px)!important;
+}
+[data-testid="stAlert"][data-baseweb="notification"]{font-size:.78rem!important}
+/* Progress bar */
+[data-testid="stProgressBar"]>div>div{
+  background:linear-gradient(90deg,rgba(14,165,233,.8),rgba(34,211,238,1))!important;
+  border-radius:4px!important;
+}
+[data-testid="stProgressBar"]>div{
+  background:rgba(255,255,255,.06)!important;border-radius:4px!important;height:4px!important;
+}
+/* Multiselect tags */
+[data-baseweb="tag"]{
+  background:rgba(14,165,233,.12)!important;
+  border:1px solid rgba(14,165,233,.2)!important;
+  border-radius:20px!important;
+}
+[data-baseweb="tag"] span{color:rgba(14,165,233,.9)!important;font-size:.68rem!important}
+/* Columns gap */
+[data-testid="column"]{padding:0 6px!important}
+/* Dividers inside sidebar */
+[data-testid="stSidebar"] hr{
+  border-color:rgba(255,255,255,.05)!important;margin:.6rem 0!important;
+}
+/* Sidebar collapse button */
+[data-testid="stSidebarCollapsedControl"] button,
+button[kind="header"]{
+  background:rgba(255,255,255,.04)!important;
+  border:1px solid rgba(255,255,255,.06)!important;
+  border-radius:8px!important;
+}
+/* Main content padding */
+[data-testid="stMainBlockContainer"]{
+  padding-top:1rem!important;padding-bottom:2rem!important;
+}
+/* Image captions */
+[data-testid="stImageCaption"]{
+  font-family:var(--f-mono)!important;font-size:.62rem!important;
+  color:rgba(255,255,255,.3)!important;text-align:center!important;
+}
+/* Select slider */
+[data-testid="stSelectSlider"] [role="slider"]{
+  background:#fff!important;
+  box-shadow:0 0 0 3px rgba(14,165,233,.3)!important;
+}
+
+/* ── EMPTY STATE ─────────────────────────────────────────────────────────── */
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;
+  padding:3rem 2rem;text-align:center;
+  border-radius:20px;margin:1rem 0;
+  background:rgba(255,255,255,.012);
+  border:1px dashed rgba(255,255,255,.08);
+  position:relative;overflow:hidden;
+}
+.empty-state::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(14,165,233,.06),transparent);
+  pointer-events:none;
+}
+.empty-icon{
+  font-size:3.2rem;margin-bottom:1.2rem;
+  filter:drop-shadow(0 0 24px rgba(14,165,233,.3));
+}
+.empty-title{
+  font-size:1.1rem;font-weight:700;color:rgba(255,255,255,.85);
+  margin-bottom:.5rem;letter-spacing:-.3px;
+}
+.empty-sub{
+  font-size:.8rem;color:rgba(255,255,255,.45);line-height:1.7;
+  max-width:520px;margin-bottom:1.5rem;
+}
+.empty-steps{
+  display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
+  margin-bottom:1.5rem;
+}
+.empty-step{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;padding:8px 14px;font-size:.75rem;color:rgba(255,255,255,.6);
+}
+.empty-step-num{
+  width:20px;height:20px;border-radius:50%;
+  background:rgba(14,165,233,.12);border:1px solid rgba(14,165,233,.2);
+  font-family:var(--f-mono)!important;font-size:.6rem;font-weight:700;
+  color:rgba(14,165,233,.8);display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.empty-coords{
+  font-family:var(--f-mono)!important;font-size:.62rem;
+  color:rgba(255,255,255,.25);margin-top:1rem;letter-spacing:.1em;
+}
+
+/* ── NOM-001 ALERT TABLE ─────────────────────────────────────────────────── */
+.nom-wrap{
+  border-radius:16px;overflow:hidden;margin:1rem 0;
+  background:rgba(255,255,255,.015);
+  border:1px solid rgba(255,255,255,.07);
+}
+.nom-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.75rem 1.2rem;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  background:rgba(255,255,255,.02);
+}
+.nom-title{
+  font-family:var(--f-mono)!important;font-size:.62rem;font-weight:700;
+  color:rgba(255,255,255,.5);letter-spacing:.14em;text-transform:uppercase;
+}
+.nom-legend{display:flex;gap:12px;align-items:center}
+.nom-leg-item{display:flex;align-items:center;gap:5px;font-family:var(--f-mono)!important;font-size:.58rem;color:rgba(255,255,255,.4)}
+.nom-leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+table.nom-table{width:100%;border-collapse:collapse;font-size:.72rem}
+table.nom-table th{
+  font-family:var(--f-mono)!important;font-size:.58rem;font-weight:700;
+  color:rgba(255,255,255,.35);letter-spacing:.1em;text-transform:uppercase;
+  padding:8px 14px;text-align:left;background:rgba(255,255,255,.01);
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+table.nom-table td{
+  padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.04);
+  color:rgba(255,255,255,.75);vertical-align:middle;
+}
+table.nom-table tr:last-child td{border-bottom:none}
+table.nom-table tr:hover td{background:rgba(255,255,255,.02)}
+.nom-point{font-family:var(--f-mono)!important;font-size:.7rem;color:rgba(34,211,238,.8);font-weight:600}
+.nom-val{font-family:var(--f-mono)!important;font-weight:700}
+.nom-val-ok{color:rgba(16,185,129,.9)}
+.nom-val-warn{color:rgba(245,158,11,.9)}
+.nom-val-err{color:rgba(239,68,68,.9)}
+.nom-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-family:var(--f-mono)!important;font-size:.6rem;font-weight:600;
+  border-radius:20px;padding:2px 9px;
+}
+.nom-badge-ok{background:rgba(16,185,129,.08);color:rgba(16,185,129,.9);border:1px solid rgba(16,185,129,.15)}
+.nom-badge-warn{background:rgba(245,158,11,.08);color:rgba(245,158,11,.9);border:1px solid rgba(245,158,11,.15)}
+.nom-badge-err{background:rgba(239,68,68,.08);color:rgba(239,68,68,.9);border:1px solid rgba(239,68,68,.15)}
+
+/* ── DATA TABLE ──────────────────────────────────────────────────────────── */
+.data-table-wrap{
+  border-radius:16px;overflow:hidden;margin:1rem 0;
+  background:rgba(255,255,255,.012);
+  border:1px solid rgba(255,255,255,.07);
+}
+.data-table-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.7rem 1.2rem;border-bottom:1px solid rgba(255,255,255,.06);
+  background:rgba(255,255,255,.02);
+}
+table.data-tbl{width:100%;border-collapse:collapse;font-size:.71rem}
+table.data-tbl th{
+  font-family:var(--f-mono)!important;font-size:.57rem;font-weight:700;
+  color:rgba(255,255,255,.35);letter-spacing:.08em;text-transform:uppercase;
+  padding:7px 12px;background:rgba(255,255,255,.01);
+  border-bottom:1px solid rgba(255,255,255,.05);white-space:nowrap;
+  position:sticky;top:0;
+}
+table.data-tbl td{
+  padding:5px 12px;border-bottom:1px solid rgba(255,255,255,.03);
+  color:rgba(255,255,255,.7);font-family:var(--f-mono)!important;white-space:nowrap;
+}
+table.data-tbl tr:last-child td{border-bottom:none}
+table.data-tbl tr:hover td{background:rgba(255,255,255,.025);color:rgba(255,255,255,.9)}
+table.data-tbl td.fecha-col{color:rgba(34,211,238,.7);font-weight:600}
+table.data-tbl td.punto-col{color:rgba(255,255,255,.45)}
+.data-tbl-scroll{max-height:320px;overflow-y:auto}
+.data-tbl-scroll::-webkit-scrollbar{width:3px}
+.data-tbl-scroll::-webkit-scrollbar-track{background:transparent}
+.data-tbl-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
 
 /* ── FOLIUM / LEAFLET ────────────────────────────────────────────────────── */
 .leaflet-control-layers{
@@ -2216,9 +2472,17 @@ if not correr:
                             f'<b style="color:#fff">{get_param_label(p, LANG)}</b></div>' for p in params_sel)
                 st.markdown(ph + "</div>", unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="sec-t">{t("puntos_titulo", LANG)}</div>', unsafe_allow_html=True)
-        st.map(pd.DataFrame([{"lat":c[1],"lon":c[0]} for c in COORDS.values()]))
-        st.info(t("sube_wmask_para_ver", LANG))
+        st.markdown(f"""<div class="empty-state">
+          <div class="empty-icon">🗺️</div>
+          <div class="empty-title">{t("puntos_titulo", LANG)}</div>
+          <div class="empty-sub">{t("sube_wmask_para_ver", LANG)}</div>
+          <div class="empty-steps">
+            <div class="empty-step"><div class="empty-step-num">1</div>Sube un archivo <b>wmask.zip</b> con tu shapefile (.shp + .dbf + .prj + .cpg)</div>
+            <div class="empty-step"><div class="empty-step-num">2</div>Selecciona la <b>fecha de campaña</b> de campo y el rango Sentinel-2</div>
+            <div class="empty-step"><div class="empty-step-num">3</div>Presiona <b>Generar Mapas</b> para activar el modelo Random Forest</div>
+          </div>
+          <div class="empty-coords">Río Pesquería · 7 puntos de muestreo · 25.77°N – 25.83°N · 100.02°W – 100.35°W · EPSG:4326</div>
+        </div>""", unsafe_allow_html=True)
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
     st.markdown(f'<div class="sec-t">🔬&nbsp; {t("parametros_seccion_titulo", LANG)}</div>', unsafe_allow_html=True)
@@ -2243,6 +2507,45 @@ if not correr:
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
+    # ── TABLA DE DATOS HISTÓRICOS EXPORTABLE ──────────────────────────────────
+    if df_global is not None:
+        st.markdown('<div class="sec-t">📊&nbsp; Datos históricos de campo · Serie completa</div>', unsafe_allow_html=True)
+        _param_cols = [c for c in ["P_TOT","N_NH3","N_TOT","N_TOTK"] if c in df_global.columns]
+        _df_show = df_global[["target_date","nombre"] + _param_cols].copy()
+        _df_show["target_date"] = pd.to_datetime(_df_show["target_date"]).dt.strftime("%Y-%m-%d")
+        _df_show = _df_show.sort_values(["target_date","nombre"])
+        _th = "".join(f'<th>{c}</th>' for c in (["Fecha","Punto"] + _param_cols))
+        _rows_html = ""
+        for _, row in _df_show.iterrows():
+            _cells = f'<td class="fecha-col">{row["target_date"]}</td><td class="punto-col">{row["nombre"]}</td>'
+            for c in _param_cols:
+                v = row[c]
+                _nom_lim = NOM_LIMITS.get(c, {}).get("lim", None)
+                if pd.isna(v):
+                    _cells += '<td style="color:rgba(255,255,255,.2)">—</td>'
+                elif _nom_lim and v > _nom_lim * 0.9:
+                    _css = "nom-val-err" if v > _nom_lim else "nom-val-warn"
+                    _cells += f'<td class="nom-val {_css}">{v:.2f}</td>'
+                else:
+                    _cells += f'<td class="nom-val nom-val-ok">{v:.2f}</td>'
+            _rows_html += f"<tr>{_cells}</tr>"
+        st.markdown(f"""<div class="data-table-wrap">
+          <div class="data-table-header">
+            <div class="nom-title">📋 {len(_df_show)} registros · 19 campañas · 7 puntos</div>
+            <div style="display:flex;gap:6px">
+              <span class="nom-badge nom-badge-ok">● OK</span>
+              <span class="nom-badge nom-badge-warn">● ≥90% límite</span>
+              <span class="nom-badge nom-badge-err">● Excede NOM</span>
+            </div>
+          </div>
+          <div class="data-tbl-scroll">
+          <table class="data-tbl"><thead><tr>{_th}</tr></thead><tbody>{_rows_html}</tbody></table>
+          </div></div>""", unsafe_allow_html=True)
+        _csv_buf = _df_show.to_csv(index=False).encode("utf-8")
+        st.download_button("⬇ Descargar CSV histórico completo", _csv_buf,
+            "datos_campo_pesqueria.csv", "text/csv", use_container_width=True, key="dl_hist_csv")
+
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
     # ── Reporte de Serie Temporal Completa (opcional) ──────────────────────────
     st.markdown(f'<div class="sec-t">{t("serie_titulo", LANG)}</div>', unsafe_allow_html=True)
@@ -2520,8 +2823,47 @@ buf_panel=io.BytesIO()
 fig.savefig(buf_panel,dpi=150,bbox_inches="tight",facecolor="#0D1117")
 plt.close(fig); progress.progress(100); status.empty()
 
-st.success(f'✅  {n} {t("mapas_generados", LANG)} {fecha_campo_dt.strftime("%d/%m/%Y")} · {temp}')
+st.markdown(f"""<div class="status-row" style="margin-bottom:.8rem">
+  <div class="status-item"><span class="status-dot-ok"></span><b>{n} {t("mapas_generados", LANG)}</b></div>
+  <div class="status-sep"></div>
+  <div class="status-item"><b>Fecha:</b> {fecha_campo_dt.strftime("%d/%m/%Y")}</div>
+  <div class="status-sep"></div>
+  <div class="status-item"><b>Temporada:</b> {temp}</div>
+  <div class="status-badge">RF v3 · OOB ≥ 0.61</div>
+</div>""", unsafe_allow_html=True)
 st.image(buf_panel,caption=t("panel_caption", LANG),use_column_width=True)
+
+# ── NOM-001 ALERT TABLE ──────────────────────────────────────────────────────
+st.markdown('<div class="sec-t">⚠️&nbsp; Semáforo NOM-001-SEMARNAT-1996 · Valores por punto de muestreo</div>', unsafe_allow_html=True)
+_nom_cols_active = [c for c in params_sel if c in mapas]
+_leg = '<div class="nom-legend"><div class="nom-leg-item"><div class="nom-leg-dot" style="background:rgba(16,185,129,.8)"></div>OK</div><div class="nom-leg-item"><div class="nom-leg-dot" style="background:rgba(245,158,11,.8)"></div>≥90% límite</div><div class="nom-leg-item"><div class="nom-leg-dot" style="background:rgba(239,68,68,.8)"></div>Excede NOM</div></div>'
+_nom_th = '<th>Punto</th><th>Coordenadas</th>' + "".join(
+    f'<th>{PARAMS[c]["icon"]} {get_param_label(c, LANG)}<br><span style="font-weight:400;color:rgba(255,255,255,.3)">lím. {NOM_LIMITS[c]["lim"]} {PARAMS[c]["unidad"]}</span></th>'
+    for c in _nom_cols_active
+)
+_nom_rows = ""
+for j, punto in enumerate(puntos_uniq):
+    lon_p, lat_p = COORDS[punto]
+    _cells = f'<td class="nom-point">P{j+1} · {punto.replace("_"," ")}</td><td style="font-family:var(--f-mono);font-size:.65rem;color:rgba(255,255,255,.35)">{lat_p:.4f}°N · {abs(lon_p):.4f}°W</td>'
+    _has_exc = False
+    for c in _nom_cols_active:
+        v = mapas[c]["vals_puntos"][j] if j < len(mapas[c]["vals_puntos"]) else float("nan")
+        lim = NOM_LIMITS[c]["lim"]
+        if np.isnan(v):
+            _cells += '<td style="color:rgba(255,255,255,.2)">—</td>'
+        elif v > lim:
+            _cells += f'<td><div class="nom-badge nom-badge-err">● {v:.2f}</div></td>'
+            _has_exc = True
+        elif v > lim * 0.9:
+            _cells += f'<td><div class="nom-badge nom-badge-warn">● {v:.2f}</div></td>'
+        else:
+            _cells += f'<td><div class="nom-badge nom-badge-ok">● {v:.2f}</div></td>'
+    _nom_rows += f"<tr>{_cells}</tr>"
+
+st.markdown(f"""<div class="nom-wrap">
+  <div class="nom-header"><div class="nom-title">⚠ Norma Oficial Mexicana NOM-001-SEMARNAT-1996 · {fecha_campo_dt.strftime("%d/%m/%Y")}</div>{_leg}</div>
+  <table class="nom-table"><thead><tr>{_nom_th}</tr></thead><tbody>{_nom_rows}</tbody></table>
+</div>""", unsafe_allow_html=True)
 
 st.markdown(f'<div class="dl-label">⬇&nbsp; {t("descargar_resultados", LANG)}</div>',unsafe_allow_html=True)
 dl1,dl2,dl3=st.columns(3)
