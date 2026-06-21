@@ -1801,16 +1801,18 @@ body{
   display:flex;align-items:center;
   justify-content:space-between;
   flex-shrink:0;margin-bottom:4px;
+  flex-wrap:nowrap;gap:8px;
 }
 
-.brand{display:flex;align-items:center;gap:10px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
 
 .brand-logos{
-  display:flex;align-items:center;gap:8px;
+  display:flex;align-items:center;gap:6px;flex-wrap:nowrap;
 }
 
-.brand-logos img{height:38px;object-fit:contain;opacity:.92}
-.brand-sep{width:1px;height:32px;background:rgba(255,255,255,.12)}
+.brand-logos img{height:28px;object-fit:contain;opacity:.9;flex-shrink:0}
+.brand-sep{width:1px;height:22px;background:rgba(255,255,255,.12);flex-shrink:0}
+.brand-meta{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:rgba(255,255,255,.35);letter-spacing:.06em;white-space:nowrap;padding-left:10px;border-left:1px solid rgba(255,255,255,.08);margin-left:4px}
 
 .live-badge{
   display:flex;align-items:center;gap:7px;
@@ -2030,6 +2032,7 @@ _hero_body = f"""<div class="bg-wrap">
 <nav class="nav">
 <div class="brand">
 <div class="brand-logos">{logo_u}<div class="brand-sep"></div>{logo_f}<div class="brand-sep"></div>{logo_g}</div>
+<div class="brand-meta">UANL &middot; Geom&aacute;tica &middot; NL, M&eacute;xico</div>
 </div>
 <div class="live-badge lg" style="border-radius:40px"><div class="live-dot"></div>LIVE &middot; GEE</div>
 </nav>
