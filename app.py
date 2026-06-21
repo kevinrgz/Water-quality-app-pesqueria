@@ -2786,6 +2786,84 @@ if not correr:
             ).add_to(_mapa_pts)
         st_folium(_mapa_pts, width="100%", height=320, returned_objects=[])
 
+        # ── Formulario de contribución de puntos ──────────────────────────
+        _SHEETS_URL = "https://script.google.com/macros/s/AKfycbyuloqzC9EwW_FxvqKZq1Q7ihWkmGdsPJnalwgXDCJF8kCNYS8n-Ul_uzUrH1VjkLRppg/exec"
+
+        with st.expander("➕  Contribuir un punto de muestreo", expanded=False):
+            st.markdown("""<div style="font-size:.8rem;color:rgba(255,255,255,.5);margin-bottom:12px">
+            Ayuda a expandir el modelo aportando datos de campo verificados.
+            Cada contribución es revisada antes de ser incluida.
+            </div>""", unsafe_allow_html=True)
+
+            with st.form("form_contribucion", clear_on_submit=True):
+                fc1, fc2 = st.columns(2)
+                with fc1:
+                    _rio      = st.text_input("Nombre del río *", placeholder="Ej. Río Bravo")
+                    _estado   = st.text_input("Estado / Municipio *", placeholder="Ej. Tamaulipas")
+                    _contrib  = st.text_input("Tu nombre *", placeholder="Ej. Juan Pérez")
+                    _inst     = st.text_input("Institución / Organización", placeholder="Ej. UANL, CONAGUA, IMTA")
+                with fc2:
+                    _lat      = st.number_input("Latitud *", min_value=14.0, max_value=33.0, value=25.80, format="%.5f")
+                    _lon      = st.number_input("Longitud *", min_value=-118.0, max_value=-86.0, value=-100.20, format="%.5f")
+                    _fecha    = st.date_input("Fecha de muestreo *")
+                    _fuente   = st.selectbox("Fuente de los datos *",
+                        ["CONAGUA", "IMTA", "SEMARNAT", "Tesis/Artículo científico", "Reporte institucional", "Otra"])
+
+                st.markdown("**Parámetros fisicoquímicos** (al menos uno requerido)")
+                pp1, pp2, pp3, pp4 = st.columns(4)
+                with pp1: _ptot  = st.number_input("P_TOT (mg/L)",  min_value=0.0, value=0.0, format="%.3f")
+                with pp2: _nnh3  = st.number_input("N_NH3 (mg/L)",  min_value=0.0, value=0.0, format="%.3f")
+                with pp3: _ntot  = st.number_input("N_TOT (mg/L)",  min_value=0.0, value=0.0, format="%.3f")
+                with pp4: _ntotk = st.number_input("N_TOTK (mg/L)", min_value=0.0, value=0.0, format="%.3f")
+
+                _url_ev = st.text_input("URL o referencia de la evidencia *",
+                    placeholder="https://... o cita bibliográfica completa")
+                _notas  = st.text_area("Notas adicionales (opcional)", height=70,
+                    placeholder="Método de análisis, condiciones del muestreo, etc.")
+
+                _submitted = st.form_submit_button("📤  Enviar contribución", use_container_width=True, type="primary")
+
+            if _submitted:
+                # Validaciones
+                _errores = []
+                if not _rio.strip():    _errores.append("Nombre del río")
+                if not _estado.strip(): _errores.append("Estado/Municipio")
+                if not _contrib.strip():_errores.append("Tu nombre")
+                if not _url_ev.strip(): _errores.append("URL/referencia de evidencia")
+                if _ptot == 0 and _nnh3 == 0 and _ntot == 0 and _ntotk == 0:
+                    _errores.append("Al menos un parámetro fisicoquímico (> 0)")
+
+                if _errores:
+                    st.error(f"Campos requeridos: {', '.join(_errores)}")
+                else:
+                    import requests as _req, datetime as _dt, json as _json
+                    _payload = {
+                        "timestamp":      _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "rio":            _rio.strip(),
+                        "estado":         _estado.strip(),
+                        "lat":            str(_lat),
+                        "lon":            str(_lon),
+                        "fecha_muestreo": str(_fecha),
+                        "P_TOT":          str(_ptot)  if _ptot  > 0 else "",
+                        "N_NH3":          str(_nnh3)  if _nnh3  > 0 else "",
+                        "N_TOT":          str(_ntot)  if _ntot  > 0 else "",
+                        "N_TOTK":         str(_ntotk) if _ntotk > 0 else "",
+                        "fuente":         _fuente,
+                        "url_evidencia":  _url_ev.strip(),
+                        "contribuidor":   _contrib.strip(),
+                        "institucion":    _inst.strip() or "No especificada",
+                        "notas":          _notas.strip(),
+                    }
+                    try:
+                        _r = _req.post(_SHEETS_URL, data=_json.dumps(_payload),
+                                       headers={"Content-Type": "application/json"}, timeout=15)
+                        if _r.status_code == 200:
+                            st.success("✅ Contribución enviada. Será revisada antes de incluirse en el modelo. ¡Gracias!")
+                        else:
+                            st.error(f"Error al enviar ({_r.status_code}). Intenta de nuevo.")
+                    except Exception as _ex:
+                        st.error(f"Error de conexión: {_ex}")
+
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
     st.markdown(f'<div class="sec-t">🔬&nbsp; {t("parametros_seccion_titulo", LANG)}</div>', unsafe_allow_html=True)
     for col,cfg in PARAMS.items():
