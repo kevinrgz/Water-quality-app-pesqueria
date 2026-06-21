@@ -62,18 +62,21 @@ def _draw_header_footer(canvas_obj, doc, titulo_corto="Calidad de Agua — Río 
     canvas_obj.saveState()
     width, height = letter
 
-    canvas_obj.setStrokeColor(PDF_TEAL)
-    canvas_obj.setLineWidth(1.2)
-    canvas_obj.line(2*cm, height - 1.4*cm, width - 2*cm, height - 1.4*cm)
-
-    # Logo del departamento en la esquina superior derecha
+    # Logo encima de la línea (usa versión original con texto negro)
     if logo_geo_path:
         try:
-            canvas_obj.drawImage(logo_geo_path, width - 4.2*cm, height - 1.85*cm,
-                                 width=2.2*cm, height=0.55*cm,
+            import os as _os
+            _orig = logo_geo_path.replace("logo_geomatica.png", "logo_geomatica_original.png")
+            _logo_pdf = _orig if _os.path.exists(_orig) else logo_geo_path
+            canvas_obj.drawImage(_logo_pdf, width - 4.5*cm, height - 1.3*cm,
+                                 width=2.5*cm, height=0.65*cm,
                                  preserveAspectRatio=True, mask="auto")
         except Exception:
             pass
+
+    canvas_obj.setStrokeColor(PDF_TEAL)
+    canvas_obj.setLineWidth(1.2)
+    canvas_obj.line(2*cm, height - 1.45*cm, width - 4.8*cm, height - 1.45*cm)
 
     canvas_obj.setFont("Helvetica", 7.5)
     canvas_obj.setFillColor(PDF_GREY)
