@@ -2040,7 +2040,7 @@ _hero_body = f"""<div class="bg-wrap">
 <div class="hero-center">
 <div class="eyebrow">TELEDETECCION &middot; NL, MEXICO &middot; UANL</div>
 <h1 class="hero-h1">{_title}<br><em>{_sub}</em></h1>
-<p class="hero-sub">Sentinel-2 SR Harmonized &middot; 10 m<br>R&iacute;o Pesquer&iacute;a &middot; Nuevo Le&oacute;n &middot; EPSG:4326</p>
+<p class="hero-sub">Sentinel-2 SR Harmonized &middot; 10 m &middot; EPSG:4326<br>Sube cualquier shapefile &middot; An&aacute;lisis global</p>
 <div class="cta-row">
 <button class="cta-btn lg-s" style="border-radius:40px"><span class="cta-ic">&#8594;</span>Explorar Ahora</button>
 </div>
@@ -2054,7 +2054,7 @@ _hero_body = f"""<div class="bg-wrap">
 <div class="bottom">
 <div class="q-label">MONITOREO REMOTO SATELITAL</div>
 <div class="q-text"><em>Observar el planeta desde el espacio,</em> para comprender el agua que habitamos.</div>
-<div class="q-author"><div class="ql"></div><div class="qname">R&Iacute;O PESQUER&Iacute;A &middot; 25.77&deg;N &middot; 100.34&deg;W</div><div class="ql"></div></div>
+<div class="q-author"><div class="ql"></div><div class="qname">SENTINEL-2 SR &middot; GEE CLOUD API &middot; RANDOM FOREST</div><div class="ql"></div></div>
 </div>
 </div>
 </div>
