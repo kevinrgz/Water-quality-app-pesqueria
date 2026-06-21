@@ -1849,9 +1849,11 @@ body{
 }
 
 .hero-h1 em{
-  font-family:'Source Serif 4',Georgia,serif;
-  font-style:italic;font-weight:400;
-  color:rgba(255,255,255,.72);
+  font-family:inherit;
+  font-style:normal;font-weight:300;
+  font-size:.52em;
+  color:rgba(255,255,255,.55);
+  display:block;margin-top:.3em;letter-spacing:-.01em;
 }
 
 .hero-sub{
@@ -2035,7 +2037,7 @@ _hero_body = f"""<div class="bg-wrap">
 <div class="brand-logos">{logo_u}<div class="brand-sep"></div>{logo_f}<div class="brand-sep"></div>{logo_g}</div>
 <div class="brand-meta">UANL &middot; Geom&aacute;tica &middot; NL, M&eacute;xico</div>
 </div>
-<div class="live-badge lg" style="border-radius:40px"><div class="live-dot"></div>LIVE &middot; GEE</div>
+<div class="live-badge lg" style="border-radius:40px"><div class="live-dot"></div>GEE</div>
 </nav>
 <div class="hero-center">
 <div class="eyebrow">TELEDETECCION &middot; NL, MEXICO &middot; UANL</div>

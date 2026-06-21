@@ -18,12 +18,9 @@ T = {
         "pt": "💧 Water Quality Mapping",
     },
     "app_subtitle": {
-        "es": "Río Pesquería, Nuevo León, México · Sentinel-2 SR 2016–2019 · "
-              "Universidad Autónoma de Nuevo León · FIC · Depto. Geomática",
-        "en": "Pesquería River, Nuevo León, Mexico · Sentinel-2 SR 2016–2019 · "
-              "Universidad Autónoma de Nuevo León · FIC · Geomatics Dept.",
-        "pt": "Rio Pesquería, Nuevo León, México · Sentinel-2 SR 2016–2019 · "
-              "Universidad Autónoma de Nuevo León · FIC · Depto. Geomática",
+        "es": "Calidad del Agua · Índices Espectrales · Random Forest · Sentinel-2 SR · UANL · FIC · Depto. Geomática",
+        "en": "Water Quality · Spectral Indices · Random Forest · Sentinel-2 SR · UANL · FIC · Geomatics Dept.",
+        "pt": "Qualidade da Água · Índices Espectrais · Random Forest · Sentinel-2 SR · UANL · FIC · Depto. Geomática",
     },
     "modelo_cargado": {
         "es": "✅  Modelo cargado  ·  Datos de muestreo 2016–2019 listos",
