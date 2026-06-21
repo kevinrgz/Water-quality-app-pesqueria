@@ -2278,7 +2278,18 @@ _hero_body = f"""<div class="bg-wrap">
 <h1 class="hero-h1">{_title}<br><em>{_sub}</em></h1>
 <p class="hero-sub">Sentinel-2 SR Harmonized &middot; 10 m &middot; EPSG:4326<br>Sube cualquier shapefile &middot; An&aacute;lisis global</p>
 <div class="cta-row">
-<button class="cta-btn lg-s" style="border-radius:40px" onclick="window.parent.postMessage('scrollToMap','*');this.innerHTML='<span class=cta-ic>✓</span>Bajando...';setTimeout(()=>this.innerHTML='<span class=cta-ic>&#8594;</span>Explorar Ahora',1800)"><span class="cta-ic">&#8594;</span>Explorar Ahora</button>
+<button class="cta-btn lg-s" style="border-radius:40px" onclick="
+  var btn=this;
+  btn.style.transform='scale(0.95)';
+  btn.style.opacity='0.7';
+  setTimeout(function(){
+    btn.style.transition='transform 0.3s,opacity 0.3s';
+    btn.style.transform='scale(1)';
+    btn.style.opacity='1';
+  },200);
+  try{window.parent.scrollBy({top:620,behavior:'smooth'})}catch(e){}
+  try{window.top.scrollBy({top:620,behavior:'smooth'})}catch(e){}
+"><span class="cta-ic">&#8594;</span>Explorar Ahora</button>
 </div>
 <div class="pills">
 <span class="pill lg" style="border-radius:40px">Sentinel-2 SR</span>
@@ -2325,18 +2336,6 @@ components.html(
     scrolling=False
 )
 
-# Ancla de destino + listener postMessage para "Explorar Ahora"
-st.markdown("""
-<div id="mapa-anchor" style="position:relative;top:-80px;pointer-events:none"></div>
-<script>
-window.addEventListener('message', function(e){
-  if(e.data === 'scrollToMap'){
-    var el = document.getElementById('mapa-anchor');
-    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
-  }
-});
-</script>
-""", unsafe_allow_html=True)
 
 if model_data is None:
     _err = st.session_state.get("_model_load_error", "Unknown")
