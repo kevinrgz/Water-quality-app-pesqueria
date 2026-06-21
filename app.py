@@ -1095,8 +1095,8 @@ table.data-tbl td.punto-col{color:rgba(255,255,255,.45)}
 .leaflet-control-layers-toggle{background:rgba(2,6,14,.92)!important;border-radius:var(--r)!important}
 
 /* ── RADIO LABEL SIZE ── */
-[data-testid="stRadio"] label p{font-size:.78rem!important;line-height:1.35!important}
-[data-testid="stRadio"] label{gap:6px!important;padding:2px 0!important}
+[data-testid="stRadio"] label p{font-size:.72rem!important;line-height:1.3!important}
+[data-testid="stRadio"] label{gap:5px!important;padding:1px 0!important}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1197,9 +1197,9 @@ INDICES_VIZ = {
     ),
     "LST": dict(
         nombre="🌡️ LST (Temperatura Superficial)",
-        desc="Temperatura de la superficie terrestre estimada a partir de "
-             "Sentinel-2 (índice proxy: NDVI + albedo). Unidades relativas.",
-        vis={"min": -1.0, "max": 1.0,
+        desc="Temperatura superficial en °C desde Landsat 8/9 Collection 2 (ST_B10), "
+             "con downscaling a 10 m vía TsHARP usando NDVI Sentinel-2.",
+        vis={"min": 15, "max": 45,
              "palette": ["#313695","#4575b4","#abd9e9","#ffffbf","#fdae61","#d73027","#a50026"]},
     ),
 }
@@ -1213,14 +1213,6 @@ def calcular_indice_gee(img, indice):
         return img.normalizedDifference(["B3","B11"]).rename("MNDWI")
     elif indice == "NDTI":
         return img.normalizedDifference(["B4","B3"]).rename("NDTI")
-    elif indice == "LST":
-        ndvi = img.normalizedDifference(["B8","B4"])
-        albedo = img.expression(
-            "0.356*B2 + 0.130*B4 + 0.373*B8 + 0.085*B11 + 0.072*B12 - 0.0018",
-            {"B2":img.select("B2"),"B4":img.select("B4"),"B8":img.select("B8"),
-             "B11":img.select("B11"),"B12":img.select("B12") if False else img.select("B11")}
-        )
-        return ndvi.subtract(albedo.multiply(0.1)).rename("LST")
     return None
 
 
@@ -1383,10 +1375,40 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes,
         map_id_rgb = img.getMapId(INDICES_VIZ["RGB"]["vis"])
         tile_urls["RGB"] = map_id_rgb["tile_fetcher"].url_format
 
-        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI", "LST"]:
+        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI"]:
             idx_img = calcular_indice_gee(img, idx_name)
-            map_id  = idx_img.getMapId(INDICES_VIZ[idx_name]["vis"])
-            tile_urls[idx_name] = map_id["tile_fetcher"].url_format
+            if idx_img is not None:
+                map_id  = idx_img.getMapId(INDICES_VIZ[idx_name]["vis"])
+                tile_urls[idx_name] = map_id["tile_fetcher"].url_format
+
+        # ── LST desde Landsat 8/9 Collection 2 con downscaling via NDVI S2 ──
+        try:
+            def _lst_kelvin_to_celsius(image):
+                return image.select("ST_B10").multiply(0.00341802).add(149.0).subtract(273.15)
+
+            lst_coll = (ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
+                        .filterBounds(geom)
+                        .filterDate(fecha_ini_str, fecha_fin_str)
+                        .filter(ee.Filter.lt("CLOUD_COVER", max_nubes)))
+            lst_coll9 = (ee.ImageCollection("LANDSAT/LC09/C02/T1_L2")
+                         .filterBounds(geom)
+                         .filterDate(fecha_ini_str, fecha_fin_str)
+                         .filter(ee.Filter.lt("CLOUD_COVER", max_nubes)))
+            lst_merged = lst_coll.merge(lst_coll9)
+            if lst_merged.size().getInfo() > 0:
+                lst_30m = lst_merged.map(_lst_kelvin_to_celsius).median().clip(geom)
+                # TsHARP downscaling: modulate 30m LST using 10m NDVI ratio
+                ndvi_s2_10m  = img.normalizedDifference(["B8","B4"]).rename("NDVI")
+                ndvi_30m     = ndvi_s2_10m.reduceResolution(
+                    reducer=ee.Reducer.mean(), maxPixels=256
+                ).reproject(crs="EPSG:4326", scale=30)
+                ndvi_ratio   = ndvi_s2_10m.divide(ndvi_30m.where(ndvi_30m.eq(0), 1))
+                lst_sharp    = lst_30m.multiply(ndvi_ratio).reproject(crs="EPSG:4326", scale=10)
+                vis_lst = INDICES_VIZ["LST"]["vis"]
+                map_id_lst = lst_sharp.getMapId(vis_lst)
+                tile_urls["LST"] = map_id_lst["tile_fetcher"].url_format
+        except Exception:
+            pass  # LST opcional — no bloquea el resto de índices
 
         info = {"n_imagenes": n_imgs,
                 "nubes_pct": round(nubes_pct, 1) if nubes_pct is not None else None,
