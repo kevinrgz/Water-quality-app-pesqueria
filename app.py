@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pickle, tempfile, os, zipfile, warnings, json
 import numpy as np
 import pandas as pd
@@ -1305,46 +1306,469 @@ logo_u = f'<img class="hdr-logo-img" src="data:image/png;base64,{UANL_B64}">' if
 logo_f = f'<img class="hdr-logo-img" src="data:image/png;base64,{FIC_B64}">'  if FIC_B64  else ""
 logo_g = f'<img class="hdr-logo-img" src="data:image/png;base64,{GEO_B64}">'  if GEO_B64  else ""
 
-st.markdown(f"""<div class="aurora-bg"></div>
-<div class="hdr">
-<div class="hdr-left lqg-s">
-<div class="hdr-orb hdr-orb-1"></div><div class="hdr-orb hdr-orb-2"></div><div class="hdr-orb hdr-orb-3"></div>
-<div class="hdr-logos">{logo_u}<div class="hdr-sep"></div>{logo_f}<div class="hdr-sep"></div>{logo_g}<span class="hdr-live" style="margin-left:auto"><span class="hdr-live-dot"></span>LIVE</span></div>
-<div class="hdr-body">
-<div class="hdr-eyebrow">TELEDETECCION · NL, MEXICO · UANL</div>
-<span class="app-title">{t("app_title", LANG)}</span>
-<div class="app-sub">{t("app_subtitle", LANG)}</div>
+_hero_css = """<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Source+Serif+4:ital,opsz,wght@1,8..60,400;1,8..60,500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  font-family:'Poppins',system-ui,sans-serif;
+  background:#020A14;
+  height:100vh;
+  overflow:hidden;
+  color:#fff;
+}
+
+.bg-wrap{position:fixed;inset:0;z-index:0}
+
+.bg-base{
+  position:absolute;inset:0;
+  background:#020A14;
+}
+
+.bg-aurora{
+  position:absolute;inset:-40%;
+  background:
+    radial-gradient(ellipse 70% 55% at 18% 48%,rgba(14,165,233,.24) 0%,transparent 55%),
+    radial-gradient(ellipse 65% 70% at 82% 18%,rgba(34,211,238,.17) 0%,transparent 50%),
+    radial-gradient(ellipse 55% 50% at 52% 86%,rgba(20,184,166,.14) 0%,transparent 50%),
+    radial-gradient(ellipse 38% 38% at 68% 58%,rgba(56,189,248,.09) 0%,transparent 50%);
+  animation:aurora 22s ease-in-out infinite alternate;
+}
+
+.bg-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(34,211,238,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(34,211,238,.05) 1px,transparent 1px);
+  background-size:55px 55px;
+}
+
+.bg-scan{
+  position:absolute;left:0;right:0;height:1.5px;
+  background:linear-gradient(90deg,transparent,rgba(34,211,238,.7) 40%,rgba(255,255,255,.9) 50%,rgba(34,211,238,.7) 60%,transparent);
+  animation:scanLine 10s linear infinite;
+  opacity:0;
+}
+
+@keyframes aurora{
+  0%{transform:scale(1) translate(0,0);opacity:.85}
+  33%{transform:scale(1.05) translate(2%,-2.5%)}
+  66%{transform:scale(.97) translate(-2.5%,2%);opacity:1}
+  100%{transform:scale(1.03) translate(1%,-1%);opacity:.88}
+}
+
+@keyframes scanLine{
+  0%{top:0;opacity:0} 3%{opacity:.9} 96%{opacity:.9} 100%{top:100vh;opacity:0}
+}
+
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(16px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+@keyframes blink{
+  0%,100%{opacity:1;box-shadow:0 0 8px #10B981,0 0 16px rgba(16,185,129,.3)}
+  50%{opacity:.15;box-shadow:none}
+}
+
+@keyframes floatOrb{
+  0%,100%{transform:translate(0,0) scale(1)}
+  33%{transform:translate(20px,-18px) scale(1.06)}
+  66%{transform:translate(-15px,14px) scale(.95)}
+}
+
+/* ── LAYOUT ── */
+.hero{
+  position:relative;z-index:10;
+  display:flex;height:100vh;
+}
+
+/* ── LIQUID GLASS LIGHT ── */
+.lg{
+  position:relative;overflow:hidden;
+  background:rgba(255,255,255,.01);
+  background-blend-mode:luminosity;
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.1);
+}
+
+.lg::before{
+  content:'';position:absolute;inset:0;
+  padding:1.4px;
+  background:linear-gradient(180deg,
+    rgba(255,255,255,.45) 0%,rgba(255,255,255,.15) 20%,
+    transparent 40%,transparent 60%,
+    rgba(255,255,255,.15) 80%,rgba(255,255,255,.45) 100%);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  border-radius:inherit;
+  pointer-events:none;
+}
+
+/* ── LIQUID GLASS STRONG ── */
+.lg-s{
+  position:relative;overflow:hidden;
+  background:rgba(255,255,255,.015);
+  background-blend-mode:luminosity;
+  backdrop-filter:blur(50px);
+  -webkit-backdrop-filter:blur(50px);
+  box-shadow:4px 4px 4px rgba(0,0,0,.05),inset 0 1px 1px rgba(255,255,255,.15);
+}
+
+.lg-s::before{
+  content:'';position:absolute;inset:0;
+  padding:1.4px;
+  background:linear-gradient(180deg,
+    rgba(255,255,255,.5) 0%,rgba(255,255,255,.2) 20%,
+    transparent 40%,transparent 60%,
+    rgba(255,255,255,.2) 80%,rgba(255,255,255,.5) 100%);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  border-radius:inherit;
+  pointer-events:none;
+}
+
+/* ── LEFT PANEL ── */
+.panel-l{
+  flex:0 0 54%;
+  position:relative;
+  padding:20px;
+}
+
+.panel-glass{
+  position:absolute;inset:16px;
+  border-radius:28px;
+}
+
+.left-inner{
+  position:relative;z-index:2;
+  height:100%;
+  display:flex;flex-direction:column;
+  padding:26px 30px 22px;
+}
+
+/* floating orbs inside left panel */
+.orb{
+  position:absolute;border-radius:50%;
+  pointer-events:none;filter:blur(50px);
+}
+.orb1{
+  width:280px;height:280px;top:-90px;right:-40px;
+  background:radial-gradient(circle,rgba(14,165,233,.22) 0%,transparent 70%);
+  animation:floatOrb 12s ease-in-out infinite;
+}
+.orb2{
+  width:200px;height:200px;bottom:-60px;left:20%;
+  background:radial-gradient(circle,rgba(34,211,238,.16) 0%,transparent 70%);
+  animation:floatOrb 8s ease-in-out infinite reverse;
+}
+.orb3{
+  width:160px;height:160px;top:10px;left:5%;
+  background:radial-gradient(circle,rgba(20,184,166,.12) 0%,transparent 70%);
+  animation:floatOrb 15s ease-in-out infinite;
+}
+
+/* one-shot scan on left panel */
+.panel-l-scan{
+  position:absolute;left:16px;right:16px;height:1.5px;top:16px;
+  border-radius:28px 28px 0 0;
+  background:linear-gradient(90deg,transparent,rgba(34,211,238,.8) 40%,rgba(255,255,255,.95) 50%,rgba(34,211,238,.8) 60%,transparent);
+  animation:scanLine 2.5s ease-out .3s forwards;
+  opacity:0;
+}
+
+/* NAV */
+.nav{
+  display:flex;align-items:center;
+  justify-content:space-between;
+  flex-shrink:0;margin-bottom:4px;
+}
+
+.brand{display:flex;align-items:center;gap:10px}
+
+.brand-logos{
+  display:flex;align-items:center;gap:8px;
+}
+
+.brand-logos img{height:38px;object-fit:contain;opacity:.92}
+.brand-sep{width:1px;height:32px;background:rgba(255,255,255,.12)}
+
+.live-badge{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 16px;border-radius:40px;
+  font-size:.68rem;font-weight:500;
+  color:rgba(255,255,255,.7);letter-spacing:.1em;
+}
+
+.live-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:#10B981;flex-shrink:0;
+  animation:blink 2.2s ease infinite;
+}
+
+/* HERO CENTER */
+.hero-center{
+  flex:1;display:flex;flex-direction:column;
+  justify-content:center;gap:18px;
+  padding:20px 0;
+  animation:fadeUp .7s ease forwards;
+}
+
+.eyebrow{
+  font-family:'JetBrains Mono',monospace;
+  font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;
+  color:rgba(34,211,238,.65);
+}
+
+.hero-h1{
+  font-size:clamp(1.85rem,3.6vw,2.95rem);
+  font-weight:500;line-height:1.12;letter-spacing:-.04em;
+  color:rgba(255,255,255,.95);
+}
+
+.hero-h1 em{
+  font-family:'Source Serif 4',Georgia,serif;
+  font-style:italic;font-weight:400;
+  color:rgba(255,255,255,.72);
+}
+
+.hero-sub{
+  font-family:'JetBrains Mono',monospace;
+  font-size:.7rem;color:rgba(255,255,255,.45);
+  line-height:1.7;max-width:360px;
+}
+
+/* CTA */
+.cta-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+
+.cta-btn{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:11px 22px;border-radius:40px;
+  font-size:.78rem;font-weight:600;color:#fff;
+  cursor:pointer;transition:transform .3s ease;
+  border:none;font-family:'Poppins',sans-serif;
+  background:none;
+}
+
+.cta-btn:hover{transform:scale(1.05)}
+.cta-btn:active{transform:scale(.95)}
+
+.cta-ic{
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(255,255,255,.15);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.85rem;
+}
+
+/* PILLS */
+.pills{display:flex;flex-wrap:wrap;gap:7px}
+
+.pill{
+  padding:5px 14px;border-radius:40px;
+  font-size:.68rem;color:rgba(255,255,255,.72);
+}
+
+/* BOTTOM */
+.bottom{
+  border-top:1px solid rgba(255,255,255,.07);
+  padding-top:15px;flex-shrink:0;
+}
+
+.q-label{
+  font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;
+  color:rgba(255,255,255,.36);margin-bottom:7px;
+}
+
+.q-text{
+  font-size:.78rem;color:rgba(255,255,255,.62);line-height:1.65;
+}
+
+.q-text em{
+  font-family:'Source Serif 4',Georgia,serif;
+  font-style:italic;color:rgba(255,255,255,.42);
+}
+
+.q-author{display:flex;align-items:center;gap:12px;margin-top:9px}
+
+.ql{flex:1;height:1px;background:rgba(255,255,255,.1)}
+
+.qname{
+  font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(255,255,255,.32);flex-shrink:0;
+}
+
+/* ── RIGHT PANEL ── */
+.panel-r{
+  flex:1;display:flex;flex-direction:column;gap:10px;
+  padding:20px 20px 20px 0;
+  animation:fadeUp .85s ease .12s both;
+}
+
+.r-top{
+  display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0;
+}
+
+.band-pill{
+  display:flex;align-items:center;gap:5px;
+  padding:8px 14px;border-radius:40px;
+}
+
+.band-tag{
+  font-family:'JetBrains Mono',monospace;
+  font-size:.63rem;font-weight:500;
+  color:rgba(255,255,255,.65);
+  padding:3px 8px;border-radius:6px;
+  background:rgba(255,255,255,.06);
+}
+
+.arr{font-size:.75rem;color:rgba(255,255,255,.38);margin-left:2px}
+
+.sparkle{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.95rem;cursor:pointer;
+  transition:transform .2s;
+}
+
+.sparkle:hover{transform:scale(1.1)}
+
+/* COMMUNITY CARD */
+.comm{
+  border-radius:18px;padding:16px 18px;flex-shrink:0;
+}
+
+.comm-t{font-size:.78rem;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:5px}
+.comm-d{font-size:.66rem;color:rgba(255,255,255,.46);line-height:1.55}
+
+/* FEATURE SECTION */
+.feat-outer{
+  flex:1;border-radius:26px;padding:12px;
+  display:flex;flex-direction:column;gap:8px;min-height:0;
+}
+
+.feat-row{display:flex;gap:8px;flex:0 0 auto}
+
+.feat-card{
+  flex:1;border-radius:18px;padding:14px;
+  display:flex;flex-direction:column;gap:8px;
+  transition:transform .25s;
+}
+
+.feat-card:hover{transform:scale(1.02)}
+
+.feat-ic{
+  width:32px;height:32px;border-radius:10px;
+  background:rgba(255,255,255,.07);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.85rem;
+}
+
+.feat-t{font-size:.74rem;font-weight:600;color:rgba(255,255,255,.88)}
+.feat-s{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:rgba(255,255,255,.4)}
+
+.feat-bot{
+  border-radius:18px;padding:13px 16px;
+  display:flex;align-items:center;gap:13px;flex:1;
+  transition:transform .25s;
+}
+
+.feat-bot:hover{transform:scale(1.01)}
+
+.thumb{
+  width:52px;height:46px;border-radius:12px;
+  background:linear-gradient(135deg,rgba(14,165,233,.3),rgba(34,211,238,.18));
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.3rem;flex-shrink:0;
+}
+
+.bt{font-size:.76rem;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:3px}
+.bs{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:rgba(255,255,255,.4);line-height:1.55}
+
+.plus{
+  margin-left:auto;width:28px;height:28px;border-radius:50%;
+  background:rgba(255,255,255,.07);
+  display:flex;align-items:center;justify-content:center;
+  color:rgba(255,255,255,.55);font-size:.9rem;cursor:pointer;
+  transition:all .2s;flex-shrink:0;
+}
+
+.plus:hover{background:rgba(255,255,255,.15);color:#fff}
+</style>"""
+
+_title = t("app_title", LANG)
+_sub   = t("app_subtitle", LANG)
+
+_hero_body = f"""<div class="bg-wrap">
+<div class="bg-base"></div><div class="bg-aurora"></div><div class="bg-grid"></div><div class="bg-scan"></div>
 </div>
-<div class="hdr-pills">
-<span class="hdr-pill">Sentinel-2 SR</span>
-<span class="hdr-pill">Calidad del Agua</span>
-<span class="hdr-pill">Indices Espectrales</span>
-<span class="hdr-pill">Random Forest</span>
+<div class="hero">
+<div class="panel-l">
+<div class="panel-glass lg-s"></div>
+<div class="panel-l-scan"></div>
+<div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div>
+<div class="left-inner">
+<nav class="nav">
+<div class="brand">
+<div class="brand-logos">{logo_u}<div class="brand-sep"></div>{logo_f}<div class="brand-sep"></div>{logo_g}</div>
 </div>
-<div class="hdr-meta">
-<span class="hdr-tag"><b>SAT</b> Sentinel-2 SR 10m</span>
-<span class="hdr-tag"><b>MDL</b> Random Forest 4 params</span>
-<span class="hdr-tag"><b>LAT</b> 25.77 25.83 N</span>
-<span class="hdr-tag"><b>LON</b> 100.34 100.02 W</span>
-<span class="hdr-tag"><b>EPSG</b> 4326</span>
+<div class="live-badge lg" style="border-radius:40px"><div class="live-dot"></div>LIVE &middot; GEE</div>
+</nav>
+<div class="hero-center">
+<div class="eyebrow">TELEDETECCION &middot; NL, MEXICO &middot; UANL</div>
+<h1 class="hero-h1">{_title}<br><em>{_sub}</em></h1>
+<p class="hero-sub">Sentinel-2 SR Harmonized &middot; 10 m<br>R&iacute;o Pesquer&iacute;a &middot; Nuevo Le&oacute;n &middot; EPSG:4326</p>
+<div class="cta-row">
+<button class="cta-btn lg-s" style="border-radius:40px"><span class="cta-ic">&#8594;</span>Explorar Ahora</button>
 </div>
-</div>
-<div class="hdr-right">
-<div class="hdr-feat-grid">
-<div class="hdr-feat-card"><div class="hdr-feat-icon">&#128752;</div><div class="hdr-feat-t">Bandas Espectrales</div><div class="hdr-feat-s">B2 B3 B4 B8 B11</div></div>
-<div class="hdr-feat-card"><div class="hdr-feat-icon">&#129302;</div><div class="hdr-feat-t">Modelo RF</div><div class="hdr-feat-s">P_TOT N_NH3 N_TOT N_TOTK</div></div>
-</div>
-<div class="hdr-feat-grid">
-<div class="hdr-feat-card"><div class="hdr-feat-icon">&#127988;</div><div class="hdr-feat-t">NDVI NDWI MNDWI</div><div class="hdr-feat-s">NDTI RGB</div></div>
-<div class="hdr-feat-card"><div class="hdr-feat-icon">&#128247;</div><div class="hdr-feat-t">Serie Temporal</div><div class="hdr-feat-s">Multifecha GIF</div></div>
-</div>
-<div class="hdr-feat-bottom">
-<div class="hdr-feat-thumb">&#127754;</div>
-<div><div class="hdr-feat-bt">Rio Pesqueria, Nuevo Leon</div><div class="hdr-feat-bs">Zona de monitoreo activa 10m COPERNICUS</div></div>
-<div class="hdr-feat-plus">&#43;</div>
+<div class="pills">
+<span class="pill lg" style="border-radius:40px">Sentinel-2 SR</span>
+<span class="pill lg" style="border-radius:40px">Calidad del Agua</span>
+<span class="pill lg" style="border-radius:40px">&Iacute;ndices Espectrales</span>
+<span class="pill lg" style="border-radius:40px">Random Forest</span>
 </div>
 </div>
-</div>""", unsafe_allow_html=True)
+<div class="bottom">
+<div class="q-label">MONITOREO REMOTO SATELITAL</div>
+<div class="q-text"><em>Observar el planeta desde el espacio,</em> para comprender el agua que habitamos.</div>
+<div class="q-author"><div class="ql"></div><div class="qname">R&Iacute;O PESQUER&Iacute;A &middot; 25.77&deg;N &middot; 100.34&deg;W</div><div class="ql"></div></div>
+</div>
+</div>
+</div>
+<div class="panel-r">
+<div class="r-top">
+<div class="band-pill lg" style="border-radius:40px">
+<span class="band-tag">B2</span><span class="band-tag">B3</span><span class="band-tag">B4</span><span class="band-tag">B8</span><span class="band-tag">B11</span><span class="arr">&#8594;</span>
+</div>
+<div class="sparkle lg" style="border-radius:50%">&#10022;</div>
+</div>
+<div class="comm lg" style="border-radius:18px">
+<div class="comm-t">Zona de Monitoreo</div>
+<div class="comm-d">Cuenca del R&iacute;o Pesquer&iacute;a, Nuevo Le&oacute;n. An&aacute;lisis continuo de par&aacute;metros de calidad h&iacute;drica mediante IA y teledeteccion satelital.</div>
+</div>
+<div class="feat-outer lg" style="border-radius:26px">
+<div class="feat-row">
+<div class="feat-card lg" style="border-radius:18px"><div class="feat-ic">&#9889;</div><div class="feat-t">Procesamiento GEE</div><div class="feat-s">Cloud API</div></div>
+<div class="feat-card lg" style="border-radius:18px"><div class="feat-ic">&#128230;</div><div class="feat-t">Archivo Espectral</div><div class="feat-s">GeoTIFF &middot; EPSG:4326</div></div>
+</div>
+<div class="feat-bot lg" style="border-radius:18px">
+<div class="thumb">&#127754;</div>
+<div><div class="bt">Modelado Espectral Avanzado</div><div class="bs">NDVI &middot; NDWI &middot; MNDWI &middot; NDTI<br>P_TOT &middot; N_NH3 &middot; N_TOT &middot; N_TOTK</div></div>
+<div class="plus">+</div>
+</div>
+</div>
+</div>
+</div>"""
+
+components.html(
+    f"<!DOCTYPE html><html><head><meta charset='utf-8'>{_hero_css}</head><body>{_hero_body}</body></html>",
+    height=680,
+    scrolling=False
+)
 
 if model_data is None:
     _err = st.session_state.get("_model_load_error", "Unknown")
