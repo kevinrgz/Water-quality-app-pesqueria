@@ -1968,7 +1968,7 @@ body{
 }
 
 .brand-logos img{height:28px;object-fit:contain;opacity:.9;flex-shrink:0}
-.hdr-logo-geo{filter:brightness(0) invert(1);opacity:.88!important}
+.hdr-logo-geo{filter:drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 0 3px rgba(255,255,255,.6)) brightness(1.3);opacity:.95!important}
 .brand-sep{width:1px;height:22px;background:rgba(255,255,255,.12);flex-shrink:0}
 .brand-meta{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:rgba(255,255,255,.35);letter-spacing:.06em;white-space:nowrap;padding-left:10px;border-left:1px solid rgba(255,255,255,.08);margin-left:4px}
 
