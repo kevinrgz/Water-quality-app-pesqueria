@@ -1093,6 +1093,10 @@ table.data-tbl td.punto-col{color:rgba(255,255,255,.45)}
 .leaflet-control-layers-separator{border-color:rgba(255,255,255,.08)!important;margin:4px 0!important}
 .leaflet-control-layers-base label,.leaflet-control-layers-overlays label{display:flex!important;align-items:center!important;gap:5px!important}
 .leaflet-control-layers-toggle{background:rgba(2,6,14,.92)!important;border-radius:var(--r)!important}
+
+/* ── RADIO LABEL SIZE ── */
+[data-testid="stRadio"] label p{font-size:.78rem!important;line-height:1.35!important}
+[data-testid="stRadio"] label{gap:6px!important;padding:2px 0!important}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1191,6 +1195,13 @@ INDICES_VIZ = {
         vis={"min": -0.3, "max": 0.3,
              "palette": ["#08519c","#6baed6","#fee5d9","#fc9272","#de2d26","#a50f15"]},
     ),
+    "LST": dict(
+        nombre="🌡️ LST (Temperatura Superficial)",
+        desc="Temperatura de la superficie terrestre estimada a partir de "
+             "Sentinel-2 (índice proxy: NDVI + albedo). Unidades relativas.",
+        vis={"min": -1.0, "max": 1.0,
+             "palette": ["#313695","#4575b4","#abd9e9","#ffffbf","#fdae61","#d73027","#a50026"]},
+    ),
 }
 
 def calcular_indice_gee(img, indice):
@@ -1202,6 +1213,14 @@ def calcular_indice_gee(img, indice):
         return img.normalizedDifference(["B3","B11"]).rename("MNDWI")
     elif indice == "NDTI":
         return img.normalizedDifference(["B4","B3"]).rename("NDTI")
+    elif indice == "LST":
+        ndvi = img.normalizedDifference(["B8","B4"])
+        albedo = img.expression(
+            "0.356*B2 + 0.130*B4 + 0.373*B8 + 0.085*B11 + 0.072*B12 - 0.0018",
+            {"B2":img.select("B2"),"B4":img.select("B4"),"B8":img.select("B8"),
+             "B11":img.select("B11"),"B12":img.select("B12") if False else img.select("B11")}
+        )
+        return ndvi.subtract(albedo.multiply(0.1)).rename("LST")
     return None
 
 
@@ -1266,7 +1285,7 @@ def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nube
         if r.status_code == 200:
             thumbnails["RGB"] = io.BytesIO(r.content)
 
-        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI"]:
+        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI", "LST"]:
             idx_img = calcular_indice_gee(img, idx_name)
 
             # Estadísticas zonales reales sobre el área del bbox completo
@@ -1364,7 +1383,7 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes,
         map_id_rgb = img.getMapId(INDICES_VIZ["RGB"]["vis"])
         tile_urls["RGB"] = map_id_rgb["tile_fetcher"].url_format
 
-        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI"]:
+        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI", "LST"]:
             idx_img = calcular_indice_gee(img, idx_name)
             map_id  = idx_img.getMapId(INDICES_VIZ[idx_name]["vis"])
             tile_urls[idx_name] = map_id["tile_fetcher"].url_format
@@ -1674,7 +1693,7 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
                          name="📷 RGB (Color natural)", overlay=False,
                          control=True, show=True).add_to(m)
 
-    for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI"]:
+    for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI", "LST"]:
         if idx_name in tile_urls:
             cfg = INDICES_VIZ[idx_name]
             folium.TileLayer(tiles=tile_urls[idx_name], attr="GEE — Sentinel-2 SR",
@@ -2471,7 +2490,7 @@ if not correr:
                 st.markdown(f'<div class="map-title">{t("indices_disponibles_titulo", LANG)}</div>',
                            unsafe_allow_html=True)
                 idx_cols = st.columns(5)
-                for ic, idx_key in zip(idx_cols, ["RGB","NDVI","NDWI","MNDWI","NDTI"]):
+                for ic, idx_key in zip(idx_cols, ["RGB","NDVI","NDWI","MNDWI","NDTI","LST"]):
                     cfg = INDICES_VIZ[idx_key]
                     idx_nombre_t = get_indice_nombre(idx_key, LANG)
                     idx_desc_t = get_indice_desc(idx_key, LANG) if idx_key != "RGB" else ""
@@ -2493,7 +2512,7 @@ if not correr:
                     st.caption(t("tiff_caption", LANG))
 
                     tiff_cols = st.columns(5)
-                    for tc, idx_key in zip(tiff_cols, ["RGB","NDVI","NDWI","MNDWI","NDTI"]):
+                    for tc, idx_key in zip(tiff_cols, ["RGB","NDVI","NDWI","MNDWI","NDTI","LST"]):
                         with tc:
                             if st.button(f"📥 {idx_key}", key=f"tiff_{idx_key}",
                                         use_container_width=True):
@@ -2521,7 +2540,7 @@ if not correr:
                     with col_gifc1:
                         capa_gif_sel = st.selectbox(
                             t("gif_capa_animar", LANG),
-                            options=["RGB","NDVI","NDWI","MNDWI","NDTI"],
+                            options=["RGB","NDVI","NDWI","MNDWI","NDTI","LST"],
                             format_func=lambda k: get_indice_nombre(k, LANG),
                             key="capa_gif_select"
                         )
