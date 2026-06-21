@@ -220,19 +220,27 @@ body,.stApp{background:var(--bg)!important}
 
 /* ── SATELLITE ────────────────────────────────────────────────────────────── */
 .satellite{
-  position:fixed;z-index:0;pointer-events:none;
-  width:28px;height:28px;
-  animation:satelliteOrbit 40s linear infinite;
-  top:18%;left:-60px;
+  position:fixed;z-index:9999;pointer-events:none;
+  width:32px;height:32px;
+  animation:satellitePass 35s linear infinite;
+  opacity:.75;
 }
-.satellite svg{width:100%;height:100%;filter:drop-shadow(0 0 6px rgba(34,211,238,.6));}
-@keyframes satelliteOrbit{
-  0%  {top:10%;left:-5%;transform:rotate(-15deg)}
-  25% {top:30%;left:102%;transform:rotate(20deg)}
-  26% {top:55%;left:102%;transform:rotate(160deg) scaleX(-1)}
-  50% {top:75%;left:-5%;transform:rotate(195deg) scaleX(-1)}
-  51% {top:15%;left:-5%;transform:rotate(-15deg)}
-  100%{top:10%;left:-5%;transform:rotate(-15deg)}
+.satellite svg{width:100%;height:100%;filter:drop-shadow(0 0 8px rgba(34,211,238,.9)) drop-shadow(0 0 2px #fff);}
+/* trail */
+.satellite::after{
+  content:'';position:absolute;top:50%;right:100%;
+  width:40px;height:1px;margin-top:-.5px;
+  background:linear-gradient(to left,rgba(34,211,238,.5),transparent);
+}
+@keyframes satellitePass{
+  0%   {top:-5%;  left:-5%;  transform:rotate(35deg)}
+  48%  {top:108%; left:108%; transform:rotate(35deg)}
+  49%  {top:108%; left:108%; transform:rotate(215deg);opacity:0}
+  50%  {top:-5%;  left:108%; transform:rotate(215deg);opacity:0}
+  51%  {top:-5%;  left:108%; transform:rotate(215deg);opacity:.75}
+  98%  {top:108%; left:-5%;  transform:rotate(215deg)}
+  99%  {top:108%; left:-5%;  transform:rotate(35deg);opacity:0}
+  100% {top:-5%;  left:-5%;  transform:rotate(35deg);opacity:0}
 }
 
 /* ── ANIMATIONS ──────────────────────────────────────────────────────────── */
