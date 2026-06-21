@@ -2282,13 +2282,13 @@ _hero_body = f"""<div class="bg-wrap">
   var btn=this;
   btn.style.transform='scale(0.95)';
   btn.style.opacity='0.7';
-  setTimeout(function(){
+  setTimeout(function(){{
     btn.style.transition='transform 0.3s,opacity 0.3s';
     btn.style.transform='scale(1)';
     btn.style.opacity='1';
-  },200);
-  try{window.parent.scrollBy({top:620,behavior:'smooth'})}catch(e){}
-  try{window.top.scrollBy({top:620,behavior:'smooth'})}catch(e){}
+  }},200);
+  try{{window.parent.scrollBy({{top:620,behavior:'smooth'}})}}catch(e){{}}
+  try{{window.top.scrollBy({{top:620,behavior:'smooth'}})}}catch(e){{}}
 "><span class="cta-ic">&#8594;</span>Explorar Ahora</button>
 </div>
 <div class="pills">
