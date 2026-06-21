@@ -2017,6 +2017,81 @@ body{
   transition:all .2s;flex-shrink:0;
 }
 
+/* ── GLOBE ── */
+.globe-wrap{
+  position:absolute;right:-60px;top:50%;transform:translateY(-52%);
+  width:420px;height:420px;pointer-events:none;z-index:1;
+}
+.globe{
+  width:100%;height:100%;border-radius:50%;
+  background:
+    radial-gradient(circle at 32% 36%, rgba(34,211,238,.18) 0%, transparent 55%),
+    radial-gradient(circle at 68% 65%, rgba(14,165,233,.14) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, #051824 0%, #031018 60%, #020c14 100%);
+  box-shadow:
+    0 0 0 1px rgba(34,211,238,.12),
+    0 0 60px rgba(14,165,233,.18),
+    0 0 120px rgba(14,165,233,.08),
+    inset 0 0 80px rgba(0,0,0,.6);
+  position:relative;overflow:hidden;
+}
+/* atmosphere glow ring */
+.globe::after{
+  content:'';position:absolute;inset:-8px;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,transparent 46%,rgba(34,211,238,.07) 52%,rgba(14,165,233,.12) 58%,transparent 66%);
+  pointer-events:none;
+}
+/* continent patches */
+.globe::before{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  background:
+    radial-gradient(ellipse 28% 18% at 38% 42%, rgba(20,184,166,.22) 0%, transparent 100%),
+    radial-gradient(ellipse 20% 12% at 62% 35%, rgba(16,185,129,.16) 0%, transparent 100%),
+    radial-gradient(ellipse 16% 22% at 72% 58%, rgba(20,184,166,.14) 0%, transparent 100%),
+    radial-gradient(ellipse 12% 10% at 28% 62%, rgba(16,185,129,.12) 0%, transparent 100%),
+    radial-gradient(ellipse 10% 8%  at 50% 72%, rgba(20,184,166,.10) 0%, transparent 100%);
+  animation:globeRotate 28s linear infinite;
+}
+.globe-grid{
+  position:absolute;inset:0;border-radius:50%;overflow:hidden;
+}
+.globe-grid svg{width:100%;height:100%;opacity:.18;animation:globeRotate 28s linear infinite;}
+/* pin dot */
+.globe-pin{
+  position:absolute;width:8px;height:8px;border-radius:50%;
+  background:#22D3EE;top:38%;left:44%;
+  box-shadow:0 0 0 3px rgba(34,211,238,.25),0 0 12px rgba(34,211,238,.6);
+  animation:pinPulse 2.5s ease-in-out infinite;
+}
+.globe-pin::after{
+  content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
+  width:1px;height:18px;background:linear-gradient(to top,rgba(34,211,238,.7),transparent);
+}
+/* orbit ring */
+.globe-orbit{
+  position:absolute;inset:-18px;border-radius:50%;
+  border:1px solid rgba(34,211,238,.08);
+  animation:orbitSpin 18s linear infinite;
+}
+.globe-orbit::before{
+  content:'';position:absolute;width:6px;height:6px;border-radius:50%;
+  background:#0EA5E9;top:-3px;left:50%;transform:translateX(-50%);
+  box-shadow:0 0 8px rgba(14,165,233,.8);
+}
+.globe-orbit2{
+  position:absolute;inset:-36px;border-radius:50%;
+  border:1px solid rgba(14,165,233,.05);
+  animation:orbitSpin 32s linear infinite reverse;
+}
+.globe-orbit2::before{
+  content:'';position:absolute;width:4px;height:4px;border-radius:50%;
+  background:#14B8A6;bottom:-2px;right:20%;
+  box-shadow:0 0 6px rgba(20,184,166,.8);
+}
+@keyframes globeRotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes orbitSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes pinPulse{0%,100%{box-shadow:0 0 0 3px rgba(34,211,238,.25),0 0 12px rgba(34,211,238,.6)}50%{box-shadow:0 0 0 6px rgba(34,211,238,.1),0 0 20px rgba(34,211,238,.8)}}
+
 .plus:hover{background:rgba(255,255,255,.15);color:#fff}
 </style>"""
 
@@ -2057,6 +2132,28 @@ _hero_body = f"""<div class="bg-wrap">
 <div class="q-label">MONITOREO REMOTO SATELITAL</div>
 <div class="q-text"><em>Observar el planeta desde el espacio,</em> para comprender el agua que habitamos.</div>
 <div class="q-author"><div class="ql"></div><div class="qname">SENTINEL-2 SR &middot; GEE CLOUD API &middot; RANDOM FOREST</div><div class="ql"></div></div>
+</div>
+</div>
+
+<!-- GLOBE -->
+<div class="globe-wrap">
+  <div class="globe-orbit2"></div>
+  <div class="globe-orbit"></div>
+  <div class="globe">
+    <div class="globe-grid">
+      <svg viewBox="0 0 420 420" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="210" cy="210" rx="200" ry="40"  fill="none" stroke="#22D3EE" stroke-width=".7"/>
+        <ellipse cx="210" cy="210" rx="200" ry="90"  fill="none" stroke="#22D3EE" stroke-width=".6"/>
+        <ellipse cx="210" cy="210" rx="200" ry="148" fill="none" stroke="#22D3EE" stroke-width=".6"/>
+        <ellipse cx="210" cy="210" rx="200" ry="185" fill="none" stroke="#22D3EE" stroke-width=".5"/>
+        <ellipse cx="210" cy="210" rx="40"  ry="200" fill="none" stroke="#22D3EE" stroke-width=".7"/>
+        <ellipse cx="210" cy="210" rx="100" ry="200" fill="none" stroke="#22D3EE" stroke-width=".6"/>
+        <ellipse cx="210" cy="210" rx="160" ry="200" fill="none" stroke="#22D3EE" stroke-width=".5"/>
+        <circle  cx="210" cy="210" r="200"  fill="none" stroke="#22D3EE" stroke-width=".8"/>
+      </svg>
+    </div>
+    <div class="globe-pin"></div>
+  </div>
 </div>
 </div>
 </div>
