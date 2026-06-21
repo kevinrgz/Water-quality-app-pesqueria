@@ -2477,12 +2477,14 @@ if not correr:
           <div class="empty-title">{t("puntos_titulo", LANG)}</div>
           <div class="empty-sub">{t("sube_wmask_para_ver", LANG)}</div>
           <div class="empty-steps">
-            <div class="empty-step"><div class="empty-step-num">1</div>Sube un archivo <b>wmask.zip</b> con tu shapefile (.shp + .dbf + .prj + .cpg)</div>
-            <div class="empty-step"><div class="empty-step-num">2</div>Selecciona la <b>fecha de campaña</b> de campo y el rango Sentinel-2</div>
-            <div class="empty-step"><div class="empty-step-num">3</div>Presiona <b>Generar Mapas</b> para activar el modelo Random Forest</div>
+            <div class="empty-step"><div class="empty-step-num">1</div>Sube un <b>wmask.zip</b> con tu shapefile (.shp + .dbf + .prj + .cpg) de cualquier zona</div>
+            <div class="empty-step"><div class="empty-step-num">2</div>Selecciona el rango de fechas Sentinel-2 y la cobertura de nubes</div>
+            <div class="empty-step"><div class="empty-step-num">3</div>Obtén índices espectrales, animaciones GIF y reportes PDF para cualquier área del mundo</div>
           </div>
-          <div class="empty-coords">Río Pesquería · 7 puntos de muestreo · 25.77°N – 25.83°N · 100.02°W – 100.35°W · EPSG:4326</div>
+          <div class="empty-coords">Río Pesquería · 7 puntos · 25.77°N – 25.83°N · 100.02°W – 100.35°W · EPSG:4326 · Modelo RF activo solo para esta zona</div>
         </div>""", unsafe_allow_html=True)
+        st.markdown(f'<div class="sec-t">{t("puntos_titulo", LANG)}</div>', unsafe_allow_html=True)
+        st.map(pd.DataFrame([{"lat": c[1], "lon": c[0]} for c in COORDS.values()]))
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
     st.markdown(f'<div class="sec-t">🔬&nbsp; {t("parametros_seccion_titulo", LANG)}</div>', unsafe_allow_html=True)
