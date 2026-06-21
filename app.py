@@ -671,6 +671,64 @@ section[data-testid="stSidebar"]{
 .divider{border:0;border-top:1px solid rgba(255,255,255,.06);margin:1.2rem 0}
 .footer{text-align:center;font-family:var(--f-mono)!important;font-size:.62rem;color:rgba(255,255,255,.22);margin-top:2rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.05)}
 
+/* ── STATUS ROW ──────────────────────────────────────────────────────────── */
+.status-row{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin-bottom:1.2rem;
+  padding:.7rem 1.1rem;
+  border-radius:12px;
+  background:rgba(255,255,255,.016);
+  border:1px solid rgba(255,255,255,.06);
+  backdrop-filter:blur(12px);
+}
+.status-item{
+  display:flex;align-items:center;gap:6px;
+  font-family:var(--f-mono)!important;font-size:.62rem;color:rgba(255,255,255,.55);
+}
+.status-item b{color:rgba(255,255,255,.85);font-weight:600}
+.status-dot-ok{width:6px;height:6px;background:var(--ok);border-radius:50%;animation:blink 2.2s ease infinite;flex-shrink:0;box-shadow:0 0 6px var(--ok)}
+.status-dot-warn{width:6px;height:6px;background:var(--warn);border-radius:50%;flex-shrink:0;box-shadow:0 0 6px var(--warn)}
+.status-sep{width:1px;height:14px;background:rgba(255,255,255,.08);flex-shrink:0}
+.status-badge{
+  margin-left:auto;font-family:var(--f-mono)!important;font-size:.58rem;
+  color:rgba(34,211,238,.8);background:rgba(34,211,238,.06);
+  border:1px solid rgba(34,211,238,.12);border-radius:20px;padding:2px 10px;
+}
+
+/* ── STAT METRIC CARDS ───────────────────────────────────────────────────── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:1rem 0}
+.stat-card{
+  background:rgba(255,255,255,.018);backdrop-filter:blur(12px);
+  border-radius:14px;padding:1.2rem 1.4rem;
+  position:relative;overflow:hidden;
+  box-shadow:inset 0 1px rgba(255,255,255,.1);
+  transition:all .25s;
+}
+.stat-card::before{
+  content:'';position:absolute;inset:0;padding:1.4px;
+  background:linear-gradient(180deg,rgba(255,255,255,.38) 0%,rgba(255,255,255,.08) 30%,transparent 50%,transparent 70%,rgba(255,255,255,.08) 85%,rgba(255,255,255,.38) 100%);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;border-radius:inherit;
+}
+.stat-card:hover{background:rgba(255,255,255,.03);transform:translateY(-2px);box-shadow:inset 0 1px rgba(255,255,255,.18),0 12px 32px rgba(0,0,0,.3)}
+.stat-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
+.stat-card-label{font-size:.82rem;font-weight:700;color:rgba(255,255,255,.9)}
+.stat-card-unit{font-family:var(--f-mono)!important;font-size:.6rem;color:rgba(255,255,255,.4);background:rgba(255,255,255,.05);border-radius:20px;padding:2px 8px}
+.stat-row{display:flex;gap:18px;margin-top:.4rem}
+.stat-item{display:flex;flex-direction:column;gap:3px}
+.stat-val{font-family:var(--f-mono)!important;font-size:1.3rem;font-weight:700;line-height:1}
+.stat-name{font-family:var(--f-mono)!important;font-size:.58rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.08em}
+.stat-glow{position:absolute;bottom:-20px;left:20px;width:100px;height:50px;border-radius:50%;filter:blur(24px);opacity:.25;pointer-events:none}
+
+/* ── DOWNLOAD ROW ────────────────────────────────────────────────────────── */
+.dl-row{display:flex;gap:8px;margin:1rem 0;flex-wrap:wrap}
+.dl-label{
+  font-family:var(--f-mono)!important;font-size:.6rem;color:rgba(34,211,238,.7);
+  letter-spacing:.12em;text-transform:uppercase;
+  display:flex;align-items:center;gap:6px;margin-bottom:.5rem;
+}
+.dl-label::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(34,211,238,.15),transparent)}
+
 /* ── FOLIUM / LEAFLET ────────────────────────────────────────────────────── */
 .leaflet-control-layers{
   font-family:var(--f-mono)!important;font-size:11px!important;
@@ -1778,16 +1836,19 @@ if model_data is None:
 if df_global is None:
     st.error(t("error_csv", LANG)); st.stop()
 
-col_status1, col_status2 = st.columns(2)
-with col_status1:
-    st.success(t("modelo_cargado", LANG))
-with col_status2:
-    if GEE_OK:
-        st.success(t("gee_activo", LANG))
-    else:
-        st.warning(t("gee_no_disponible", LANG))
-
-st.markdown('<hr class="divider">', unsafe_allow_html=True)
+_gee_dot  = '<span class="status-dot-ok"></span>'  if GEE_OK else '<span class="status-dot-warn"></span>'
+_gee_txt  = t("gee_activo", LANG) if GEE_OK else t("gee_no_disponible", LANG)
+_mod_txt  = t("modelo_cargado", LANG)
+st.markdown(f"""<div class="status-row">
+  <div class="status-item"><span class="status-dot-ok"></span><span><b>RF v3</b> {_mod_txt}</span></div>
+  <div class="status-sep"></div>
+  <div class="status-item">{_gee_dot}<span><b>GEE</b> {_gee_txt}</span></div>
+  <div class="status-sep"></div>
+  <div class="status-item"><span class="status-dot-ok"></span><span><b>Sentinel-2</b> SR Harmonized · 10 m</span></div>
+  <div class="status-sep"></div>
+  <div class="status-item"><span class="status-dot-ok"></span><span><b>19</b> campañas · <b>7</b> puntos · EPSG:4326</span></div>
+  <div class="status-badge">SISTEMA ACTIVO</div>
+</div>""", unsafe_allow_html=True)
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -1882,19 +1943,27 @@ with st.sidebar:
 
 # ── PANTALLA INICIAL ──────────────────────────────────────────────────────────
 if not correr:
+    _step_icons = ["📁", "⚙️", "🗺"]
     c1,c2,c3 = st.columns(3)
-    for col, paso_num, paso_titulo, paso_texto in zip(
+    for col, paso_num, paso_titulo, paso_texto, paso_icon in zip(
         [c1,c2,c3],
         ["01", "02", "03"],
         [t("paso1_titulo",LANG), t("paso2_titulo",LANG), t("paso3_titulo",LANG)],
         [t("paso1_texto",LANG), t("paso2_texto",LANG), t("paso3_texto",LANG)],
+        _step_icons,
     ):
         with col:
-            st.markdown(f'<div class="step-box">'
-                       f'<div class="step-num">STEP {paso_num}</div>'
-                       f'<div class="step-t">{paso_titulo}</div>'
-                       f'<div class="step-b">{paso_texto}</div></div>',
-                       unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="step-box">'
+                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:.7rem">'
+                f'<div style="width:34px;height:34px;border-radius:10px;background:rgba(14,165,233,.1);'
+                f'border:1px solid rgba(14,165,233,.2);display:flex;align-items:center;'
+                f'justify-content:center;font-size:16px;flex-shrink:0">{paso_icon}</div>'
+                f'<div class="step-num" style="margin:0">STEP {paso_num}</div>'
+                f'</div>'
+                f'<div class="step-t">{paso_titulo}</div>'
+                f'<div class="step-b">{paso_texto}</div></div>',
+                unsafe_allow_html=True)
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
@@ -2152,18 +2221,24 @@ if not correr:
         st.info(t("sube_wmask_para_ver", LANG))
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown(f'<div class="sec-t">{t("parametros_seccion_titulo", LANG)}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sec-t">🔬&nbsp; {t("parametros_seccion_titulo", LANG)}</div>', unsafe_allow_html=True)
     for col,cfg in PARAMS.items():
         label_t = get_param_label(col, LANG)
         desc_t  = get_param_desc(col, LANG)
-        st.markdown(f"""<div class="param-card">
-          <div class="param-hdr"><div class="param-name">{cfg["icon"]} &nbsp;{label_t}</div>
-          <span class="param-oob">OOB R² = {cfg["oob"]:.3f} · {t("param_validado", LANG)}</span></div>
+        st.markdown(f"""<div class="param-card" style="border-left:3px solid {cfg['color']}22">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,{cfg['color']},transparent);border-radius:3px 0 0 3px"></div>
+          <div class="param-hdr">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:36px;height:36px;border-radius:10px;background:{cfg['color']}18;border:1px solid {cfg['color']}30;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">{cfg["icon"]}</div>
+              <div class="param-name" style="color:{cfg['color']}">{label_t}</div>
+            </div>
+            <span class="param-oob">OOB R² = {cfg["oob"]:.3f}</span>
+          </div>
           <div class="param-desc">{desc_t}</div>
           <div class="param-meta">
             <div class="pmi">{t("param_unidad", LANG)}: <span class="pmv">{cfg["unidad"]}</span></div>
             <div class="pmi">{t("param_rango", LANG)}: <span class="pmv">{cfg["vmin"]}–{cfg["vmax"]} {cfg["unidad"]}</span></div>
-            <div class="pmi">{t("param_estado", LANG)}: <span class="pmv">{t("param_bueno", LANG)}</span></div>
+            <div class="pmi">{t("param_estado", LANG)}: <span class="pmv" style="color:rgba(16,185,129,.9)">✓ {t("param_bueno", LANG)}</span></div>
           </div></div>""", unsafe_allow_html=True)
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
@@ -2448,7 +2523,7 @@ plt.close(fig); progress.progress(100); status.empty()
 st.success(f'✅  {n} {t("mapas_generados", LANG)} {fecha_campo_dt.strftime("%d/%m/%Y")} · {temp}')
 st.image(buf_panel,caption=t("panel_caption", LANG),use_column_width=True)
 
-st.markdown(f'<div class="sec-t">{t("descargar_resultados", LANG)}</div>',unsafe_allow_html=True)
+st.markdown(f'<div class="dl-label">⬇&nbsp; {t("descargar_resultados", LANG)}</div>',unsafe_allow_html=True)
 dl1,dl2,dl3=st.columns(3)
 with dl1:
     st.download_button(t("descargar_panel_png", LANG),buf_panel.getvalue(),
@@ -2479,15 +2554,36 @@ with dl3:
 
 st.markdown('<hr class="divider">',unsafe_allow_html=True)
 st.markdown(f'<div class="sec-t">{t("estadisticas_espaciales", LANG)}</div>',unsafe_allow_html=True)
-cols_st=st.columns(len(mapas))
-for cs,(param,info) in zip(cols_st,mapas.items()):
-    d=info["data"][np.isfinite(info["data"])]
+_stat_cards_html = '<div class="stat-grid">'
+for param, info in mapas.items():
+    d = info["data"][np.isfinite(info["data"])]
     label_stat_t = get_param_label(param, LANG)
-    with cs:
-        st.markdown(f"**{label_stat_t}**")
-        st.metric(t("stat_media", LANG),f"{d.mean():.2f} {info['unidad']}")
-        st.metric(t("stat_maximo", LANG),f"{d.max():.2f} {info['unidad']}")
-        st.metric(t("stat_minimo", LANG),f"{d.min():.2f} {info['unidad']}")
+    _col = info.get("color", PARAMS[param]["color"])
+    _icon = PARAMS[param]["icon"]
+    _unit = info["unidad"]
+    _stat_cards_html += f"""<div class="stat-card">
+      <div class="stat-glow" style="background:{_col}"></div>
+      <div class="stat-card-header">
+        <div class="stat-card-label">{_icon}&nbsp; {label_stat_t}</div>
+        <div class="stat-card-unit">{_unit}</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-item">
+          <div class="stat-val" style="color:{_col}">{d.mean():.2f}</div>
+          <div class="stat-name">{t("stat_media", LANG)}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val" style="color:rgba(239,68,68,.85)">{d.max():.2f}</div>
+          <div class="stat-name">{t("stat_maximo", LANG)}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val" style="color:rgba(16,185,129,.85)">{d.min():.2f}</div>
+          <div class="stat-name">{t("stat_minimo", LANG)}</div>
+        </div>
+      </div>
+    </div>"""
+_stat_cards_html += '</div>'
+st.markdown(_stat_cards_html, unsafe_allow_html=True)
 
 st.markdown('<hr class="divider">',unsafe_allow_html=True)
 st.markdown(f'<div class="sec-t">{t("investigador_titulo", LANG)}</div>',unsafe_allow_html=True)
