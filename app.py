@@ -1776,7 +1776,7 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
 # ── HEADER ────────────────────────────────────────────────────────────────────
 logo_u = f'<img class="hdr-logo-img" src="data:image/png;base64,{UANL_B64}">' if UANL_B64 else "<span style='color:#8EAAC8'>UANL</span>"
 logo_f = f'<img class="hdr-logo-img" src="data:image/png;base64,{FIC_B64}">'  if FIC_B64  else ""
-logo_g = f'<img class="hdr-logo-img hdr-logo-geo" src="data:image/png;base64,{GEO_B64}">'  if GEO_B64  else ""
+logo_g = f'<img class="hdr-logo-img" src="data:image/png;base64,{GEO_B64}">'  if GEO_B64  else ""
 
 _hero_css = """<style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Source+Serif+4:ital,opsz,wght@1,8..60,400;1,8..60,500&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -1968,7 +1968,6 @@ body{
 }
 
 .brand-logos img{height:28px;object-fit:contain;opacity:.9;flex-shrink:0}
-.hdr-logo-geo{filter:drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 0 3px rgba(255,255,255,.6)) brightness(1.3);opacity:.95!important}
 .brand-sep{width:1px;height:22px;background:rgba(255,255,255,.12);flex-shrink:0}
 .brand-meta{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:rgba(255,255,255,.35);letter-spacing:.06em;white-space:nowrap;padding-left:10px;border-left:1px solid rgba(255,255,255,.08);margin-left:4px}
 
