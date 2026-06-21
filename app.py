@@ -1277,8 +1277,10 @@ def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nube
         if r.status_code == 200:
             thumbnails["RGB"] = io.BytesIO(r.content)
 
-        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI", "LST"]:
+        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI"]:
             idx_img = calcular_indice_gee(img, idx_name)
+            if idx_img is None:
+                continue
 
             # Estadísticas zonales reales sobre el área del bbox completo
             reducer = (ee.Reducer.mean()
