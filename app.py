@@ -154,6 +154,87 @@ body,.stApp{background:var(--bg)!important}
   background-size:55px 55px,55px 55px,100% 4px;
 }
 
+/* ── STARFIELD ───────────────────────────────────────────────────────────── */
+.stars-layer{
+  position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;
+}
+.stars-layer::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    radial-gradient(1px 1px at 8% 12%,rgba(255,255,255,.7) 0%,transparent 100%),
+    radial-gradient(1px 1px at 23% 5%, rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 37% 19%,rgba(255,255,255,.8) 0%,transparent 100%),
+    radial-gradient(1px 1px at 52% 8%, rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1px 1px at 68% 15%,rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 81% 3%, rgba(255,255,255,.7) 0%,transparent 100%),
+    radial-gradient(1px 1px at 93% 22%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1px 1px at 14% 31%,rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(2px 2px at 29% 42%,rgba(255,255,255,.3) 0%,transparent 100%),
+    radial-gradient(1px 1px at 44% 35%,rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(1px 1px at 57% 28%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 74% 38%,rgba(255,255,255,.7) 0%,transparent 100%),
+    radial-gradient(1px 1px at 88% 44%,rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1px 1px at 6%  55%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(2px 2px at 19% 62%,rgba(255,255,255,.3) 0%,transparent 100%),
+    radial-gradient(1px 1px at 33% 58%,rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(1px 1px at 48% 71%,rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 62% 65%,rgba(255,255,255,.7) 0%,transparent 100%),
+    radial-gradient(1px 1px at 77% 52%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1px 1px at 91% 68%,rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1px 1px at 11% 78%,rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(2px 2px at 26% 85%,rgba(255,255,255,.3) 0%,transparent 100%),
+    radial-gradient(1px 1px at 41% 91%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1px 1px at 56% 82%,rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 71% 88%,rgba(255,255,255,.7) 0%,transparent 100%),
+    radial-gradient(1px 1px at 85% 76%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1px 1px at 97% 83%,rgba(255,255,255,.4) 0%,transparent 100%),
+    /* cyan-tinted stars */
+    radial-gradient(1.5px 1.5px at 16% 46%,rgba(34,211,238,.5) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 63% 14%,rgba(14,165,233,.4) 0%,transparent 100%),
+    radial-gradient(2px 2px at 83% 59%,rgba(34,211,238,.35) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 40% 77%,rgba(20,184,166,.4) 0%,transparent 100%);
+  animation:starsTwinkle 8s ease-in-out infinite alternate;
+}
+.stars-layer::after{
+  content:'';position:absolute;inset:0;
+  background-image:
+    radial-gradient(1px 1px at 3%  17%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1px 1px at 18% 24%,rgba(255,255,255,.3) 0%,transparent 100%),
+    radial-gradient(1px 1px at 35% 9%, rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(1px 1px at 49% 41%,rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 64% 33%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1px 1px at 79% 21%,rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(1px 1px at 96% 14%,rgba(255,255,255,.3) 0%,transparent 100%),
+    radial-gradient(1px 1px at 7%  67%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 22% 73%,rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1px 1px at 39% 59%,rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(1px 1px at 54% 94%,rgba(255,255,255,.3) 0%,transparent 100%),
+    radial-gradient(1px 1px at 69% 79%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 84% 86%,rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1px 1px at 98% 95%,rgba(255,255,255,.6) 0%,transparent 100%);
+  animation:starsTwinkle 12s ease-in-out infinite alternate-reverse;
+}
+@keyframes starsTwinkle{
+  0%{opacity:.6} 50%{opacity:1} 100%{opacity:.7}
+}
+
+/* ── SATELLITE ────────────────────────────────────────────────────────────── */
+.satellite{
+  position:fixed;z-index:0;pointer-events:none;
+  width:28px;height:28px;
+  animation:satelliteOrbit 40s linear infinite;
+  top:18%;left:-60px;
+}
+.satellite svg{width:100%;height:100%;filter:drop-shadow(0 0 6px rgba(34,211,238,.6));}
+@keyframes satelliteOrbit{
+  0%  {top:10%;left:-5%;transform:rotate(-15deg)}
+  25% {top:30%;left:102%;transform:rotate(20deg)}
+  26% {top:55%;left:102%;transform:rotate(160deg) scaleX(-1)}
+  50% {top:75%;left:-5%;transform:rotate(195deg) scaleX(-1)}
+  51% {top:15%;left:-5%;transform:rotate(-15deg)}
+  100%{top:10%;left:-5%;transform:rotate(-15deg)}
+}
+
 /* ── ANIMATIONS ──────────────────────────────────────────────────────────── */
 @keyframes auroraShift{
   0%{transform:scale(1) translate(0,0);opacity:.8}
@@ -1005,6 +1086,27 @@ table.data-tbl td.punto-col{color:rgba(255,255,255,.45)}
 .leaflet-control-layers-base label,.leaflet-control-layers-overlays label{display:flex!important;align-items:center!important;gap:5px!important}
 .leaflet-control-layers-toggle{background:rgba(2,6,14,.92)!important;border-radius:var(--r)!important}
 </style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div class="stars-layer"></div>
+<div class="satellite" aria-hidden="true">
+  <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- body -->
+    <rect x="10" y="10" width="8" height="8" rx="1.5" fill="#0EA5E9" fill-opacity=".9"/>
+    <!-- solar panels left -->
+    <rect x="1" y="12" width="7" height="4" rx=".8" fill="#22D3EE" fill-opacity=".7"/>
+    <line x1="8" y1="14" x2="10" y2="14" stroke="#22D3EE" stroke-width=".8" stroke-opacity=".6"/>
+    <!-- solar panels right -->
+    <rect x="20" y="12" width="7" height="4" rx=".8" fill="#22D3EE" fill-opacity=".7"/>
+    <line x1="18" y1="14" x2="20" y2="14" stroke="#22D3EE" stroke-width=".8" stroke-opacity=".6"/>
+    <!-- antenna -->
+    <line x1="14" y1="10" x2="14" y2="6" stroke="#14B8A6" stroke-width=".8"/>
+    <circle cx="14" cy="5.5" r="1.5" fill="#14B8A6" fill-opacity=".8"/>
+    <!-- glow center -->
+    <circle cx="14" cy="14" r="2" fill="white" fill-opacity=".15"/>
+  </svg>
+</div>
 """, unsafe_allow_html=True)
 
 # ── Conexión a GEE con Service Account ────────────────────────────────────────
