@@ -2178,81 +2178,109 @@ body{
   transition:all .2s;flex-shrink:0;
 }
 
-/* ── GLOBE ── */
+/* ── GLOBE NASA TEXTURE ── */
 .globe-wrap{
   position:absolute;right:20px;top:50%;transform:translateY(-50%);
-  width:380px;height:380px;pointer-events:none;z-index:1;
-  overflow:visible;
+  width:360px;height:360px;pointer-events:none;z-index:1;
 }
-.globe{
-  width:100%;height:100%;border-radius:50%;
-  background:
-    radial-gradient(circle at 32% 36%, rgba(34,211,238,.18) 0%, transparent 55%),
-    radial-gradient(circle at 68% 65%, rgba(14,165,233,.14) 0%, transparent 50%),
-    radial-gradient(circle at 50% 50%, #051824 0%, #031018 60%, #020c14 100%);
-  box-shadow:
-    0 0 0 1px rgba(34,211,238,.12),
-    0 0 60px rgba(14,165,233,.18),
-    0 0 120px rgba(14,165,233,.08),
-    inset 0 0 80px rgba(0,0,0,.6);
-  position:relative;overflow:hidden;
-}
-/* atmosphere glow ring */
-.globe::after{
-  content:'';position:absolute;inset:-8px;border-radius:50%;
-  background:radial-gradient(circle at 50% 50%,transparent 46%,rgba(34,211,238,.07) 52%,rgba(14,165,233,.12) 58%,transparent 66%);
+/* atmosphere outer glow */
+.globe-atmo{
+  position:absolute;inset:-18px;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,
+    transparent 42%,
+    rgba(56,189,248,.06) 50%,
+    rgba(14,165,233,.14) 56%,
+    rgba(14,165,233,.08) 62%,
+    transparent 70%);
   pointer-events:none;
 }
-/* continent patches */
-.globe::before{
-  content:'';position:absolute;inset:0;border-radius:50%;
-  background:
-    radial-gradient(ellipse 28% 18% at 38% 42%, rgba(20,184,166,.22) 0%, transparent 100%),
-    radial-gradient(ellipse 20% 12% at 62% 35%, rgba(16,185,129,.16) 0%, transparent 100%),
-    radial-gradient(ellipse 16% 22% at 72% 58%, rgba(20,184,166,.14) 0%, transparent 100%),
-    radial-gradient(ellipse 12% 10% at 28% 62%, rgba(16,185,129,.12) 0%, transparent 100%),
-    radial-gradient(ellipse 10% 8%  at 50% 72%, rgba(20,184,166,.10) 0%, transparent 100%);
-  animation:globeRotate 28s linear infinite;
-}
-.globe-grid{
-  position:absolute;inset:0;border-radius:50%;overflow:hidden;
-}
-.globe-grid svg{width:100%;height:100%;opacity:.18;animation:globeRotate 28s linear infinite;}
-/* pin dot */
-.globe-pin{
-  position:absolute;width:8px;height:8px;border-radius:50%;
-  background:#22D3EE;top:38%;left:44%;
-  box-shadow:0 0 0 3px rgba(34,211,238,.25),0 0 12px rgba(34,211,238,.6);
-  animation:pinPulse 2.5s ease-in-out infinite;
-}
-.globe-pin::after{
-  content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
-  width:1px;height:18px;background:linear-gradient(to top,rgba(34,211,238,.7),transparent);
-}
-/* orbit ring */
+/* orbit rings */
 .globe-orbit{
-  position:absolute;inset:-18px;border-radius:50%;
-  border:1px solid rgba(34,211,238,.08);
+  position:absolute;inset:-22px;border-radius:50%;
+  border:1px solid rgba(34,211,238,.1);
   animation:orbitSpin 18s linear infinite;
 }
 .globe-orbit::before{
-  content:'';position:absolute;width:6px;height:6px;border-radius:50%;
-  background:#0EA5E9;top:-3px;left:50%;transform:translateX(-50%);
-  box-shadow:0 0 8px rgba(14,165,233,.8);
+  content:'';position:absolute;width:7px;height:7px;border-radius:50%;
+  background:#0EA5E9;top:-3.5px;left:50%;transform:translateX(-50%);
+  box-shadow:0 0 10px rgba(14,165,233,.9);
 }
 .globe-orbit2{
-  position:absolute;inset:-36px;border-radius:50%;
-  border:1px solid rgba(14,165,233,.05);
-  animation:orbitSpin 32s linear infinite reverse;
+  position:absolute;inset:-42px;border-radius:50%;
+  border:1px solid rgba(14,165,233,.06);
+  animation:orbitSpin 34s linear infinite reverse;
 }
 .globe-orbit2::before{
-  content:'';position:absolute;width:4px;height:4px;border-radius:50%;
-  background:#14B8A6;bottom:-2px;right:20%;
-  box-shadow:0 0 6px rgba(20,184,166,.8);
+  content:'';position:absolute;width:5px;height:5px;border-radius:50%;
+  background:#14B8A6;bottom:-2.5px;right:18%;
+  box-shadow:0 0 8px rgba(20,184,166,.9);
 }
-@keyframes globeRotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+/* sphere clip */
+.globe{
+  width:100%;height:100%;border-radius:50%;
+  overflow:hidden;position:relative;
+  box-shadow:
+    0 0 0 1.5px rgba(34,211,238,.15),
+    0 0 50px rgba(14,165,233,.2),
+    0 0 100px rgba(14,165,233,.08),
+    inset -30px 0 60px rgba(0,0,0,.55),
+    inset 10px 0 30px rgba(255,255,255,.04);
+}
+/* rotating earth texture */
+.globe-texture{
+  position:absolute;
+  top:0;left:0;
+  width:200%;height:100%;
+  background-image:url('https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Blue_Marble_2002.png/1280px-Blue_Marble_2002.png');
+  background-size:50% 100%;
+  background-repeat:repeat-x;
+  animation:earthSpin 28s linear infinite;
+  filter:saturate(1.1) brightness(.88);
+}
+/* sphere shading overlay — simula curvatura 3D */
+.globe-shade{
+  position:absolute;inset:0;border-radius:50%;
+  background:
+    radial-gradient(circle at 30% 35%, rgba(255,255,255,.06) 0%, transparent 45%),
+    radial-gradient(circle at 72% 65%, rgba(0,0,0,.5) 0%, transparent 55%),
+    radial-gradient(circle at 50% 50%, transparent 40%, rgba(0,0,0,.55) 100%);
+  pointer-events:none;
+}
+/* atmosphere rim on sphere */
+.globe-rim{
+  position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,
+    transparent 62%,
+    rgba(56,189,248,.12) 72%,
+    rgba(14,165,233,.22) 80%,
+    rgba(14,165,233,.08) 88%,
+    transparent 94%);
+  pointer-events:none;
+}
+/* clouds layer */
+.globe-clouds{
+  position:absolute;top:0;left:0;width:200%;height:100%;
+  background-image:url('https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/The_earth_at_night.jpg/1280px-The_earth_at_night.jpg');
+  background-size:50% 100%;background-repeat:repeat-x;
+  opacity:.0;
+}
+/* location pin */
+.globe-pin{
+  position:absolute;width:9px;height:9px;border-radius:50%;
+  background:#22D3EE;top:39%;left:42%;
+  box-shadow:0 0 0 3px rgba(34,211,238,.3),0 0 14px rgba(34,211,238,.7);
+  animation:pinPulse 2.5s ease-in-out infinite;z-index:2;
+}
+.globe-pin::after{
+  content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
+  width:1px;height:20px;background:linear-gradient(to top,rgba(34,211,238,.8),transparent);
+}
+@keyframes earthSpin{from{background-position:0 0}to{background-position:-50% 0}}
 @keyframes orbitSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-@keyframes pinPulse{0%,100%{box-shadow:0 0 0 3px rgba(34,211,238,.25),0 0 12px rgba(34,211,238,.6)}50%{box-shadow:0 0 0 6px rgba(34,211,238,.1),0 0 20px rgba(34,211,238,.8)}}
+@keyframes pinPulse{
+  0%,100%{box-shadow:0 0 0 3px rgba(34,211,238,.3),0 0 14px rgba(34,211,238,.7)}
+  50%{box-shadow:0 0 0 7px rgba(34,211,238,.1),0 0 22px rgba(34,211,238,.9)}
+}
 
 .plus:hover{background:rgba(255,255,255,.15);color:#fff}
 </style>"""
@@ -2308,23 +2336,15 @@ _hero_body = f"""<div class="bg-wrap">
 </div>
 </div>
 
-<!-- GLOBE -->
+<!-- GLOBE NASA -->
 <div class="globe-wrap">
+  <div class="globe-atmo"></div>
   <div class="globe-orbit2"></div>
   <div class="globe-orbit"></div>
   <div class="globe">
-    <div class="globe-grid">
-      <svg viewBox="0 0 420 420" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="210" cy="210" rx="200" ry="40"  fill="none" stroke="#22D3EE" stroke-width=".7"/>
-        <ellipse cx="210" cy="210" rx="200" ry="90"  fill="none" stroke="#22D3EE" stroke-width=".6"/>
-        <ellipse cx="210" cy="210" rx="200" ry="148" fill="none" stroke="#22D3EE" stroke-width=".6"/>
-        <ellipse cx="210" cy="210" rx="200" ry="185" fill="none" stroke="#22D3EE" stroke-width=".5"/>
-        <ellipse cx="210" cy="210" rx="40"  ry="200" fill="none" stroke="#22D3EE" stroke-width=".7"/>
-        <ellipse cx="210" cy="210" rx="100" ry="200" fill="none" stroke="#22D3EE" stroke-width=".6"/>
-        <ellipse cx="210" cy="210" rx="160" ry="200" fill="none" stroke="#22D3EE" stroke-width=".5"/>
-        <circle  cx="210" cy="210" r="200"  fill="none" stroke="#22D3EE" stroke-width=".8"/>
-      </svg>
-    </div>
+    <div class="globe-texture"></div>
+    <div class="globe-shade"></div>
+    <div class="globe-rim"></div>
     <div class="globe-pin"></div>
   </div>
 </div>
