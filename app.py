@@ -1465,6 +1465,21 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes,
         except Exception:
             pass
 
+        # ── ESA WorldCover 2021: uso de suelo recortado al área de estudio ──
+        try:
+            wc_palette = [
+                "006400","ffbb22","ffff4c","f096ff","fa0000",
+                "b4b4b4","f0f0f0","0064c8","0096a0","00cf75","fae6a0"
+            ]
+            worldcover = (ee.ImageCollection("ESA/WorldCover/v200")
+                          .first().clip(geom))
+            tile_urls["WorldCover"] = worldcover.getMapId({
+                "min": 10, "max": 100,
+                "palette": wc_palette
+            })["tile_fetcher"].url_format
+        except Exception:
+            pass
+
         # ── LST desde Landsat 8/9 Collection 2 con downscaling via NDVI S2 ──
         def _lst_to_celsius(image):
             return (image.select("ST_B10")
@@ -2009,6 +2024,10 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
     if "JRC" in tile_urls:
         folium.TileLayer(tiles=tile_urls["JRC"], attr="JRC Global Surface Water 1984-2021",
                          name="🌊 JRC Ocurrencia de Agua (histórico)",
+                         overlay=True, control=True, show=False).add_to(m)
+    if "WorldCover" in tile_urls:
+        folium.TileLayer(tiles=tile_urls["WorldCover"], attr="ESA WorldCover 2021",
+                         name="🟩 ESA WorldCover 2021 (Uso de Suelo)",
                          overlay=True, control=True, show=False).add_to(m)
 
     folium.TileLayer(
@@ -3158,7 +3177,7 @@ if not correr:
                         _ps_lat = st.number_input("Latitud", value=float(bbox_prev[1]+(bbox_prev[3]-bbox_prev[1])/2),
                                                   format="%.5f", key="ps_lat")
                     with _pc3:
-                        _ps_fecha = st.date_input("Fecha", value=fecha_sel if fecha_sel else date.today(),
+                        _ps_fecha = st.date_input("Fecha", value=fecha_fin,
                                                   key="ps_fecha")
                     if st.button("📡 Extraer perfil espectral", key="btn_perfil", type="primary",
                                  use_container_width=True):
@@ -3217,7 +3236,7 @@ if not correr:
                     st.markdown("</div>", unsafe_allow_html=True)
 
                 # ── Mapa de Riesgo MCDA ───────────────────────────────────────
-                if GEE_OK and wmask_prev is not None and fecha_sel is not None:
+                if GEE_OK and wmask_prev is not None:
                     st.markdown('<div class="map-panel" style="margin-top:.6rem">',
                                unsafe_allow_html=True)
                     st.markdown('<div class="map-title">⚠️ Mapa de Riesgo de Contaminación (MCDA)</div>',
@@ -3226,7 +3245,7 @@ if not correr:
                                "(escala 0–1, donde 1 = mayor riesgo potencial de contaminación).")
                     _wr1, _wr2 = st.columns([3,1])
                     with _wr2:
-                        _fecha_mcda = st.date_input("Fecha referencia", value=fecha_sel,
+                        _fecha_mcda = st.date_input("Fecha referencia", value=fecha_fin,
                                                     key="mcda_fecha")
                         _nubes_mcda = st.slider("Máx nubes %", 5, 60, 30, key="mcda_nubes")
                     with _wr1:
