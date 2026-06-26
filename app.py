@@ -1856,6 +1856,7 @@ body{
 .hero{
   position:relative;z-index:10;
   display:flex;height:100%;min-height:540px;
+  overflow:hidden;
 }
 
 /* ── LIQUID GLASS LIGHT ── */
@@ -1911,6 +1912,7 @@ body{
   flex:1 1 100%;
   position:relative;
   padding:20px;
+  overflow:visible;
 }
 
 .panel-glass{
@@ -2178,8 +2180,9 @@ body{
 
 /* ── GLOBE ── */
 .globe-wrap{
-  position:absolute;right:-60px;top:50%;transform:translateY(-52%);
-  width:420px;height:420px;pointer-events:none;z-index:1;
+  position:absolute;right:20px;top:50%;transform:translateY(-50%);
+  width:380px;height:380px;pointer-events:none;z-index:1;
+  overflow:visible;
 }
 .globe{
   width:100%;height:100%;border-radius:50%;
