@@ -2335,7 +2335,7 @@ _hero_body = f"""<div class="bg-wrap">
 
 components.html(
     f"<!DOCTYPE html><html><head><meta charset='utf-8'>{_hero_css}</head><body>{_hero_body}</body></html>",
-    height=660,
+    height=720,
     scrolling=False
 )
 
