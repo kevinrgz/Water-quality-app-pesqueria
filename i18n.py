@@ -675,6 +675,37 @@ T = {
               "azul=água clara. Correlaciona-se com SST e cor da água.",
     },
 
+    "NDCI_nombre": {"es": "🌿 NDCI (Clorofila Red Edge)", "en": "🌿 NDCI (Red Edge Chlorophyll)", "pt": "🌿 NDCI (Clorofila Red Edge)"},
+    "NDCI_desc": {
+        "es": "Índice de clorofila usando banda red edge (B5). Verde intenso = eutrofización activa.",
+        "en": "Chlorophyll index using red edge band (B5). Intense green = active eutrophication.",
+        "pt": "Índice de clorofila usando banda red edge (B5). Verde intenso = eutrofização ativa.",
+    },
+    "SABI_nombre": {"es": "🦠 SABI (Floraciones Algales)", "en": "🦠 SABI (Algal Bloom)", "pt": "🦠 SABI (Floração de Algas)"},
+    "SABI_desc": {
+        "es": "Surface Algal Bloom Index. Detecta proliferación de algas y cianobacterias en superficie.",
+        "en": "Surface Algal Bloom Index. Detects algae and cyanobacteria proliferation on the surface.",
+        "pt": "Surface Algal Bloom Index. Detecta proliferação de algas e cianobactérias na superfície.",
+    },
+    "CDOM_nombre": {"es": "🟤 CDOM (Materia Orgánica Disuelta)", "en": "🟤 CDOM (Dissolved Organic Matter)", "pt": "🟤 CDOM (Matéria Orgânica Dissolvida)"},
+    "CDOM_desc": {
+        "es": "Proxy de materia orgánica coloreada disuelta (ratio B3/B4). Relacionado con DBO y carbono orgánico.",
+        "en": "Colored dissolved organic matter proxy (B3/B4 ratio). Related to BOD and organic carbon.",
+        "pt": "Proxy de matéria orgânica colorida dissolvida (razão B3/B4). Relacionado com DBO e carbono orgânico.",
+    },
+    "AWEInsh_nombre": {"es": "💧 AWEInsh (Extracción de Agua)", "en": "💧 AWEInsh (Water Extraction)", "pt": "💧 AWEInsh (Extração de Água)"},
+    "AWEInsh_desc": {
+        "es": "Automated Water Extraction Index (no shadow). Mayor precisión que NDWI en zonas urbanas. Umbral=0.",
+        "en": "Automated Water Extraction Index (no shadow). More accurate than NDWI in urban areas. Threshold=0.",
+        "pt": "Automated Water Extraction Index (sem sombra). Maior precisão que NDWI em zonas urbanas. Limiar=0.",
+    },
+    "EVI_nombre": {"es": "🌱 EVI (Vegetación Mejorado)", "en": "🌱 EVI (Enhanced Vegetation)", "pt": "🌱 EVI (Vegetação Aprimorada)"},
+    "EVI_desc": {
+        "es": "Enhanced Vegetation Index. Corrige efectos de suelo y atmósfera. Mejor que NDVI en zonas densas.",
+        "en": "Enhanced Vegetation Index. Corrects soil and atmosphere effects. Better than NDVI in dense areas.",
+        "pt": "Enhanced Vegetation Index. Corrige efeitos de solo e atmosfera. Melhor que NDVI em áreas densas.",
+    },
+
     # ── PDF — Reporte fecha única ─────────────────────────────────────────────
     "pdf_titulo_reporte": {
         "es": "💧 REPORTE DE CALIDAD DE AGUA", "en": "💧 WATER QUALITY REPORT",

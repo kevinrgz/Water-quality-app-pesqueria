@@ -1202,6 +1202,46 @@ INDICES_VIZ = {
         vis={"min": 15, "max": 45,
              "palette": ["#313695","#4575b4","#abd9e9","#ffffbf","#fdae61","#d73027","#a50026"]},
     ),
+    "NDCI": dict(
+        nombre="🌿 NDCI (Clorofila Red Edge)",
+        desc="Normalized Difference Chlorophyll Index. Usa la banda red edge (B5) para "
+             "estimar clorofila-a. Verde intenso = eutrofización activa.",
+        vis={"min": -0.3, "max": 0.3,
+             "palette": ["#ffffcc","#c2e699","#78c679","#31a354","#006837"]},
+        unidad="adim.",
+    ),
+    "SABI": dict(
+        nombre="🦠 SABI (Floraciones Algales)",
+        desc="Surface Algal Bloom Index. Detecta proliferación de algas y cianobacterias "
+             "en superficie. Valores altos indican bloom activo.",
+        vis={"min": -0.1, "max": 0.2,
+             "palette": ["#081d58","#253494","#225ea8","#41b6c4","#7fcdbb","#c7e9b4","#ffffcc"]},
+        unidad="adim.",
+    ),
+    "CDOM": dict(
+        nombre="🟤 CDOM (Mat. Orgánica Disuelta)",
+        desc="Colored Dissolved Organic Matter. Ratio B3/B4 como proxy de materia orgánica "
+             "coloreada. Relacionado con DBO y carbono orgánico disuelto.",
+        vis={"min": 0.5, "max": 3.0,
+             "palette": ["#fff7ec","#fee8c8","#fdd49e","#fdbb84","#fc8d59","#e34a33","#b30000"]},
+        unidad="ratio",
+    ),
+    "AWEInsh": dict(
+        nombre="💧 AWEInsh (Extracción Agua)",
+        desc="Automated Water Extraction Index (no shadow). Separa agua de suelo urbano y "
+             "sombras con mayor precisión que NDWI estándar. Umbral=0.",
+        vis={"min": -0.5, "max": 0.5,
+             "palette": ["#543005","#bf812d","#f6e8c3","#c7eae5","#35978f","#003c30"]},
+        unidad="adim.",
+    ),
+    "EVI": dict(
+        nombre="🌱 EVI (Vegetación Mejorado)",
+        desc="Enhanced Vegetation Index. Corrige efectos de suelo y atmósfera. Mejor que NDVI "
+             "en zonas con vegetación densa ribereña. Rango típico 0–1.",
+        vis={"min": -0.1, "max": 0.8,
+             "palette": ["#a50026","#f46d43","#fee08b","#d9ef8b","#66bd63","#1a9850","#004529"]},
+        unidad="adim.",
+    ),
 }
 
 def calcular_indice_gee(img, indice):
@@ -1213,6 +1253,34 @@ def calcular_indice_gee(img, indice):
         return img.normalizedDifference(["B3","B11"]).rename("MNDWI")
     elif indice == "NDTI":
         return img.normalizedDifference(["B4","B3"]).rename("NDTI")
+    elif indice == "NDCI":
+        # Normalized Difference Chlorophyll Index usando Red Edge (B5)
+        return img.normalizedDifference(["B5","B4"]).rename("NDCI")
+    elif indice == "SABI":
+        # Surface Algal Bloom Index = (B8-B4)/(B2+B3)
+        num = img.select("B8").subtract(img.select("B4"))
+        den = img.select("B2").add(img.select("B3"))
+        return num.divide(den.where(den.eq(0), 0.0001)).rename("SABI")
+    elif indice == "CDOM":
+        # Colored Dissolved Organic Matter proxy = B3/B4
+        b4 = img.select("B4").where(img.select("B4").eq(0), 1)
+        return img.select("B3").divide(b4).rename("CDOM")
+    elif indice == "AWEInsh":
+        # AWEInsh = 4*(B3-B11) - (0.25*B8 + 2.75*B12)
+        b3  = img.select("B3").toFloat()
+        b8  = img.select("B8").toFloat()
+        b11 = img.select("B11").toFloat()
+        b12 = img.select("B12").toFloat()
+        return (b3.subtract(b11)).multiply(4).subtract(
+               b8.multiply(0.25).add(b12.multiply(2.75))).rename("AWEInsh")
+    elif indice == "EVI":
+        # EVI = 2.5 * (B8-B4) / (B8 + 6*B4 - 7.5*B2 + 10000)
+        b8 = img.select("B8").toFloat()
+        b4 = img.select("B4").toFloat()
+        b2 = img.select("B2").toFloat()
+        num = b8.subtract(b4).multiply(2.5)
+        den = b8.add(b4.multiply(6)).subtract(b2.multiply(7.5)).add(10000)
+        return num.divide(den).rename("EVI")
     return None
 
 
@@ -1277,7 +1345,7 @@ def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nube
         if r.status_code == 200:
             thumbnails["RGB"] = io.BytesIO(r.content)
 
-        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI"]:
+        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI", "NDCI", "SABI", "CDOM", "AWEInsh", "EVI"]:
             idx_img = calcular_indice_gee(img, idx_name)
             if idx_img is None:
                 continue
@@ -1377,11 +1445,25 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes,
         map_id_rgb = img.getMapId(INDICES_VIZ["RGB"]["vis"])
         tile_urls["RGB"] = map_id_rgb["tile_fetcher"].url_format
 
-        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI"]:
+        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI", "NDCI", "SABI", "CDOM", "AWEInsh", "EVI"]:
             idx_img = calcular_indice_gee(img, idx_name)
             if idx_img is not None:
-                map_id  = idx_img.getMapId(INDICES_VIZ[idx_name]["vis"])
-                tile_urls[idx_name] = map_id["tile_fetcher"].url_format
+                try:
+                    map_id = idx_img.getMapId(INDICES_VIZ[idx_name]["vis"])
+                    tile_urls[idx_name] = map_id["tile_fetcher"].url_format
+                except Exception:
+                    pass
+
+        # ── JRC Global Surface Water: ocurrencia histórica de agua 1984-2021 ──
+        try:
+            jrc = (ee.Image("JRC/GSW1_4/GlobalSurfaceWater")
+                     .select("occurrence").clip(geom))
+            tile_urls["JRC"] = jrc.getMapId({
+                "min": 0, "max": 100,
+                "palette": ["#ffffff","#d0e7ff","#6ab5ff","#0066cc","#003580"]
+            })["tile_fetcher"].url_format
+        except Exception:
+            pass
 
         # ── LST desde Landsat 8/9 Collection 2 con downscaling via NDVI S2 ──
         def _lst_to_celsius(image):
@@ -1424,6 +1506,201 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes,
         return info, tile_urls
     except Exception as e:
         return {"error": str(e)}, {}
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def obtener_serie_tiempo_gee(bbox, geojson_poligono, indice, fecha_ini_str, fecha_fin_str, max_nubes=30):
+    """
+    Extrae serie temporal mensual de un índice espectral en la zona de estudio.
+    Retorna lista de (fecha_str, valor_medio) ordenada cronológicamente.
+    """
+    if not GEE_OK:
+        return []
+    try:
+        lon_min, lat_min, lon_max, lat_max = bbox
+        geom = (ee.Geometry(geojson_poligono, opt_geodesic=False)
+                if geojson_poligono else
+                ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max]))
+
+        coll = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+                  .filterBounds(geom)
+                  .filterDate(fecha_ini_str, fecha_fin_str)
+                  .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_nubes)))
+
+        def _add_indice(img):
+            idx_img = calcular_indice_gee(img, indice)
+            if idx_img is None:
+                return img.set("skip", 1)
+            mean_val = idx_img.reduceRegion(
+                reducer=ee.Reducer.mean(), geometry=geom,
+                scale=20, maxPixels=1e7).get(indice)
+            fecha_ms = img.get("system:time_start")
+            return img.set({"mean_val": mean_val, "fecha_ms": fecha_ms, "skip": 0})
+
+        mapped = coll.map(_add_indice).filter(ee.Filter.eq("skip", 0))
+        features = mapped.aggregate_array("mean_val").getInfo()
+        fechas_ms = mapped.aggregate_array("fecha_ms").getInfo()
+
+        resultados = []
+        for ms, val in zip(fechas_ms, features):
+            if val is None:
+                continue
+            import datetime as _dt
+            fecha_dt = _dt.datetime.utcfromtimestamp(ms / 1000)
+            resultados.append((fecha_dt.strftime("%Y-%m-%d"), round(float(val), 4)))
+
+        resultados.sort(key=lambda x: x[0])
+        return resultados
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=7200, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
+def obtener_mapa_riesgo_gee(bbox, geojson_poligono, fecha_str, max_nubes=30):
+    """
+    Composite MCDA de riesgo de contaminación:
+    Riesgo = 0.3*NDCI + 0.25*NDTI + 0.25*CDOM_norm + 0.2*AWEInsh_inv
+    Devuelve tile_url y stats (mean, max).
+    """
+    try:
+        aoi = ee.Geometry.Rectangle(bbox)
+        if geojson_poligono:
+            aoi = ee.Geometry(geojson_poligono)
+        fecha = ee.Date(fecha_str)
+        col = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+               .filterBounds(aoi)
+               .filterDate(fecha.advance(-45, "day"), fecha.advance(5, "day"))
+               .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_nubes))
+               .sort("CLOUDY_PIXEL_PERCENTAGE"))
+        img = col.first().clip(aoi)
+
+        ndci  = img.normalizedDifference(["B5","B4"]).rename("NDCI")
+        ndti  = img.normalizedDifference(["B11","B3"]).rename("NDTI")
+        b3    = img.select("B3"); b4 = img.select("B4").where(img.select("B4").eq(0), 1)
+        cdom  = b3.divide(b4).rename("CDOM")
+        # Normalizar CDOM al rango 0-1 usando percentiles
+        cdom_stats = cdom.reduceRegion(ee.Reducer.percentile([2,98]), aoi, 30, maxPixels=1e7).getInfo()
+        c_min = cdom_stats.get("CDOM_p2", 0) or 0
+        c_max = cdom_stats.get("CDOM_p98", 3) or 3
+        if c_max == c_min: c_max = c_min + 1
+        cdom_n = cdom.subtract(c_min).divide(c_max - c_min).clamp(0, 1)
+
+        awei   = (img.select("B3").toFloat().subtract(img.select("B11").toFloat())).multiply(4).subtract(
+                  img.select("B8").toFloat().multiply(0.25).add(img.select("B12").toFloat().multiply(2.75)))
+        awei_inv = awei.multiply(-1).rename("AWEInsh_inv")
+        awei_stats = awei_inv.reduceRegion(ee.Reducer.percentile([2,98]), aoi, 30, maxPixels=1e7).getInfo()
+        a_min = awei_stats.get("AWEInsh_inv_p2", -3) or -3
+        a_max = awei_stats.get("AWEInsh_inv_p98", 3) or 3
+        if a_max == a_min: a_max = a_min + 1
+        awei_n = awei_inv.subtract(a_min).divide(a_max - a_min).clamp(0, 1)
+
+        riesgo = (ndci.multiply(0.30)
+                  .add(ndti.multiply(0.25))
+                  .add(cdom_n.multiply(0.25))
+                  .add(awei_n.multiply(0.20))).clamp(0,1).rename("Riesgo")
+
+        viz = {"min": 0, "max": 1, "palette": ["#2563EB","#22D3EE","#A3E635","#FBBF24","#EF4444"]}
+        tile_url = riesgo.getMapId(viz)["tile_fetcher"].url_format
+        stats = riesgo.reduceRegion(
+            ee.Reducer.mean().combine(ee.Reducer.max(), sharedInputs=True),
+            aoi, 30, maxPixels=1e7
+        ).getInfo()
+        return {"tile_url": tile_url, "mean": stats.get("Riesgo_mean", 0), "max": stats.get("Riesgo_max", 0)}
+    except Exception as _e:
+        return None
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def obtener_perfil_espectral_gee(lon, lat, fecha_str, bbox):
+    """
+    Extrae los valores de reflectancia de todas las bandas S2 en un punto dado.
+    Retorna dict {banda: valor} o None si no hay imagen disponible.
+    """
+    try:
+        punto = ee.Geometry.Point([lon, lat])
+        fecha = ee.Date(fecha_str)
+        col = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+               .filterBounds(punto)
+               .filterDate(fecha.advance(-30, "day"), fecha.advance(30, "day"))
+               .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", 30))
+               .sort("CLOUDY_PIXEL_PERCENTAGE"))
+        img = col.first()
+        if img is None:
+            return None
+        bandas = ["B2","B3","B4","B5","B6","B7","B8","B8A","B11","B12"]
+        nombres = {"B2":"Blue","B3":"Green","B4":"Red","B5":"RE1",
+                   "B6":"RE2","B7":"RE3","B8":"NIR","B8A":"NIR-A",
+                   "B11":"SWIR1","B12":"SWIR2"}
+        vals = img.select(bandas).reduceRegion(
+            reducer=ee.Reducer.mean(),
+            geometry=punto.buffer(30),
+            scale=10,
+            maxPixels=1e6
+        ).getInfo()
+        return {nombres.get(b, b): (vals.get(b, 0) or 0) / 10000.0
+                for b in bandas}
+    except Exception:
+        return None
+
+
+def obtener_analisis_cuenca_gee(bbox, geojson_poligono=None):
+    """
+    Análisis integrado de cuenca usando datasets GEE premium:
+    - JRC Global Surface Water: estadísticas de ocurrencia histórica de agua
+    - ESA WorldCover 2021: distribución de uso de suelo en el área
+    Retorna dict con estadísticas listas para mostrar.
+    """
+    if not GEE_OK:
+        return {}
+    try:
+        lon_min, lat_min, lon_max, lat_max = bbox
+        geom = (ee.Geometry(geojson_poligono, opt_geodesic=False)
+                if geojson_poligono else
+                ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max]))
+        resultado = {}
+
+        # ── JRC Global Surface Water ──────────────────────────────────────────
+        try:
+            jrc = ee.Image("JRC/GSW1_4/GlobalSurfaceWater").clip(geom)
+            occ  = jrc.select("occurrence")
+            seas = jrc.select("seasonality")
+            stats_occ = occ.reduceRegion(
+                reducer=ee.Reducer.mean().combine(ee.Reducer.max(), sharedInputs=True),
+                geometry=geom, scale=30, maxPixels=1e8).getInfo()
+            resultado["jrc_ocurrencia_media"] = round(stats_occ.get("occurrence_mean", 0) or 0, 1)
+            resultado["jrc_ocurrencia_max"]   = round(stats_occ.get("occurrence_max", 0) or 0, 1)
+            stats_seas = seas.reduceRegion(
+                reducer=ee.Reducer.mean(), geometry=geom, scale=30, maxPixels=1e8).getInfo()
+            resultado["jrc_estacionalidad"]   = round(stats_seas.get("seasonality_mean", 0) or 0, 1)
+        except Exception:
+            pass
+
+        # ── ESA WorldCover 2021 ───────────────────────────────────────────────
+        try:
+            wc = ee.ImageCollection("ESA/WorldCover/v200").first().clip(geom)
+            clases = {
+                10: "Árboles", 20: "Arbustos", 30: "Pastizal", 40: "Cultivos",
+                50: "Zona urbana", 60: "Suelo desnudo", 70: "Nieve/Hielo",
+                80: "Agua permanente", 90: "Humedales", 95: "Manglar", 100: "Musgo/Liquen"
+            }
+            hist = wc.reduceRegion(
+                reducer=ee.Reducer.frequencyHistogram(),
+                geometry=geom, scale=10, maxPixels=1e9).getInfo()
+            raw = hist.get("Map", {})
+            total = sum(raw.values()) if raw else 1
+            lulc_pct = {
+                clases.get(int(k), f"Clase {k}"): round(v / total * 100, 1)
+                for k, v in raw.items() if v > 0
+            }
+            lulc_ordenado = dict(sorted(lulc_pct.items(), key=lambda x: -x[1]))
+            resultado["lulc"] = lulc_ordenado
+        except Exception:
+            pass
+
+        return resultado
+    except Exception:
+        return {}
 
 
 def generar_gif_animacion(param_key, fechas_lista, wmask_gdf, bounds, resolucion_gif=120):
@@ -1723,12 +2000,16 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
                          name="📷 RGB (Color natural)", overlay=False,
                          control=True, show=True).add_to(m)
 
-    for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI", "LST"]:
+    for idx_name in ["NDVI","NDWI","MNDWI","NDTI","NDCI","SABI","CDOM","AWEInsh","EVI","LST"]:
         if idx_name in tile_urls:
             cfg = INDICES_VIZ[idx_name]
             folium.TileLayer(tiles=tile_urls[idx_name], attr="GEE — Sentinel-2 SR",
                              name=cfg["nombre"], overlay=False,
                              control=True, show=False).add_to(m)
+    if "JRC" in tile_urls:
+        folium.TileLayer(tiles=tile_urls["JRC"], attr="JRC Global Surface Water 1984-2021",
+                         name="🌊 JRC Ocurrencia de Agua (histórico)",
+                         overlay=True, control=True, show=False).add_to(m)
 
     folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/"
@@ -2383,6 +2664,32 @@ st.markdown(f"""<div class="status-row">
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
+    # ── Stepper de progreso ───────────────────────────────────────────────────
+    _step1_done = st.session_state.get("_stepper_wmask", False)
+    _step2_done = st.session_state.get("_stepper_config", False)
+    _step3_done = st.session_state.get("_stepper_maps", False)
+    def _sp(num, label, done, active):
+        dot_bg  = "#22D3EE" if done else ("#0EA5E9" if active else "rgba(255,255,255,0.08)")
+        dot_col = "#020A14" if (done or active) else "#4B5563"
+        lbl_col = "#22D3EE" if done else ("#E2F8FF" if active else "#4B5563")
+        check   = "✓" if done else str(num)
+        return (f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+                f'<div style="width:24px;height:24px;border-radius:50%;background:{dot_bg};'
+                f'display:flex;align-items:center;justify-content:center;font-size:11px;'
+                f'font-weight:700;color:{dot_col};flex-shrink:0">{check}</div>'
+                f'<span style="font-size:11px;color:{lbl_col};font-weight:{"600" if active else "400"}">'
+                f'{label}</span></div>')
+    st.markdown(
+        '<div style="background:rgba(34,211,238,0.04);border:1px solid rgba(34,211,238,0.12);'
+        'border-radius:10px;padding:12px 14px;margin-bottom:12px">'
+        '<div style="font-size:9px;letter-spacing:.1em;color:#22D3EE;margin-bottom:10px;font-weight:600">FLUJO DE TRABAJO</div>'
+        + _sp(1, "Subir shapefile (wmask.zip)", _step1_done, not _step1_done)
+        + _sp(2, "Configurar fechas y nubes",   _step2_done, _step1_done and not _step2_done)
+        + _sp(3, "Generar mapas e índices",      _step3_done, _step2_done and not _step3_done)
+        + _sp(4, "Descargar / reportes",         False,       _step3_done)
+        + '</div>',
+        unsafe_allow_html=True
+    )
     st.markdown(f'<div class="slabel">{t("sidebar_idioma", LANG)}</div>', unsafe_allow_html=True)
     lang_sel = st.selectbox(
         "", options=list(IDIOMAS.keys()),
@@ -2413,6 +2720,7 @@ with st.sidebar:
                         _w_check = _w_check.to_crs(4326)
                     es_zona_pesqueria = zona_es_pesqueria(tuple(_w_check.total_bounds))
             wmask_zip.seek(0)  # reset para usos posteriores del mismo archivo
+            st.session_state["_stepper_wmask"] = True
         except Exception:
             es_zona_pesqueria = False
 
@@ -2466,6 +2774,9 @@ with st.sidebar:
     valid = (wmask_zip is not None and params_sel and fecha_ini < fecha_fin)
     correr = st.button(t("sidebar_generar_mapas", LANG), type="primary",
                        use_container_width=True, disabled=not valid)
+    if correr:
+        st.session_state["_stepper_config"] = True
+        st.session_state["_stepper_maps"] = True
     if wmask_zip is None:
         st.warning(t("sidebar_sube_wmask_warn", LANG))
 
@@ -2555,7 +2866,7 @@ if not correr:
                 st.markdown(f'<div class="map-title">{t("indices_disponibles_titulo", LANG)}</div>',
                            unsafe_allow_html=True)
                 idx_cols = st.columns(5)
-                for ic, idx_key in zip(idx_cols, ["RGB","NDVI","NDWI","MNDWI","NDTI","LST"]):
+                for ic, idx_key in zip(idx_cols, ["RGB","NDVI","NDWI","MNDWI","NDTI","NDCI","SABI","CDOM","AWEInsh","EVI","LST"]):
                     cfg = INDICES_VIZ[idx_key]
                     idx_nombre_t = get_indice_nombre(idx_key, LANG)
                     idx_desc_t = get_indice_desc(idx_key, LANG) if idx_key != "RGB" else ""
@@ -2577,7 +2888,7 @@ if not correr:
                     st.caption(t("tiff_caption", LANG))
 
                     tiff_cols = st.columns(5)
-                    for tc, idx_key in zip(tiff_cols, ["RGB","NDVI","NDWI","MNDWI","NDTI","LST"]):
+                    for tc, idx_key in zip(tiff_cols, ["RGB","NDVI","NDWI","MNDWI","NDTI","NDCI","SABI","CDOM","AWEInsh","EVI","LST"]):
                         with tc:
                             if st.button(f"📥 {idx_key}", key=f"tiff_{idx_key}",
                                         use_container_width=True):
@@ -2605,7 +2916,7 @@ if not correr:
                     with col_gifc1:
                         capa_gif_sel = st.selectbox(
                             t("gif_capa_animar", LANG),
-                            options=["RGB","NDVI","NDWI","MNDWI","NDTI","LST"],
+                            options=["RGB","NDVI","NDWI","MNDWI","NDTI","NDCI","SABI","CDOM","AWEInsh","EVI","LST"],
                             format_func=lambda k: get_indice_nombre(k, LANG),
                             key="capa_gif_select"
                         )
@@ -2647,6 +2958,318 @@ if not correr:
                             )
                         else:
                             st.warning(t("gif_sin_imagenes", LANG))
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                # ── Serie Temporal de Índices Espectrales ────────────────────
+                if GEE_OK and wmask_prev is not None:
+                    st.markdown('<div class="map-panel" style="margin-top:.6rem">',
+                               unsafe_allow_html=True)
+                    st.markdown('<div class="map-title">📈 Serie Temporal de Índices (GEE)</div>',
+                               unsafe_allow_html=True)
+                    st.caption("Evolución temporal del índice seleccionado en tu área de estudio — "
+                               "cada punto representa la media zonal de una imagen Sentinel-2.")
+
+                    col_st1, col_st2, col_st3 = st.columns([2, 1, 1])
+                    with col_st1:
+                        indice_ts = st.selectbox(
+                            "Índice a graficar",
+                            options=["NDWI","MNDWI","NDVI","NDTI","NDCI","SABI","CDOM","AWEInsh","EVI"],
+                            format_func=lambda k: INDICES_VIZ[k]["nombre"],
+                            key="sel_serie_tiempo"
+                        )
+                    with col_st2:
+                        fecha_ts_ini = st.date_input("Desde", value=date(2019,1,1), key="ts_ini")
+                    with col_st3:
+                        fecha_ts_fin = st.date_input("Hasta", value=date.today(), key="ts_fin")
+
+                    if st.button("📊 Generar serie temporal", key="btn_ts", type="primary",
+                                 use_container_width=True):
+                        _geojson_ts = wmask_prev.geometry.union_all().__geo_interface__
+                        with st.spinner(f"Extrayendo {indice_ts} mes a mes desde GEE…"):
+                            serie = obtener_serie_tiempo_gee(
+                                bbox_prev, _geojson_ts, indice_ts,
+                                fecha_ts_ini.strftime("%Y-%m-%d"),
+                                fecha_ts_fin.strftime("%Y-%m-%d"),
+                                max_nubes
+                            )
+                        if serie:
+                            import plotly.graph_objects as go
+                            fechas_ts = [s[0] for s in serie]
+                            vals_ts   = [s[1] for s in serie]
+                            fig_ts = go.Figure()
+                            fig_ts.add_trace(go.Scatter(
+                                x=fechas_ts, y=vals_ts, mode="lines+markers",
+                                name=indice_ts,
+                                line=dict(color="#22D3EE", width=2),
+                                marker=dict(size=6, color="#22D3EE",
+                                            line=dict(width=1, color="#ffffff")),
+                                hovertemplate="<b>%{x}</b><br>%{y:.4f}<extra></extra>"
+                            ))
+                            # Línea de tendencia simple
+                            if len(vals_ts) >= 3:
+                                import numpy as _np
+                                z = _np.polyfit(range(len(vals_ts)), vals_ts, 1)
+                                trend = _np.polyval(z, range(len(vals_ts)))
+                                fig_ts.add_trace(go.Scatter(
+                                    x=fechas_ts, y=trend.tolist(), mode="lines",
+                                    name="Tendencia", line=dict(color="#F59E0B",
+                                    width=1.5, dash="dash"),
+                                    hoverinfo="skip"
+                                ))
+                            fig_ts.update_layout(
+                                paper_bgcolor="rgba(0,0,0,0)",
+                                plot_bgcolor="rgba(15,25,40,0.8)",
+                                font=dict(color="#CBD5E1", size=11),
+                                margin=dict(l=40,r=10,t=30,b=40),
+                                height=300,
+                                legend=dict(orientation="h", yanchor="bottom",
+                                           y=1.02, xanchor="right", x=1),
+                                xaxis=dict(gridcolor="rgba(255,255,255,0.05)",
+                                           title="Fecha"),
+                                yaxis=dict(gridcolor="rgba(255,255,255,0.05)",
+                                           title=INDICES_VIZ[indice_ts]["nombre"].split("(")[0].strip()),
+                                title=dict(text=f"{INDICES_VIZ[indice_ts]['nombre']} — media zonal",
+                                           font=dict(size=12), x=0.5)
+                            )
+                            st.plotly_chart(fig_ts, use_container_width=True)
+                            # Stats rápidas + Mann-Kendall
+                            _vmin, _vmax, _vmean = min(vals_ts), max(vals_ts), sum(vals_ts)/len(vals_ts)
+                            c1,c2,c3,c4 = st.columns(4)
+                            c1.metric("N imágenes", len(serie))
+                            c2.metric("Mínimo", f"{_vmin:.4f}")
+                            c3.metric("Máximo", f"{_vmax:.4f}")
+                            c4.metric("Media", f"{_vmean:.4f}")
+                            # Mann-Kendall trend test
+                            if len(vals_ts) >= 4:
+                                from scipy.stats import kendalltau as _kt
+                                _tau, _pval = _kt(range(len(vals_ts)), vals_ts)
+                                _dir = ("↑ Ascendente" if _tau > 0 else "↓ Descendente")
+                                _sig = "✅ Significativa" if _pval < 0.05 else "⚠ No significativa"
+                                _col_dir = "#22D3EE" if _tau > 0 else "#F87171"
+                                st.markdown(
+                                    f'<div style="background:rgba(15,25,40,0.7);border:1px solid '
+                                    f'rgba(34,211,238,0.2);border-radius:8px;padding:10px 14px;margin-top:8px;'
+                                    f'display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+                                    f'<span style="font-size:11px;color:#94A3B8;font-weight:600">📊 MANN-KENDALL</span>'
+                                    f'<span style="color:{_col_dir};font-weight:700">{_dir}</span>'
+                                    f'<span style="color:#CBD5E1">τ = {_tau:.3f}</span>'
+                                    f'<span style="color:#CBD5E1">p = {_pval:.4f}</span>'
+                                    f'<span style="color:#A7F3D0">{_sig}</span>'
+                                    f'</div>',
+                                    unsafe_allow_html=True
+                                )
+                            # Descarga CSV
+                            import io as _io
+                            _csv_ts = "fecha,valor\n" + "\n".join(f"{f},{v}" for f,v in serie)
+                            st.download_button("⬇ Descargar CSV", _csv_ts.encode(),
+                                               f"serie_{indice_ts}.csv", "text/csv",
+                                               use_container_width=True)
+                        else:
+                            st.warning("No se encontraron imágenes con los parámetros seleccionados. "
+                                       "Amplía el rango de fechas o reduce el filtro de nubes.")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                # ── Análisis de Cuenca (JRC + WorldCover) ────────────────────
+                if GEE_OK and wmask_prev is not None:
+                    st.markdown('<div class="map-panel" style="margin-top:.6rem">',
+                               unsafe_allow_html=True)
+                    st.markdown('<div class="map-title">🌊 Análisis de Cuenca — JRC & WorldCover</div>',
+                               unsafe_allow_html=True)
+                    st.caption("Análisis integrado de ocurrencia histórica de agua (JRC 1984–2021) "
+                               "y uso de suelo (ESA WorldCover 2021) en tu área de estudio.")
+
+                    if st.button("🌍 Ejecutar análisis de cuenca", key="btn_cuenca", type="primary",
+                                 use_container_width=True):
+                        _geojson_cuenca = wmask_prev.geometry.union_all().__geo_interface__
+                        with st.spinner("Consultando JRC Global Surface Water y ESA WorldCover en GEE…"):
+                            res_cuenca = obtener_analisis_cuenca_gee(bbox_prev, _geojson_cuenca)
+
+                        if res_cuenca:
+                            col_jrc, col_lulc = st.columns(2)
+
+                            with col_jrc:
+                                st.markdown("**🌊 JRC Global Surface Water (1984–2021)**")
+                                occ_m  = res_cuenca.get("jrc_ocurrencia_media", None)
+                                occ_mx = res_cuenca.get("jrc_ocurrencia_max", None)
+                                seas   = res_cuenca.get("jrc_estacionalidad", None)
+                                if occ_m is not None:
+                                    j1, j2, j3 = st.columns(3)
+                                    j1.metric("Ocurrencia media", f"{occ_m}%",
+                                              help="% de tiempo con agua en el período 1984-2021")
+                                    j2.metric("Ocurrencia máx.", f"{occ_mx}%",
+                                              help="Píxeles con presencia de agua permanente")
+                                    j3.metric("Estacionalidad", f"{seas} meses",
+                                              help="Meses promedio con agua por año")
+                                else:
+                                    st.info("Sin datos JRC para este polígono.")
+
+                            with col_lulc:
+                                st.markdown("**🗺️ ESA WorldCover 2021 — Uso de Suelo**")
+                                lulc = res_cuenca.get("lulc", {})
+                                if lulc:
+                                    import plotly.graph_objects as go
+                                    _clrs = {
+                                        "Árboles":"#1a9850","Arbustos":"#a6d96a",
+                                        "Pastizal":"#d9ef8b","Cultivos":"#fee08b",
+                                        "Zona urbana":"#d73027","Suelo desnudo":"#bf812d",
+                                        "Agua permanente":"#4575b4","Humedales":"#74add1",
+                                        "Manglar":"#006837","Nieve/Hielo":"#f1f1f1",
+                                        "Musgo/Liquen":"#9970ab"
+                                    }
+                                    labels = list(lulc.keys())
+                                    values = list(lulc.values())
+                                    colors = [_clrs.get(l,"#888888") for l in labels]
+                                    fig_pie = go.Figure(go.Pie(
+                                        labels=labels, values=values,
+                                        marker=dict(colors=colors,
+                                                    line=dict(color="#1E2D40", width=1.5)),
+                                        textinfo="label+percent",
+                                        textfont=dict(size=10, color="#CBD5E1"),
+                                        hole=0.35,
+                                        hovertemplate="<b>%{label}</b><br>%{value}%<extra></extra>"
+                                    ))
+                                    fig_pie.update_layout(
+                                        paper_bgcolor="rgba(0,0,0,0)",
+                                        showlegend=False,
+                                        margin=dict(l=0,r=0,t=10,b=0),
+                                        height=240,
+                                        font=dict(color="#CBD5E1")
+                                    )
+                                    st.plotly_chart(fig_pie, use_container_width=True)
+                                else:
+                                    st.info("Sin datos WorldCover para esta zona.")
+                        else:
+                            st.error("No se pudo conectar con GEE para el análisis de cuenca.")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                # ── Perfil Espectral Interactivo ──────────────────────────────
+                if GEE_OK and wmask_prev is not None:
+                    st.markdown('<div class="map-panel" style="margin-top:.6rem">',
+                               unsafe_allow_html=True)
+                    st.markdown('<div class="map-title">🔬 Perfil Espectral Interactivo (S2)</div>',
+                               unsafe_allow_html=True)
+                    st.caption("Ingresa coordenadas de un punto en tu área de estudio para extraer "
+                               "los valores de reflectancia de todas las bandas Sentinel-2.")
+                    _pc1, _pc2, _pc3 = st.columns([2,2,1])
+                    with _pc1:
+                        _ps_lon = st.number_input("Longitud", value=float(bbox_prev[0]+(bbox_prev[2]-bbox_prev[0])/2),
+                                                  format="%.5f", key="ps_lon")
+                    with _pc2:
+                        _ps_lat = st.number_input("Latitud", value=float(bbox_prev[1]+(bbox_prev[3]-bbox_prev[1])/2),
+                                                  format="%.5f", key="ps_lat")
+                    with _pc3:
+                        _ps_fecha = st.date_input("Fecha", value=fecha_sel if fecha_sel else date.today(),
+                                                  key="ps_fecha")
+                    if st.button("📡 Extraer perfil espectral", key="btn_perfil", type="primary",
+                                 use_container_width=True):
+                        with st.spinner("Consultando GEE para el perfil espectral…"):
+                            _perfil = obtener_perfil_espectral_gee(
+                                float(_ps_lon), float(_ps_lat),
+                                _ps_fecha.strftime("%Y-%m-%d"), bbox_prev
+                            )
+                        if _perfil:
+                            import plotly.graph_objects as go
+                            _wl = {"Blue":490,"Green":560,"Red":665,"RE1":705,
+                                   "RE2":740,"RE3":783,"NIR":842,"NIR-A":865,
+                                   "SWIR1":1610,"SWIR2":2190}
+                            _bands_ord = sorted(_perfil.keys(), key=lambda b: _wl.get(b, 999))
+                            _xb = [f"{b}\n{_wl.get(b,0)}nm" for b in _bands_ord]
+                            _yb = [_perfil[b] for b in _bands_ord]
+                            _colors = ["#60A5FA","#34D399","#F87171","#F87171","#FB923C",
+                                       "#A78BFA","#6EE7B7","#6EE7B7","#FDE68A","#FDE68A"]
+                            fig_sp = go.Figure(go.Bar(
+                                x=_xb, y=_yb,
+                                marker_color=_colors[:len(_xb)],
+                                text=[f"{v:.4f}" for v in _yb],
+                                textposition="outside",
+                                hovertemplate="<b>%{x}</b><br>Reflectancia: %{y:.4f}<extra></extra>"
+                            ))
+                            fig_sp.add_trace(go.Scatter(
+                                x=_xb, y=_yb, mode="lines",
+                                line=dict(color="rgba(255,255,255,0.4)", width=1.5, dash="dot"),
+                                showlegend=False, hoverinfo="skip"
+                            ))
+                            fig_sp.update_layout(
+                                paper_bgcolor="rgba(0,0,0,0)",
+                                plot_bgcolor="rgba(15,25,40,0.8)",
+                                font=dict(color="#CBD5E1", size=10),
+                                margin=dict(l=30,r=10,t=30,b=50),
+                                height=300,
+                                xaxis=dict(gridcolor="rgba(255,255,255,0.05)"),
+                                yaxis=dict(gridcolor="rgba(255,255,255,0.05)",
+                                           title="Reflectancia (0–1)"),
+                                title=dict(text=f"Firma espectral — ({_ps_lon:.4f}, {_ps_lat:.4f})",
+                                           font=dict(size=11), x=0.5),
+                                showlegend=False
+                            )
+                            st.plotly_chart(fig_sp, use_container_width=True)
+                            # NDVI y NDWI en el punto
+                            _r = _perfil.get("Red", 0); _n = _perfil.get("NIR", 0)
+                            _g = _perfil.get("Green", 0)
+                            _ndvi_p = (_n-_r)/(_n+_r) if (_n+_r) > 0 else 0
+                            _ndwi_p = (_g-_n)/(_g+_n) if (_g+_n) > 0 else 0
+                            _mc1,_mc2 = st.columns(2)
+                            _mc1.metric("NDVI en el punto", f"{_ndvi_p:.4f}")
+                            _mc2.metric("NDWI en el punto", f"{_ndwi_p:.4f}")
+                        else:
+                            st.warning("No se encontró imagen Sentinel-2 disponible en ese punto/fecha. "
+                                       "Ajusta las coordenadas o la fecha.")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                # ── Mapa de Riesgo MCDA ───────────────────────────────────────
+                if GEE_OK and wmask_prev is not None and fecha_sel is not None:
+                    st.markdown('<div class="map-panel" style="margin-top:.6rem">',
+                               unsafe_allow_html=True)
+                    st.markdown('<div class="map-title">⚠️ Mapa de Riesgo de Contaminación (MCDA)</div>',
+                               unsafe_allow_html=True)
+                    st.caption("Índice compuesto de riesgo = 0.30·NDCI + 0.25·NDTI + 0.25·CDOM + 0.20·AWEInsh⁻¹ "
+                               "(escala 0–1, donde 1 = mayor riesgo potencial de contaminación).")
+                    _wr1, _wr2 = st.columns([3,1])
+                    with _wr2:
+                        _fecha_mcda = st.date_input("Fecha referencia", value=fecha_sel,
+                                                    key="mcda_fecha")
+                        _nubes_mcda = st.slider("Máx nubes %", 5, 60, 30, key="mcda_nubes")
+                    with _wr1:
+                        if st.button("🗺️ Generar mapa de riesgo MCDA", key="btn_mcda", type="primary",
+                                     use_container_width=True):
+                            _gj_mcda = wmask_prev.geometry.union_all().__geo_interface__
+                            with st.spinner("Calculando composite MCDA en GEE…"):
+                                _res_mcda = obtener_mapa_riesgo_gee(
+                                    bbox_prev, _gj_mcda,
+                                    _fecha_mcda.strftime("%Y-%m-%d"), _nubes_mcda
+                                )
+                            if _res_mcda:
+                                import folium as _fl
+                                _ctr_lat = (bbox_prev[1]+bbox_prev[3])/2
+                                _ctr_lon = (bbox_prev[0]+bbox_prev[2])/2
+                                _m_mcda = _fl.Map(location=[_ctr_lat, _ctr_lon], zoom_start=11,
+                                                  tiles="CartoDB.DarkMatter")
+                                _fl.TileLayer(
+                                    tiles=_res_mcda["tile_url"],
+                                    name="Riesgo MCDA", attr="GEE/S2", opacity=0.85
+                                ).add_to(_m_mcda)
+                                # Colorbar leyenda
+                                _fl.Marker(
+                                    [_ctr_lat, _ctr_lon],
+                                    popup="Centro del área de estudio",
+                                    icon=_fl.Icon(color="red", icon="info-sign")
+                                ).add_to(_m_mcda)
+                                _fl.LayerControl().add_to(_m_mcda)
+                                from streamlit_folium import st_folium as _stf
+                                _stf(_m_mcda, height=340, use_container_width=True)
+                                _rm1, _rm2 = st.columns(2)
+                                _rm_mean = _res_mcda.get("mean") or 0
+                                _rm_max  = _res_mcda.get("max") or 0
+                                _rm_nivel = ("🔴 ALTO" if _rm_mean > 0.65
+                                             else "🟡 MEDIO" if _rm_mean > 0.35
+                                             else "🟢 BAJO")
+                                _rm1.metric("Riesgo medio zonal", f"{_rm_mean:.3f}", _rm_nivel)
+                                _rm2.metric("Riesgo máximo", f"{_rm_max:.3f}")
+                                st.info("ℹ️ Pesos MCDA: NDCI×0.30 + NDTI×0.25 + CDOM×0.25 + AWEInsh⁻¹×0.20 | "
+                                        "Paleta: azul (bajo) → rojo (alto riesgo)")
+                            else:
+                                st.warning("No se encontró imagen S2 disponible para esa fecha. "
+                                           "Amplía el rango o reduce el filtro de nubes.")
                     st.markdown("</div>", unsafe_allow_html=True)
 
                 # ── Reportes PDF: Calidad de Agua vs Índices Espectrales ─────
