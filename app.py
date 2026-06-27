@@ -3945,7 +3945,7 @@ with dl3:
                 mapas, fecha_campo_dt, temp, buf_panel,
                 bounds, len(puntos_uniq), PARAMS,
                 rgb_buf=rgb_satelital_buf, logo_geo_path=_logo_geo_path,
-                lang=LANG
+                lang=LANG, df_campo=df_global
             )
             st.download_button(t("descargar_pdf_btn", LANG), pdf_buf.getvalue(),
                 f"Reporte_CalidadAgua_{fecha_campo_dt.strftime('%Y%m%d')}.pdf",

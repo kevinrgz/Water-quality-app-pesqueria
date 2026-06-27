@@ -313,7 +313,7 @@ def _tabla_resumen_series(series_gee, indices_sel, styles):
 def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
                             bbox, n_puntos, PARAMS_DICT,
                             rgb_buf=None, logo_geo_path=None, lang="es",
-                            resultados_por_fecha=None):
+                            resultados_por_fecha=None, df_campo=None):
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=letter,
@@ -429,23 +429,70 @@ def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
     story.append(Paragraph(t("pdf_oob_nota", lang), styles["CuerpoTextoChico"]))
     story.append(PageBreak())
 
-    # ── 6. SERIE TEMPORAL (si se proveen datos multifecha) ────────────────────
-    if resultados_por_fecha and len(resultados_por_fecha) >= 2:
-        story.append(Paragraph("6. Serie Temporal de Calidad de Agua", styles["SeccionTitulo"]))
+    # ── Numeración dinámica de secciones ──────────────────────────────────────
+    _sec = 6
+
+    # ── 6+. SERIE TEMPORAL — DATOS HISTÓRICOS DE CAMPO ───────────────────────
+    if df_campo is not None and not df_campo.empty:
         story.append(Paragraph(
-            "La siguiente sección presenta la evolución temporal de los parámetros de calidad "
-            "de agua a lo largo de las fechas de muestreo disponibles. Se incluye la media "
-            "espacial (promedio entre los puntos de muestreo), el máximo registrado y la línea "
-            "de tendencia lineal con el resultado del test de Mann-Kendall para detectar "
-            "tendencias estadísticamente significativas (α = 0.05).",
+            f"{_sec}. Serie Temporal — Datos Históricos de Campo",
+            styles["SeccionTitulo"]
+        ))
+        story.append(Paragraph(
+            "Los siguientes gráficos muestran la evolución temporal de los parámetros "
+            "fisicoquímicos medidos directamente en campo en las 7 estaciones de muestreo "
+            "del Río Pesquería durante el período 2016–2019 (19 campañas). Cada gráfico "
+            "incluye la media espacial entre estaciones (línea azul), el máximo registrado "
+            "(línea roja discontinua), la tendencia lineal (línea dorada) y el resultado del "
+            "test de Mann-Kendall (τ de Kendall, α = 0.05) para detectar tendencias "
+            "monótonas estadísticamente significativas.",
             styles["CuerpoTexto"]
         ))
         story.append(Spacer(1, 0.3*cm))
+        _params_campo = [p for p in ["P_TOT","N_NH3","N_TOT","N_TOTK"] if p in df_campo.columns]
+        for _pc in _params_campo:
+            if _pc not in PARAMS_DICT:
+                continue
+            _cfg_c = PARAMS_DICT[_pc]
+            _lbl_c = get_param_label(_pc, lang)
+            _df_p = df_campo[["target_date", _pc]].dropna().copy()
+            _df_p["target_date"] = pd.to_datetime(_df_p["target_date"])
+            _df_grp = (
+                _df_p.groupby("target_date")[_pc]
+                .agg(["mean", "max"])
+                .reset_index()
+                .sort_values("target_date")
+            )
+            if len(_df_grp) < 2:
+                continue
+            _fv = [d.strftime("%d/%m/%y") for d in _df_grp["target_date"]]
+            _mv = _df_grp["mean"].tolist()
+            _xv = _df_grp["max"].tolist()
+            _bf = _figura_serie_param(_fv, _mv, _xv, _lbl_c, _cfg_c["unidad"])
+            story.append(KeepTogether([
+                RLImage(_bf, width=15.5*cm, height=5.8*cm),
+                Spacer(1, 0.3*cm),
+            ]))
+        story.append(PageBreak())
+        _sec += 1
 
+    # ── 7+. SERIE TEMPORAL — MODELO RF (multifecha) ───────────────────────────
+    if resultados_por_fecha and len(resultados_por_fecha) >= 2:
+        story.append(Paragraph(
+            f"{_sec}. Serie Temporal — Predicción del Modelo RF",
+            styles["SeccionTitulo"]
+        ))
+        story.append(Paragraph(
+            "La siguiente sección presenta la evolución temporal de los parámetros de calidad "
+            "de agua estimados por el modelo Random Forest a lo largo de las fechas de muestreo "
+            "disponibles. Se incluye la media espacial entre los puntos, el máximo registrado "
+            "y la tendencia lineal con el resultado del test de Mann-Kendall (α = 0.05).",
+            styles["CuerpoTexto"]
+        ))
+        story.append(Spacer(1, 0.3*cm))
         fechas_dt_ord = sorted(resultados_por_fecha.keys())
         params_con_datos = [p for p in mapas.keys()
                             if any(p in resultados_por_fecha[f] for f in fechas_dt_ord)]
-
         for param in params_con_datos:
             cfg = mapas[param]
             label_t = get_param_label(param, lang) if param in ("P_TOT","N_NH3","N_TOT","N_TOTK") else cfg["label"]
@@ -457,20 +504,17 @@ def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
                     fechas_v.append(pd.to_datetime(f).strftime("%d/%m/%y"))
             if len(fechas_v) < 2:
                 continue
-            buf_fig = _figura_serie_param(fechas_v, medias, maximos,
-                                          label_t, cfg["unidad"])
+            buf_fig = _figura_serie_param(fechas_v, medias, maximos, label_t, cfg["unidad"])
             story.append(KeepTogether([
                 RLImage(buf_fig, width=15.5*cm, height=5.8*cm),
                 Spacer(1, 0.3*cm),
             ]))
         story.append(PageBreak())
-        sec_mapas = "7"
-        sec_desc   = "8"
-        sec_concl  = "9"
-    else:
-        sec_mapas = "6"
-        sec_desc   = "7"
-        sec_concl  = "8"
+        _sec += 1
+
+    sec_mapas = str(_sec); _sec += 1
+    sec_desc  = str(_sec); _sec += 1
+    sec_concl = str(_sec)
 
     # ── DESCRIPCIÓN DE PARÁMETROS ─────────────────────────────────────────────
     story.append(Paragraph(f"{sec_desc}. Descripción de Parámetros", styles["SeccionTitulo"]))
