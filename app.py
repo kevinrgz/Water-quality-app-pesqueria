@@ -3326,12 +3326,30 @@ if not correr:
                         )
 
                         if gen_rep_espectral:
+                            _indices_rep = ["NDVI","NDWI","MNDWI","NDTI","NDCI","SABI","CDOM","AWEInsh","EVI"]
+                            _gj_rep = wmask_prev.geometry.union_all().__geo_interface__
+
                             with st.spinner(t("reporte_espectral_generando", LANG)):
                                 rep_info, rep_stats, rep_thumbs = obtener_datos_reporte_espectral(
                                     bbox_prev, fecha_ini.strftime("%Y-%m-%d"),
                                     fecha_fin.strftime("%Y-%m-%d"), max_nubes,
-                                    geojson_poligono=wmask_prev.geometry.union_all().__geo_interface__
+                                    geojson_poligono=_gj_rep
                                 )
+
+                            # Extraer series temporales GEE para cada índice
+                            _series_gee_rep = {}
+                            with st.spinner("Extrayendo series temporales GEE para el PDF…"):
+                                for _idx_r in _indices_rep:
+                                    try:
+                                        _s = obtener_serie_tiempo_gee(
+                                            bbox_prev, _gj_rep, _idx_r,
+                                            fecha_ini.strftime("%Y-%m-%d"),
+                                            fecha_fin.strftime("%Y-%m-%d"), max_nubes
+                                        )
+                                        if _s:
+                                            _series_gee_rep[_idx_r] = _s
+                                    except Exception:
+                                        pass
 
                             if rep_info and rep_info.get("n_imagenes", 0) > 0 and rep_thumbs:
                                 try:
@@ -3342,9 +3360,10 @@ if not correr:
 
                                     pdf_espectral_buf = generar_pdf_reporte_espectral(
                                         rep_info, rep_stats, rep_thumbs,
-                                        ["NDVI","NDWI","MNDWI","NDTI"],
+                                        _indices_rep,
                                         bbox_prev, fecha_ini, fecha_fin,
-                                        logo_geo_path=_logo_path_rep, lang=LANG
+                                        logo_geo_path=_logo_path_rep, lang=LANG,
+                                        series_gee=_series_gee_rep if _series_gee_rep else None
                                     )
                                     st.success(t("reporte_espectral_exito", LANG))
                                     st.download_button(
