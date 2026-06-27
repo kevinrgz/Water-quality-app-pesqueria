@@ -3410,11 +3410,11 @@ if not correr:
           <div class="empty-title">{t("puntos_titulo", LANG)}</div>
           <div class="empty-sub">{t("sube_wmask_para_ver", LANG)}</div>
           <div class="empty-steps">
-            <div class="empty-step"><div class="empty-step-num">1</div>Sube un <b>wmask.zip</b> con tu shapefile (.shp + .dbf + .prj + .cpg) de cualquier zona</div>
-            <div class="empty-step"><div class="empty-step-num">2</div>Selecciona el rango de fechas Sentinel-2 y la cobertura de nubes</div>
-            <div class="empty-step"><div class="empty-step-num">3</div>Obtén índices espectrales, animaciones GIF y reportes PDF para cualquier área del mundo</div>
+            <div class="empty-step"><div class="empty-step-num">1</div>{t("empty_step1", LANG)}</div>
+            <div class="empty-step"><div class="empty-step-num">2</div>{t("empty_step2", LANG)}</div>
+            <div class="empty-step"><div class="empty-step-num">3</div>{t("empty_step3", LANG)}</div>
           </div>
-          <div class="empty-coords">Río Pesquería · 7 puntos · 25.77°N – 25.83°N · 100.02°W – 100.35°W · EPSG:4326 · Modelo RF activo solo para esta zona</div>
+          <div class="empty-coords">{t("empty_coords", LANG)}</div>
         </div>""", unsafe_allow_html=True)
         st.markdown(f'<div class="sec-t">{t("puntos_titulo", LANG)}</div>', unsafe_allow_html=True)
         # Mapa Folium con marcadores animados
@@ -3473,10 +3473,9 @@ if not correr:
         # ── Formulario de contribución de puntos ──────────────────────────
         _SHEETS_URL = "https://script.google.com/macros/s/AKfycbyuloqzC9EwW_FxvqKZq1Q7ihWkmGdsPJnalwgXDCJF8kCNYS8n-Ul_uzUrH1VjkLRppg/exec"
 
-        with st.expander("➕  Contribuir un punto de muestreo", expanded=False):
-            st.markdown("""<div style="font-size:.8rem;color:rgba(255,255,255,.5);margin-bottom:12px">
-            Ayuda a expandir el modelo aportando datos de campo verificados.
-            Cada contribución es revisada antes de ser incluida.
+        with st.expander(t("contribuir_expander", LANG), expanded=False):
+            st.markdown(f"""<div style="font-size:.8rem;color:rgba(255,255,255,.5);margin-bottom:12px">
+            {t("contribuir_desc", LANG)}
             </div>""", unsafe_allow_html=True)
 
             with st.form("form_contribucion", clear_on_submit=True):
@@ -3573,12 +3572,12 @@ if not correr:
 
     # ── TABLA DE DATOS HISTÓRICOS EXPORTABLE ──────────────────────────────────
     if df_global is not None:
-        st.markdown('<div class="sec-t">📊&nbsp; Datos históricos de campo · Serie completa</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="sec-t">📊&nbsp; {t("hist_titulo", LANG)}</div>', unsafe_allow_html=True)
         _param_cols = [c for c in ["P_TOT","N_NH3","N_TOT","N_TOTK"] if c in df_global.columns]
         _df_show = df_global[["target_date","nombre"] + _param_cols].copy()
         _df_show["target_date"] = pd.to_datetime(_df_show["target_date"]).dt.strftime("%Y-%m-%d")
         _df_show = _df_show.sort_values(["target_date","nombre"])
-        _th = "".join(f'<th>{c}</th>' for c in (["Fecha","Punto"] + _param_cols))
+        _th = "".join(f'<th>{c}</th>' for c in ([t("hist_col_fecha", LANG), t("hist_col_punto", LANG)] + _param_cols))
         _rows_html = ""
         for _, row in _df_show.iterrows():
             _cells = f'<td class="fecha-col">{row["target_date"]}</td><td class="punto-col">{row["nombre"]}</td>'
@@ -3595,18 +3594,18 @@ if not correr:
             _rows_html += f"<tr>{_cells}</tr>"
         st.markdown(f"""<div class="data-table-wrap">
           <div class="data-table-header">
-            <div class="nom-title">📋 {len(_df_show)} registros · 19 campañas · 7 puntos</div>
+            <div class="nom-title">📋 {len(_df_show)} {t("hist_registros", LANG)}</div>
             <div style="display:flex;gap:6px">
               <span class="nom-badge nom-badge-ok">● OK</span>
-              <span class="nom-badge nom-badge-warn">● ≥90% límite</span>
-              <span class="nom-badge nom-badge-err">● Excede NOM</span>
+              <span class="nom-badge nom-badge-warn">● {t("hist_badge_warn", LANG)}</span>
+              <span class="nom-badge nom-badge-err">● {t("hist_badge_err", LANG)}</span>
             </div>
           </div>
           <div class="data-tbl-scroll">
           <table class="data-tbl"><thead><tr>{_th}</tr></thead><tbody>{_rows_html}</tbody></table>
           </div></div>""", unsafe_allow_html=True)
         _csv_buf = _df_show.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇ Descargar CSV histórico completo", _csv_buf,
+        st.download_button(t("hist_descargar_btn", LANG), _csv_buf,
             "datos_campo_pesqueria.csv", "text/csv", use_container_width=True, key="dl_hist_csv")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)

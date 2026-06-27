@@ -48,6 +48,65 @@ T = {
         "pt": "⚠️ INDICES_completo.csv não encontrado",
     },
 
+    # ── Pantalla inicial (empty state) ─────────────────────────────────────────
+    "empty_step1": {
+        "es": "Sube un <b>wmask.zip</b> con tu shapefile (.shp + .dbf + .prj + .cpg) de cualquier zona",
+        "en": "Upload a <b>wmask.zip</b> with your shapefile (.shp + .dbf + .prj + .cpg) for any area",
+        "pt": "Carregue um <b>wmask.zip</b> com seu shapefile (.shp + .dbf + .prj + .cpg) de qualquer zona",
+    },
+    "empty_step2": {
+        "es": "Selecciona el rango de fechas Sentinel-2 y la cobertura de nubes",
+        "en": "Select the Sentinel-2 date range and cloud cover threshold",
+        "pt": "Selecione o intervalo de datas Sentinel-2 e a cobertura de nuvens",
+    },
+    "empty_step3": {
+        "es": "Obtén índices espectrales, animaciones GIF y reportes PDF para cualquier área del mundo",
+        "en": "Get spectral indices, GIF animations and PDF reports for any area in the world",
+        "pt": "Obtenha índices espectrais, animações GIF e relatórios PDF para qualquer área do mundo",
+    },
+    "empty_coords": {
+        "es": "Río Pesquería · 7 puntos · 25.77°N – 25.83°N · 100.02°W – 100.35°W · EPSG:4326 · Modelo RF activo solo para esta zona",
+        "en": "Pesquería River · 7 sampling points · 25.77°N – 25.83°N · 100.02°W – 100.35°W · EPSG:4326 · RF model active for this area only",
+        "pt": "Rio Pesquería · 7 pontos · 25.77°N – 25.83°N · 100.02°W – 100.35°W · EPSG:4326 · Modelo RF ativo apenas para esta zona",
+    },
+
+    # ── Contribuir punto ───────────────────────────────────────────────────────
+    "contribuir_expander": {
+        "es": "➕  Contribuir un punto de muestreo",
+        "en": "➕  Contribute a sampling point",
+        "pt": "➕  Contribuir com um ponto de amostragem",
+    },
+    "contribuir_desc": {
+        "es": "Ayuda a expandir el modelo aportando datos de campo verificados. Cada contribución es revisada antes de ser incluida.",
+        "en": "Help expand the model by contributing verified field data. Each contribution is reviewed before being included.",
+        "pt": "Ajude a expandir o modelo contribuindo com dados de campo verificados. Cada contribuição é revisada antes de ser incluída.",
+    },
+
+    # ── Tabla datos históricos ──────────────────────────────────────────────────
+    "hist_titulo": {
+        "es": "Datos históricos de campo · Serie completa",
+        "en": "Historical field data · Full time series",
+        "pt": "Dados históricos de campo · Série completa",
+    },
+    "hist_col_fecha": {"es": "Fecha", "en": "Date", "pt": "Data"},
+    "hist_col_punto": {"es": "Punto", "en": "Station", "pt": "Ponto"},
+    "hist_registros": {
+        "es": "registros · 19 campañas · 7 puntos",
+        "en": "records · 19 campaigns · 7 stations",
+        "pt": "registros · 19 campanhas · 7 pontos",
+    },
+    "hist_badge_warn": {
+        "es": "≥90% límite", "en": "≥90% limit", "pt": "≥90% limite",
+    },
+    "hist_badge_err": {
+        "es": "Excede NOM", "en": "Exceeds NOM", "pt": "Excede NOM",
+    },
+    "hist_descargar_btn": {
+        "es": "⬇ Descargar CSV histórico completo",
+        "en": "⬇ Download full historical CSV",
+        "pt": "⬇ Baixar CSV histórico completo",
+    },
+
     # ── Hero section ───────────────────────────────────────────────────────────
     "hero_eyebrow": {
         "es": "TELEDETECCIÓN · NL, MÉXICO · UANL",
