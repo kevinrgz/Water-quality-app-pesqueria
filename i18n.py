@@ -48,6 +48,82 @@ T = {
         "pt": "⚠️ INDICES_completo.csv não encontrado",
     },
 
+    # ── Botones de análisis GEE ────────────────────────────────────────────────
+    "btn_serie_temporal": {
+        "es": "📊 Generar serie temporal",
+        "en": "📊 Generate time series",
+        "pt": "📊 Gerar série temporal",
+    },
+    "btn_cuenca": {
+        "es": "🌍 Ejecutar análisis de cuenca",
+        "en": "🌍 Run watershed analysis",
+        "pt": "🌍 Executar análise de bacia",
+    },
+    "btn_perfil_espectral": {
+        "es": "📡 Extraer perfil espectral",
+        "en": "📡 Extract spectral profile",
+        "pt": "📡 Extrair perfil espectral",
+    },
+    "btn_mcda": {
+        "es": "🗺️ Generar mapa de riesgo MCDA",
+        "en": "🗺️ Generate MCDA risk map",
+        "pt": "🗺️ Gerar mapa de risco MCDA",
+    },
+    "btn_descargar_csv": {
+        "es": "⬇ Descargar CSV", "en": "⬇ Download CSV", "pt": "⬇ Baixar CSV",
+    },
+    "slider_nubes": {
+        "es": "Máx nubes %", "en": "Max clouds %", "pt": "Máx nuvens %",
+    },
+    "date_referencia": {
+        "es": "Fecha referencia", "en": "Reference date", "pt": "Data de referência",
+    },
+    "date_muestreo": {
+        "es": "Fecha de muestreo *", "en": "Sampling date *", "pt": "Data de amostragem *",
+    },
+
+    # ── Mensajes de estado (warnings, errors, info) ────────────────────────────
+    "msg_contribucion_ok": {
+        "es": "✅ Contribución enviada. Será revisada antes de incluirse en el modelo. ¡Gracias!",
+        "en": "✅ Contribution submitted. It will be reviewed before being added to the model. Thank you!",
+        "pt": "✅ Contribuição enviada. Será revisada antes de ser incluída no modelo. Obrigado!",
+    },
+    "msg_no_imagenes": {
+        "es": "No se encontraron imágenes con los parámetros seleccionados. Amplía el rango de fechas o reduce el filtro de nubes.",
+        "en": "No images found with the selected parameters. Try expanding the date range or reducing the cloud filter.",
+        "pt": "Nenhuma imagem encontrada com os parâmetros selecionados. Amplie o intervalo de datas ou reduza o filtro de nuvens.",
+    },
+    "msg_no_s2_punto": {
+        "es": "No se encontró imagen Sentinel-2 disponible en ese punto/fecha. Ajusta las coordenadas o la fecha.",
+        "en": "No Sentinel-2 image available for that point/date. Adjust the coordinates or date.",
+        "pt": "Nenhuma imagem Sentinel-2 disponível para esse ponto/data. Ajuste as coordenadas ou a data.",
+    },
+    "msg_no_s2_fecha": {
+        "es": "No se encontró imagen S2 disponible para esa fecha. Amplía el rango o reduce el filtro de nubes.",
+        "en": "No S2 image available for that date. Expand the range or reduce the cloud filter.",
+        "pt": "Nenhuma imagem S2 disponível para essa data. Amplie o intervalo ou reduza o filtro de nuvens.",
+    },
+    "msg_error_cuenca": {
+        "es": "No se pudo conectar con GEE para el análisis de cuenca.",
+        "en": "Could not connect to GEE for watershed analysis.",
+        "pt": "Não foi possível conectar ao GEE para a análise de bacia.",
+    },
+    "msg_sin_jrc": {
+        "es": "Sin datos JRC para este polígono.",
+        "en": "No JRC data for this polygon.",
+        "pt": "Sem dados JRC para este polígono.",
+    },
+    "msg_sin_worldcover": {
+        "es": "Sin datos WorldCover para esta zona.",
+        "en": "No WorldCover data for this area.",
+        "pt": "Sem dados WorldCover para esta área.",
+    },
+    "msg_pesos_mcda": {
+        "es": "ℹ️ Pesos MCDA: NDCI×0.30 + NDTI×0.25 + CDOM×0.25 + AWEInsh⁻¹×0.20 | Paleta: azul (bajo) → rojo (alto riesgo)",
+        "en": "ℹ️ MCDA weights: NDCI×0.30 + NDTI×0.25 + CDOM×0.25 + AWEInsh⁻¹×0.20 | Palette: blue (low) → red (high risk)",
+        "pt": "ℹ️ Pesos MCDA: NDCI×0.30 + NDTI×0.25 + CDOM×0.25 + AWEInsh⁻¹×0.20 | Paleta: azul (baixo) → vermelho (alto risco)",
+    },
+
     # ── Pantalla inicial (empty state) ─────────────────────────────────────────
     "empty_step1": {
         "es": "Sube un <b>wmask.zip</b> con tu shapefile (.shp + .dbf + .prj + .cpg) de cualquier zona",

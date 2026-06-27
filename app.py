@@ -3001,7 +3001,7 @@ if not correr:
                     with col_st3:
                         fecha_ts_fin = st.date_input("Hasta", value=date.today(), key="ts_fin")
 
-                    if st.button("📊 Generar serie temporal", key="btn_ts", type="primary",
+                    if st.button(t("btn_serie_temporal", LANG), key="btn_ts", type="primary",
                                  use_container_width=True):
                         _geojson_ts = wmask_prev.geometry.union_all().__geo_interface__
                         with st.spinner(f"Extrayendo {indice_ts} mes a mes desde GEE…"):
@@ -3080,12 +3080,11 @@ if not correr:
                             # Descarga CSV
                             import io as _io
                             _csv_ts = "fecha,valor\n" + "\n".join(f"{f},{v}" for f,v in serie)
-                            st.download_button("⬇ Descargar CSV", _csv_ts.encode(),
+                            st.download_button(t("btn_descargar_csv", LANG), _csv_ts.encode(),
                                                f"serie_{indice_ts}.csv", "text/csv",
                                                use_container_width=True)
                         else:
-                            st.warning("No se encontraron imágenes con los parámetros seleccionados. "
-                                       "Amplía el rango de fechas o reduce el filtro de nubes.")
+                            st.warning(t("msg_no_imagenes", LANG))
                     st.markdown("</div>", unsafe_allow_html=True)
 
                 # ── Análisis de Cuenca (JRC + WorldCover) ────────────────────
@@ -3097,7 +3096,7 @@ if not correr:
                     st.caption("Análisis integrado de ocurrencia histórica de agua (JRC 1984–2021) "
                                "y uso de suelo (ESA WorldCover 2021) en tu área de estudio.")
 
-                    if st.button("🌍 Ejecutar análisis de cuenca", key="btn_cuenca", type="primary",
+                    if st.button(t("btn_cuenca", LANG), key="btn_cuenca", type="primary",
                                  use_container_width=True):
                         _geojson_cuenca = wmask_prev.geometry.union_all().__geo_interface__
                         with st.spinner("Consultando JRC Global Surface Water y ESA WorldCover en GEE…"):
@@ -3120,7 +3119,7 @@ if not correr:
                                     j3.metric("Estacionalidad", f"{seas} meses",
                                               help="Meses promedio con agua por año")
                                 else:
-                                    st.info("Sin datos JRC para este polígono.")
+                                    st.info(t("msg_sin_jrc", LANG))
 
                             with col_lulc:
                                 st.markdown("**🗺️ ESA WorldCover 2021 — Uso de Suelo**")
@@ -3156,9 +3155,9 @@ if not correr:
                                     )
                                     st.plotly_chart(fig_pie, use_container_width=True)
                                 else:
-                                    st.info("Sin datos WorldCover para esta zona.")
+                                    st.info(t("msg_sin_worldcover", LANG))
                         else:
-                            st.error("No se pudo conectar con GEE para el análisis de cuenca.")
+                            st.error(t("msg_error_cuenca", LANG))
                     st.markdown("</div>", unsafe_allow_html=True)
 
                 # ── Perfil Espectral Interactivo ──────────────────────────────
@@ -3179,7 +3178,7 @@ if not correr:
                     with _pc3:
                         _ps_fecha = st.date_input("Fecha", value=fecha_fin,
                                                   key="ps_fecha")
-                    if st.button("📡 Extraer perfil espectral", key="btn_perfil", type="primary",
+                    if st.button(t("btn_perfil_espectral", LANG), key="btn_perfil", type="primary",
                                  use_container_width=True):
                         with st.spinner("Consultando GEE para el perfil espectral…"):
                             _perfil = obtener_perfil_espectral_gee(
@@ -3231,8 +3230,7 @@ if not correr:
                             _mc1.metric("NDVI en el punto", f"{_ndvi_p:.4f}")
                             _mc2.metric("NDWI en el punto", f"{_ndwi_p:.4f}")
                         else:
-                            st.warning("No se encontró imagen Sentinel-2 disponible en ese punto/fecha. "
-                                       "Ajusta las coordenadas o la fecha.")
+                            st.warning(t("msg_no_s2_punto", LANG))
                     st.markdown("</div>", unsafe_allow_html=True)
 
                 # ── Mapa de Riesgo MCDA ───────────────────────────────────────
@@ -3245,11 +3243,11 @@ if not correr:
                                "(escala 0–1, donde 1 = mayor riesgo potencial de contaminación).")
                     _wr1, _wr2 = st.columns([3,1])
                     with _wr2:
-                        _fecha_mcda = st.date_input("Fecha referencia", value=fecha_fin,
+                        _fecha_mcda = st.date_input(t("date_referencia", LANG), value=fecha_fin,
                                                     key="mcda_fecha")
-                        _nubes_mcda = st.slider("Máx nubes %", 5, 60, 30, key="mcda_nubes")
+                        _nubes_mcda = st.slider(t("slider_nubes", LANG), 5, 60, 30, key="mcda_nubes")
                     with _wr1:
-                        if st.button("🗺️ Generar mapa de riesgo MCDA", key="btn_mcda", type="primary",
+                        if st.button(t("btn_mcda", LANG), key="btn_mcda", type="primary",
                                      use_container_width=True):
                             _gj_mcda = wmask_prev.geometry.union_all().__geo_interface__
                             with st.spinner("Calculando composite MCDA en GEE…"):
@@ -3284,11 +3282,9 @@ if not correr:
                                              else "🟢 BAJO")
                                 _rm1.metric("Riesgo medio zonal", f"{_rm_mean:.3f}", _rm_nivel)
                                 _rm2.metric("Riesgo máximo", f"{_rm_max:.3f}")
-                                st.info("ℹ️ Pesos MCDA: NDCI×0.30 + NDTI×0.25 + CDOM×0.25 + AWEInsh⁻¹×0.20 | "
-                                        "Paleta: azul (bajo) → rojo (alto riesgo)")
+                                st.info(t("msg_pesos_mcda", LANG))
                             else:
-                                st.warning("No se encontró imagen S2 disponible para esa fecha. "
-                                           "Amplía el rango o reduce el filtro de nubes.")
+                                st.warning(t("msg_no_s2_fecha", LANG))
                     st.markdown("</div>", unsafe_allow_html=True)
 
                 # ── Reportes PDF: Calidad de Agua vs Índices Espectrales ─────
@@ -3488,7 +3484,7 @@ if not correr:
                 with fc2:
                     _lat      = st.number_input("Latitud *", min_value=14.0, max_value=33.0, value=25.80, format="%.5f")
                     _lon      = st.number_input("Longitud *", min_value=-118.0, max_value=-86.0, value=-100.20, format="%.5f")
-                    _fecha    = st.date_input("Fecha de muestreo *")
+                    _fecha    = st.date_input(t("date_muestreo", LANG))
                     _fuente   = st.selectbox("Fuente de los datos *",
                         ["CONAGUA", "IMTA", "SEMARNAT", "Tesis/Artículo científico", "Reporte institucional", "Otra"])
 
@@ -3541,7 +3537,7 @@ if not correr:
                         _r = _req.post(_SHEETS_URL, data=_json.dumps(_payload),
                                        headers={"Content-Type": "application/json"}, timeout=15)
                         if _r.status_code == 200:
-                            st.success("✅ Contribución enviada. Será revisada antes de incluirse en el modelo. ¡Gracias!")
+                            st.success(t("msg_contribucion_ok", LANG))
                         else:
                             st.error(f"Error al enviar ({_r.status_code}). Intenta de nuevo.")
                     except Exception as _ex:
