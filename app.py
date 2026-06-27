@@ -1338,12 +1338,15 @@ def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nube
 
         # RGB: solo thumbnail, sin estadística de índice
         thumb_rgb_url = img.getThumbURL({
-            **INDICES_VIZ["RGB"]["vis"], "dimensions": 500,
+            **INDICES_VIZ["RGB"]["vis"], "dimensions": 400,
             "format": "png", "region": geom,
         })
-        r = _requests.get(thumb_rgb_url, timeout=20)
-        if r.status_code == 200:
-            thumbnails["RGB"] = io.BytesIO(r.content)
+        try:
+            r = _requests.get(thumb_rgb_url, timeout=45)
+            if r.status_code == 200:
+                thumbnails["RGB"] = io.BytesIO(r.content)
+        except Exception:
+            pass
 
         for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI", "NDCI", "SABI", "CDOM", "AWEInsh", "EVI"]:
             idx_img = calcular_indice_gee(img, idx_name)
@@ -1372,11 +1375,14 @@ def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nube
 
             cfg = INDICES_VIZ[idx_name]
             thumb_url = idx_img.getThumbURL({
-                **cfg["vis"], "dimensions": 500, "format": "png", "region": geom,
+                **cfg["vis"], "dimensions": 400, "format": "png", "region": geom,
             })
-            r2 = _requests.get(thumb_url, timeout=20)
-            if r2.status_code == 200:
-                thumbnails[idx_name] = io.BytesIO(r2.content)
+            try:
+                r2 = _requests.get(thumb_url, timeout=45)
+                if r2.status_code == 200:
+                    thumbnails[idx_name] = io.BytesIO(r2.content)
+            except Exception:
+                pass
 
         info = {
             "n_imagenes": n_imgs,
@@ -3347,7 +3353,9 @@ if not correr:
                                     except Exception:
                                         pass
 
-                            if rep_info and rep_info.get("n_imagenes", 0) > 0 and rep_thumbs:
+                            if rep_info and "error" in rep_info:
+                                st.error(f"GEE error: {rep_info['error']}")
+                            elif rep_info and rep_info.get("n_imagenes", 0) > 0:
                                 try:
                                     _logo_path_rep = os.path.join(
                                         os.path.dirname(__file__), "logo_geomatica.png")
