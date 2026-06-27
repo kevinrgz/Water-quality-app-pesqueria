@@ -48,6 +48,33 @@ T = {
         "pt": "⚠️ INDICES_completo.csv não encontrado",
     },
 
+    # ── Reporte espectral — selección de contenido ────────────────────────────
+    "rep_sel_indices": {
+        "es": "Índices a incluir en el reporte",
+        "en": "Indices to include in the report",
+        "pt": "Índices a incluir no relatório",
+    },
+    "rep_sel_capas": {
+        "es": "Capas / secciones adicionales",
+        "en": "Additional layers / sections",
+        "pt": "Camadas / seções adicionais",
+    },
+    "rep_capa_worldcover": {
+        "es": "🟩 ESA WorldCover (Uso de Suelo)",
+        "en": "🟩 ESA WorldCover (Land Use)",
+        "pt": "🟩 ESA WorldCover (Uso do Solo)",
+    },
+    "rep_capa_series": {
+        "es": "📈 Series temporales GEE",
+        "en": "📈 GEE time series",
+        "pt": "📈 Séries temporais GEE",
+    },
+    "rep_extrayendo_series": {
+        "es": "Extrayendo series temporales GEE…",
+        "en": "Extracting GEE time series…",
+        "pt": "Extraindo séries temporais GEE…",
+    },
+
     # ── Botones de análisis GEE ────────────────────────────────────────────────
     "btn_serie_temporal": {
         "es": "📊 Generar serie temporal",

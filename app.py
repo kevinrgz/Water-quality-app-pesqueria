@@ -1293,7 +1293,7 @@ def calcular_indice_gee(img, indice):
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nubes,
-                                    geojson_poligono=None):
+                                    geojson_poligono=None, indices_sel=None):
     """
     Construye el paquete de datos necesario para el reporte PDF de índices
     espectrales: estadísticas zonales reales (vía reduceRegion) y thumbnails
@@ -1359,7 +1359,8 @@ def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nube
         except Exception:
             pass
 
-        for idx_name in ["NDVI", "NDWI", "MNDWI", "NDTI", "NDCI", "SABI", "CDOM", "AWEInsh", "EVI"]:
+        _indices_a_calcular = indices_sel if indices_sel else ["NDVI","NDWI","MNDWI","NDTI","NDCI","SABI","CDOM","AWEInsh","EVI"]
+        for idx_name in _indices_a_calcular:
             idx_img = calcular_indice_gee(img, idx_name)
             if idx_img is None:
                 continue
@@ -3333,37 +3334,63 @@ if not correr:
                     with col_rep2:
                         st.markdown(f"**{t('reporte_espectral_titulo', LANG)}**")
                         st.caption(t("reporte_espectral_disponible", LANG))
+
+                        # Selección de índices a incluir
+                        _todos_indices = ["NDVI","NDWI","MNDWI","NDTI","NDCI","SABI","CDOM","AWEInsh","EVI"]
+                        _idx_labels = {i: get_indice_nombre(i, LANG) for i in _todos_indices}
+                        _indices_sel = st.multiselect(
+                            t("rep_sel_indices", LANG),
+                            options=_todos_indices,
+                            default=["NDVI","NDWI","NDCI"],
+                            format_func=lambda i: _idx_labels[i],
+                            key="ms_rep_indices"
+                        )
+                        # Capas opcionales
+                        _capas_extra = st.multiselect(
+                            t("rep_sel_capas", LANG),
+                            options=["WorldCover","series_temporales"],
+                            default=["series_temporales"],
+                            format_func=lambda c: {
+                                "WorldCover": t("rep_capa_worldcover", LANG),
+                                "series_temporales": t("rep_capa_series", LANG),
+                            }[c],
+                            key="ms_rep_capas"
+                        )
+
                         gen_rep_espectral = st.button(
                             t("reporte_espectral_btn", LANG),
                             use_container_width=True, type="primary",
-                            key="btn_rep_espectral"
+                            key="btn_rep_espectral",
+                            disabled=len(_indices_sel) == 0
                         )
 
-                        if gen_rep_espectral:
-                            _indices_rep = ["NDVI","NDWI","MNDWI","NDTI","NDCI","SABI","CDOM","AWEInsh","EVI"]
+                        if gen_rep_espectral and _indices_sel:
+                            _indices_rep = _indices_sel
                             _gj_rep = wmask_prev.geometry.union_all().__geo_interface__
 
                             with st.spinner(t("reporte_espectral_generando", LANG)):
                                 rep_info, rep_stats, rep_thumbs = obtener_datos_reporte_espectral(
                                     bbox_prev, fecha_ini.strftime("%Y-%m-%d"),
                                     fecha_fin.strftime("%Y-%m-%d"), max_nubes,
-                                    geojson_poligono=_gj_rep
+                                    geojson_poligono=_gj_rep,
+                                    indices_sel=_indices_rep
                                 )
 
-                            # Extraer series temporales GEE para cada índice
+                            # Series temporales GEE solo si el usuario las pidió
                             _series_gee_rep = {}
-                            with st.spinner("Extrayendo series temporales GEE para el PDF…"):
-                                for _idx_r in _indices_rep:
-                                    try:
-                                        _s = obtener_serie_tiempo_gee(
-                                            bbox_prev, _gj_rep, _idx_r,
-                                            fecha_ini.strftime("%Y-%m-%d"),
-                                            fecha_fin.strftime("%Y-%m-%d"), max_nubes
-                                        )
-                                        if _s:
-                                            _series_gee_rep[_idx_r] = _s
-                                    except Exception:
-                                        pass
+                            if "series_temporales" in _capas_extra:
+                                with st.spinner(t("rep_extrayendo_series", LANG)):
+                                    for _idx_r in _indices_rep:
+                                        try:
+                                            _s = obtener_serie_tiempo_gee(
+                                                bbox_prev, _gj_rep, _idx_r,
+                                                fecha_ini.strftime("%Y-%m-%d"),
+                                                fecha_fin.strftime("%Y-%m-%d"), max_nubes
+                                            )
+                                            if _s:
+                                                _series_gee_rep[_idx_r] = _s
+                                        except Exception:
+                                            pass
 
                             if rep_info and "error" in rep_info:
                                 st.error(f"GEE error: {rep_info['error']}")
