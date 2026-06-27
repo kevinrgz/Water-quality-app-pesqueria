@@ -48,6 +48,69 @@ T = {
         "pt": "⚠️ INDICES_completo.csv não encontrado",
     },
 
+    # ── Hero section ───────────────────────────────────────────────────────────
+    "hero_eyebrow": {
+        "es": "TELEDETECCIÓN · NL, MÉXICO · UANL",
+        "en": "REMOTE SENSING · NL, MEXICO · UANL",
+        "pt": "SENSORIAMENTO REMOTO · NL, MÉXICO · UANL",
+    },
+    "hero_sub2": {
+        "es": "Sube cualquier shapefile · Análisis global",
+        "en": "Upload any shapefile · Global analysis",
+        "pt": "Carregue qualquer shapefile · Análise global",
+    },
+    "hero_btn": {
+        "es": "Explorar Ahora",
+        "en": "Explore Now",
+        "pt": "Explorar Agora",
+    },
+    "hero_pill_calidad": {
+        "es": "Calidad del Agua", "en": "Water Quality", "pt": "Qualidade da Água",
+    },
+    "hero_pill_indices": {
+        "es": "Índices Espectrales", "en": "Spectral Indices", "pt": "Índices Espectrais",
+    },
+    "hero_qlabel": {
+        "es": "MONITOREO REMOTO SATELITAL",
+        "en": "SATELLITE REMOTE MONITORING",
+        "pt": "MONITORAMENTO REMOTO SATELITAL",
+    },
+    "hero_qtext_em": {
+        "es": "Observar el planeta desde el espacio,",
+        "en": "Observing the planet from space,",
+        "pt": "Observar o planeta desde o espaço,",
+    },
+    "hero_qtext_rest": {
+        "es": "para comprender el agua que habitamos.",
+        "en": "to understand the water we inhabit.",
+        "pt": "para compreender a água que habitamos.",
+    },
+
+    # ── Stepper sidebar ────────────────────────────────────────────────────────
+    "stepper_titulo": {
+        "es": "FLUJO DE TRABAJO", "en": "WORKFLOW", "pt": "FLUXO DE TRABALHO",
+    },
+    "stepper_paso1": {
+        "es": "Subir shapefile (wmask.zip)",
+        "en": "Upload shapefile (wmask.zip)",
+        "pt": "Carregar shapefile (wmask.zip)",
+    },
+    "stepper_paso2": {
+        "es": "Configurar fechas y nubes",
+        "en": "Set dates & cloud cover",
+        "pt": "Configurar datas e nuvens",
+    },
+    "stepper_paso3": {
+        "es": "Generar mapas e índices",
+        "en": "Generate maps & indices",
+        "pt": "Gerar mapas e índices",
+    },
+    "stepper_paso4": {
+        "es": "Descargar / reportes",
+        "en": "Download / reports",
+        "pt": "Download / relatórios",
+    },
+
     # ── Sidebar ────────────────────────────────────────────────────────────────
     "sidebar_idioma": {
         "es": "🌐 Idioma", "en": "🌐 Language", "pt": "🌐 Idioma",

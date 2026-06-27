@@ -2605,9 +2605,9 @@ _hero_body = f"""<div class="bg-wrap">
 <div class="live-badge lg" style="border-radius:40px"><div class="live-dot"></div>GEE</div>
 </nav>
 <div class="hero-center">
-<div class="eyebrow">TELEDETECCION &middot; NL, MEXICO &middot; UANL</div>
+<div class="eyebrow">{t("hero_eyebrow", LANG)}</div>
 <h1 class="hero-h1">{_title}<br><em>{_sub}</em></h1>
-<p class="hero-sub">Sentinel-2 SR Harmonized &middot; 10 m &middot; EPSG:4326<br>Sube cualquier shapefile &middot; An&aacute;lisis global</p>
+<p class="hero-sub">Sentinel-2 SR Harmonized &middot; 10 m &middot; EPSG:4326<br>{t("hero_sub2", LANG)}</p>
 <div class="cta-row">
 <button class="cta-btn lg-s" style="border-radius:40px" onclick="
   var btn=this;
@@ -2620,18 +2620,18 @@ _hero_body = f"""<div class="bg-wrap">
   }},200);
   try{{window.parent.scrollBy({{top:620,behavior:'smooth'}})}}catch(e){{}}
   try{{window.top.scrollBy({{top:620,behavior:'smooth'}})}}catch(e){{}}
-"><span class="cta-ic">&#8594;</span>Explorar Ahora</button>
+"><span class="cta-ic">&#8594;</span>{t("hero_btn", LANG)}</button>
 </div>
 <div class="pills">
 <span class="pill lg" style="border-radius:40px">Sentinel-2 SR</span>
-<span class="pill lg" style="border-radius:40px">Calidad del Agua</span>
-<span class="pill lg" style="border-radius:40px">&Iacute;ndices Espectrales</span>
+<span class="pill lg" style="border-radius:40px">{t("hero_pill_calidad", LANG)}</span>
+<span class="pill lg" style="border-radius:40px">{t("hero_pill_indices", LANG)}</span>
 <span class="pill lg" style="border-radius:40px">Random Forest</span>
 </div>
 </div>
 <div class="bottom">
-<div class="q-label">MONITOREO REMOTO SATELITAL</div>
-<div class="q-text"><em>Observar el planeta desde el espacio,</em> para comprender el agua que habitamos.</div>
+<div class="q-label">{t("hero_qlabel", LANG)}</div>
+<div class="q-text"><em>{t("hero_qtext_em", LANG)}</em> {t("hero_qtext_rest", LANG)}</div>
 <div class="q-author"><div class="ql"></div><div class="qname">SENTINEL-2 SR &middot; GEE CLOUD API &middot; RANDOM FOREST</div><div class="ql"></div></div>
 </div>
 </div>
@@ -2701,11 +2701,11 @@ with st.sidebar:
     st.markdown(
         '<div style="background:rgba(34,211,238,0.04);border:1px solid rgba(34,211,238,0.12);'
         'border-radius:10px;padding:12px 14px;margin-bottom:12px">'
-        '<div style="font-size:9px;letter-spacing:.1em;color:#22D3EE;margin-bottom:10px;font-weight:600">FLUJO DE TRABAJO</div>'
-        + _sp(1, "Subir shapefile (wmask.zip)", _step1_done, not _step1_done)
-        + _sp(2, "Configurar fechas y nubes",   _step2_done, _step1_done and not _step2_done)
-        + _sp(3, "Generar mapas e índices",      _step3_done, _step2_done and not _step3_done)
-        + _sp(4, "Descargar / reportes",         False,       _step3_done)
+        f'<div style="font-size:9px;letter-spacing:.1em;color:#22D3EE;margin-bottom:10px;font-weight:600">{t("stepper_titulo", LANG)}</div>'
+        + _sp(1, t("stepper_paso1", LANG), _step1_done, not _step1_done)
+        + _sp(2, t("stepper_paso2", LANG), _step2_done, _step1_done and not _step2_done)
+        + _sp(3, t("stepper_paso3", LANG), _step3_done, _step2_done and not _step3_done)
+        + _sp(4, t("stepper_paso4", LANG), False,       _step3_done)
         + '</div>',
         unsafe_allow_html=True
     )
