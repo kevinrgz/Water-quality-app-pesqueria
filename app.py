@@ -1244,6 +1244,13 @@ INDICES_VIZ = {
     ),
 }
 
+def _mask_s2_clouds(image):
+    """Máscara de nubes píxel a píxel usando la banda QA60 de Sentinel-2."""
+    qa = image.select("QA60")
+    cloud_mask = qa.bitwiseAnd(1 << 10).eq(0).And(qa.bitwiseAnd(1 << 11).eq(0))
+    return image.updateMask(cloud_mask)
+
+
 def calcular_indice_gee(img, indice):
     if indice == "NDVI":
         return img.normalizedDifference(["B8","B4"]).rename("NDVI")
@@ -1312,10 +1319,13 @@ def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nube
         else:
             geom = ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max])
 
+        # Para composites de área grande usamos un umbral de escena generoso
+        # (máx 80%) — la máscara QA60 píxel a píxel descarta las nubes reales.
+        _nubes_comp = max(max_nubes, 80)
         coll = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
                   .filterBounds(geom)
                   .filterDate(fecha_ini_str, fecha_fin_str)
-                  .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_nubes))
+                  .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", _nubes_comp))
                   .sort("CLOUDY_PIXEL_PERCENTAGE"))
 
         n_imgs = coll.size().getInfo()
@@ -1327,8 +1337,9 @@ def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nube
         fecha_real = props.get("PRODUCT_ID", "")[7:15] if "PRODUCT_ID" in props else "N/D"
         nubes_pct  = props.get("CLOUDY_PIXEL_PERCENTAGE", None)
 
-        # Mosaico para cubrir el bbox completo (ver buscar_imagen_s2)
-        img = coll.sort("CLOUDY_PIXEL_PERCENTAGE", False).mosaic().clip(geom)
+        # Composite mediana con máscara de nubes píxel a píxel (QA60)
+        # → cobertura completa aunque algunos tiles tengan nubes parciales
+        img = coll.map(_mask_s2_clouds).median().clip(geom)
 
         # Área real del bbox en km² (geodésica, no aproximada)
         area_km2 = geom.area(maxError=10).divide(1_000_000).getInfo()
@@ -1424,10 +1435,14 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes,
         # El recorte visual final sí usa la geometría exacta si está disponible.
         geom = (ee.Geometry(geojson_poligono, opt_geodesic=False)
                if geojson_poligono is not None else geom_busqueda)
+        # Umbral generoso para composite multifecha: la máscara QA60 píxel
+        # a píxel filtra nubes reales; el umbral de escena solo excluye las
+        # completamente nubladas para no añadir escenas inútiles.
+        _nubes_comp = max(max_nubes, 80)
         coll = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
                   .filterBounds(geom)
                   .filterDate(fecha_ini_str, fecha_fin_str)
-                  .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_nubes))
+                  .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", _nubes_comp))
                   .sort("CLOUDY_PIXEL_PERCENTAGE"))
         n_imgs = coll.size().getInfo()
         if n_imgs == 0:
@@ -1439,13 +1454,10 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes,
         fecha_real = props.get("PRODUCT_ID", "")[7:15] if "PRODUCT_ID" in props else "N/D"
         nubes_pct  = props.get("CLOUDY_PIXEL_PERCENTAGE", None)
 
-        # Mosaico: combina todas las escenas del rango para cubrir el bbox
-        # completo sin huecos, priorizando las de menor nubosidad (ya
-        # vienen ordenadas por .sort() y mosaic() usa la última imagen
-        # válida por píxel, así que invertimos el orden para que la mejor
-        # quede "encima").
-        coll_para_mosaico = coll.sort("CLOUDY_PIXEL_PERCENTAGE", False)
-        img = coll_para_mosaico.mosaic().clip(geom)
+        # Composite mediana con máscara de nubes píxel a píxel (QA60).
+        # .median() usa TODOS los píxeles válidos del rango de fechas,
+        # garantizando cobertura completa en áreas grandes sin huecos.
+        img = coll.map(_mask_s2_clouds).median().clip(geom)
 
         tile_urls = {}
         map_id_rgb = img.getMapId(INDICES_VIZ["RGB"]["vis"])
