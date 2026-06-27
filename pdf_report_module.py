@@ -61,6 +61,10 @@ def get_pdf_styles():
         name="FootnoteCentro", fontSize=7.5, leading=10, textColor=PDF_GREY,
         fontName="Helvetica-Oblique", alignment=TA_CENTER))
     styles.add(ParagraphStyle(
+        name="Credito", fontSize=8, leading=11,
+        textColor=colors.HexColor("#94A3B8"),
+        fontName="Helvetica-Oblique", alignment=TA_CENTER, spaceAfter=2))
+    styles.add(ParagraphStyle(
         name="AlertaRoja", fontSize=9, leading=13,
         textColor=colors.HexColor("#7F1D1D"),
         fontName="Helvetica-Bold", alignment=TA_LEFT,
@@ -157,22 +161,55 @@ def generar_interpretacion(mapas, fecha_dt, temporada, lang="es"):
     return " ".join(lineas)
 
 
+# ── Utilidad: reducir etiquetas de fechas si hay demasiadas ──────────────────
+def _format_fechas_eje(fechas_str, max_ticks=12):
+    """
+    Convierte lista de strings de fecha a etiquetas legibles tipo 'Ene 18'.
+    Si hay más de max_ticks puntos, muestra solo un subconjunto equiespaciado.
+    Retorna (indices_a_mostrar, etiquetas).
+    """
+    meses_es = ["","Ene","Feb","Mar","Abr","May","Jun",
+                "Jul","Ago","Sep","Oct","Nov","Dic"]
+    etiquetas = []
+    for f in fechas_str:
+        try:
+            dt = pd.to_datetime(f)
+            etiquetas.append(f"{meses_es[dt.month]} {str(dt.year)[2:]}")
+        except Exception:
+            etiquetas.append(str(f)[:7])
+
+    n = len(etiquetas)
+    if n <= max_ticks:
+        return list(range(n)), etiquetas
+
+    # Subconjunto equiespaciado incluyendo primero y último
+    step = max(1, n // max_ticks)
+    idx = list(range(0, n, step))
+    if (n - 1) not in idx:
+        idx.append(n - 1)
+    return idx, [etiquetas[i] for i in idx]
+
+
+def _aplicar_eje_x(ax, fechas_str, max_ticks=12):
+    idx, labels = _format_fechas_eje(fechas_str, max_ticks)
+    ax.set_xticks(idx)
+    ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=7.5)
+
+
 # ── Gráfico de serie temporal para un parámetro (matplotlib → BytesIO) ────────
 def _figura_serie_param(fechas, medias, maximos, label, unidad, color_linea="#2E8B8B"):
-    fig, ax = plt.subplots(figsize=(7.5, 2.8))
+    xnum = np.arange(len(fechas))
+    fig, ax = plt.subplots(figsize=(7.5, 2.9))
     fig.patch.set_facecolor("white")
     ax.set_facecolor("#FAFBFC")
-    ax.plot(fechas, medias, "o-", color=color_linea, lw=2, ms=5, label="Media espacial")
+    ax.plot(xnum, medias, "o-", color=color_linea, lw=2, ms=5, label="Media espacial")
     if maximos and any(m is not None for m in maximos):
-        ax.fill_between(fechas, medias, maximos, alpha=0.13, color="#E74C3C")
-        ax.plot(fechas, maximos, "s--", color="#E74C3C", lw=1, ms=3, label="Máximo espacial")
-    # Línea de tendencia
-    if len(fechas) >= 3:
-        xnum = np.arange(len(fechas))
+        ax.fill_between(xnum, medias, maximos, alpha=0.13, color="#E74C3C")
+        ax.plot(xnum, maximos, "s--", color="#E74C3C", lw=1, ms=3, label="Máximo espacial")
+    if len(xnum) >= 3:
         z = np.polyfit(xnum, medias, 1)
         trend = np.polyval(z, xnum)
-        ax.plot(fechas, trend, "--", color="#F59E0B", lw=1.2, alpha=0.8, label="Tendencia lineal")
-        # Mann-Kendall simple
+        ax.plot(xnum, trend, "--", color="#F59E0B", lw=1.2, alpha=0.8, label="Tendencia lineal")
         tau, pval = sp_stats.kendalltau(xnum, medias)
         dir_str = "↑ Ascendente" if tau > 0 else "↓ Descendente"
         sig_str = "(p<0.05 ✓)" if pval < 0.05 else f"(p={pval:.2f})"
@@ -182,7 +219,7 @@ def _figura_serie_param(fechas, medias, maximos, label, unidad, color_linea="#2E
                 bbox=dict(boxstyle="round,pad=0.3", fc="#F0F4F8", ec="#D0D8E0", lw=0.6))
     ax.set_title(f"{label} — Evolución temporal", fontsize=9.5, fontweight="bold", color="#1A4F7A")
     ax.set_ylabel(unidad, fontsize=7.5)
-    ax.tick_params(axis="x", rotation=38, labelsize=7)
+    _aplicar_eje_x(ax, fechas)
     ax.tick_params(axis="y", labelsize=7)
     ax.legend(fontsize=7, loc="upper right", framealpha=0.7)
     ax.grid(True, alpha=0.2, linestyle="--")
@@ -202,16 +239,14 @@ def _figura_serie_gee(serie, nombre_idx, color="#22D3EE"):
         return None
     fechas = [s[0] for s in serie]
     vals   = [s[1] for s in serie]
-    fig, ax = plt.subplots(figsize=(7.5, 2.8))
+    xnum   = np.arange(len(vals))
+    fig, ax = plt.subplots(figsize=(7.5, 2.9))
     fig.patch.set_facecolor("white")
     ax.set_facecolor("#FAFBFC")
-    ax.plot(fechas, vals, "o-", color=color, lw=2, ms=5, label="Media zonal")
-    # Tendencia
-    xnum = np.arange(len(vals))
+    ax.plot(xnum, vals, "o-", color=color, lw=2, ms=5, label="Media zonal")
     z = np.polyfit(xnum, vals, 1)
     trend = np.polyval(z, xnum)
-    ax.plot(fechas, trend, "--", color="#F59E0B", lw=1.2, alpha=0.8, label="Tendencia lineal")
-    # Mann-Kendall
+    ax.plot(xnum, trend, "--", color="#F59E0B", lw=1.2, alpha=0.8, label="Tendencia lineal")
     tau, pval = sp_stats.kendalltau(xnum, vals)
     dir_str = "↑ Ascendente" if tau > 0 else "↓ Descendente"
     sig_str = "(p<0.05 ✓)" if pval < 0.05 else f"(p={pval:.2f})"
@@ -222,7 +257,7 @@ def _figura_serie_gee(serie, nombre_idx, color="#22D3EE"):
     ax.set_title(f"{nombre_idx} — Serie temporal (media zonal)", fontsize=9.5,
                  fontweight="bold", color="#1A4F7A")
     ax.set_ylabel(nombre_idx, fontsize=7.5)
-    ax.tick_params(axis="x", rotation=38, labelsize=7)
+    _aplicar_eje_x(ax, fechas)
     ax.tick_params(axis="y", labelsize=7)
     ax.legend(fontsize=7, loc="upper right", framealpha=0.7)
     ax.grid(True, alpha=0.2, linestyle="--")
@@ -309,6 +344,11 @@ def generar_pdf_fecha_unica(mapas, fecha_dt, temporada, panel_buf,
         story.append(RLImage(panel_buf, width=16*cm, height=9.5*cm))
     story.append(Spacer(1, 0.6*cm))
     story.append(Paragraph(t("pdf_nota_auto", lang), styles["FootnoteCentro"]))
+    story.append(Spacer(1, 0.25*cm))
+    story.append(HRFlowable(width="40%", thickness=0.5, color=colors.HexColor("#CBD5E1"), hAlign="CENTER"))
+    story.append(Spacer(1, 0.15*cm))
+    story.append(Paragraph("Designed by Kevin Rodríguez González", styles["Credito"]))
+    story.append(Paragraph("Departamento de Geomática · UANL · FIC", styles["Credito"]))
     story.append(PageBreak())
 
     # ── 1. INTRODUCCIÓN ────────────────────────────────────────────────────────
@@ -507,6 +547,11 @@ def generar_pdf_serie_temporal(resultados_por_fecha, params_sel, bbox, n_puntos,
     ))
     story.append(Spacer(1, 1*cm))
     story.append(Paragraph(t("pdf_nota_auto", lang), styles["FootnoteCentro"]))
+    story.append(Spacer(1, 0.25*cm))
+    story.append(HRFlowable(width="40%", thickness=0.5, color=colors.HexColor("#CBD5E1"), hAlign="CENTER"))
+    story.append(Spacer(1, 0.15*cm))
+    story.append(Paragraph("Designed by Kevin Rodríguez González", styles["Credito"]))
+    story.append(Paragraph("Departamento de Geomática · UANL · FIC", styles["Credito"]))
     story.append(PageBreak())
 
     # ── 1. INTRODUCCIÓN ────────────────────────────────────────────────────────
@@ -807,6 +852,11 @@ def generar_pdf_reporte_espectral(info, stats, thumbnails, indices_sel, bbox,
         story.append(Paragraph(f"<i>{t('pdf_fuente_copernicus', lang)}</i>", styles["FootnoteCentro"]))
     story.append(Spacer(1, 0.5*cm))
     story.append(Paragraph(t("pdf_idx_nota_auto", lang), styles["FootnoteCentro"]))
+    story.append(Spacer(1, 0.25*cm))
+    story.append(HRFlowable(width="40%", thickness=0.5, color=colors.HexColor("#CBD5E1"), hAlign="CENTER"))
+    story.append(Spacer(1, 0.15*cm))
+    story.append(Paragraph("Designed by Kevin Rodríguez González", styles["Credito"]))
+    story.append(Paragraph("Departamento de Geomática · UANL · FIC", styles["Credito"]))
     story.append(PageBreak())
 
     # ── 1. INTRODUCCIÓN ────────────────────────────────────────────────────────
