@@ -1,6 +1,6 @@
-Pillow
+﻿Pillow
 earthengine-api
-fiona
+pyogrio
 folium
 geopandas
 imageio
