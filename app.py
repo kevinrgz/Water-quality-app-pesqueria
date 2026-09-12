@@ -1689,6 +1689,48 @@ def obtener_mapa_sst_gee(anio: int, mes: int):
         return {}
 
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def obtener_eventos_referencia_gee():
+    """
+    Tile URLs para capas de referencia ENSO:
+    SST y anomalía de diciembre 1997 (El Niño fuerte) y diciembre 1998 (La Niña).
+    Cached 24 h — estos eventos no cambian.
+    """
+    if not GEE_OK:
+        return {}
+    try:
+        pal_sst  = ['#313695','#4575b4','#74add1','#abd9e9','#e0f3f8',
+                    '#ffffbf','#fee090','#fdae61','#f46d43','#d73027','#a50026']
+        pal_anom = ['#313695','#4575b4','#74add1','#abd9e9','#ffffbf',
+                    '#fdae61','#f46d43','#d73027','#a50026']
+
+        def _tiles_mes(anio, mes):
+            f_ini = f'{anio}-{mes:02d}-01'
+            f_sig = ee.Date(f_ini).advance(1, 'month').format('YYYY-MM-dd').getInfo()
+            sst_m = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
+                       .filterDate(f_ini, f_sig).select('sst')
+                       .map(lambda i: i.multiply(0.01).rename('SST')).mean())
+            clim  = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
+                       .filterDate('1982-01-01', '2026-01-01').select('sst')
+                       .filter(ee.Filter.calendarRange(mes, mes, 'month'))
+                       .map(lambda i: i.multiply(0.01).rename('SST')).mean())
+            anom  = sst_m.subtract(clim).rename('SST_anom')
+            t_sst  = sst_m.getMapId({'min':10,'max':32,'palette':pal_sst})['tile_fetcher'].url_format
+            t_anom = anom.getMapId({'min':-4,'max':4,'palette':pal_anom})['tile_fetcher'].url_format
+            return t_sst, t_anom
+
+        sst97, anom97 = _tiles_mes(1997, 12)
+        _,     anom98 = _tiles_mes(1998, 12)
+
+        return {
+            'SST Dic 1997': sst97,
+            'Anomalía Dic 1997 (El Niño)': anom97,
+            'Anomalía Dic 1998 (La Niña)': anom98,
+        }
+    except Exception:
+        return {}
+
+
 @st.cache_data(ttl=7200, show_spinner=False)
 @st.cache_data(ttl=3600, show_spinner=False)
 def obtener_mapa_riesgo_gee(bbox, geojson_poligono, fecha_str, max_nubes=30):
@@ -3021,57 +3063,86 @@ def _render_enso_section():
     </div>""", unsafe_allow_html=True)
 
     with st.expander("🗺️ Mapa Oceánico SST / Anomalía — selecciona mes y año", expanded=False):
-        ec1, ec2, ec3 = st.columns([2, 2, 3])
+        ec1, ec2 = st.columns([2, 2])
         with ec1:
             enso_anio = st.slider("Año", 1982, 2025, 1997, key="enso_slider_anio")
         with ec2:
             enso_mes = st.selectbox("Mes", list(range(1, 13)), index=11,
                                     format_func=lambda m: _MESES_ES[m], key="enso_sel_mes")
-        with ec3:
-            enso_capa = st.radio("Capa", ["SST (°C)", "Anomalía SST (°C)"],
-                                 horizontal=True, key="enso_radio_capa")
+
+        # Colorbars (ambas siempre visibles)
+        st.markdown("""<div style="display:flex;gap:24px;margin:4px 0 8px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px;font-size:.71rem;color:rgba(255,255,255,.55)">
+            <b>SST:</b><span>10°C</span>
+            <div style="width:180px;height:8px;border-radius:3px;background:linear-gradient(to right,#313695,#4575b4,#74add1,#abd9e9,#e0f3f8,#ffffbf,#fee090,#fdae61,#f46d43,#d73027,#a50026)"></div>
+            <span>32°C</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:.71rem;color:rgba(255,255,255,.55)">
+            <b>Anomalía:</b><span style="color:#4575b4">−4°C</span>
+            <div style="width:160px;height:8px;border-radius:3px;background:linear-gradient(to right,#313695,#4575b4,#74add1,#abd9e9,#ffffbf,#fdae61,#f46d43,#d73027,#a50026)"></div>
+            <span style="color:#a50026">+4°C</span>
+          </div>
+        </div>""", unsafe_allow_html=True)
 
         if GEE_OK:
-            with st.spinner("Calculando SST via GEE…"):
+            mes_str = _MESES_ES[enso_mes][:3]
+            with st.spinner(f"Cargando {mes_str} {enso_anio} y eventos de referencia…"):
                 tile_urls_sst = obtener_mapa_sst_gee(enso_anio, enso_mes)
+                tile_refs     = obtener_eventos_referencia_gee()
 
             if tile_urls_sst:
-                mapa_enso = folium.Map(location=[0, -150], zoom_start=3,
-                                       tiles=None, max_bounds=False)
+                # Basemap: OpenStreetMap — gratis, sin API key, sin watermarks
+                mapa_enso = folium.Map(location=[0, -150], zoom_start=2,
+                                       tiles='OpenStreetMap', max_bounds=False)
+
+                # ── Capas del mes seleccionado (activa por defecto: Anomalía) ──
+                mes_lbl = f"{mes_str} {enso_anio}"
                 folium.TileLayer(
-                    tiles='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                    attr='&copy; CartoDB', name='Dark', control=False
-                ).add_to(mapa_enso)
-                capa_key = enso_capa if enso_capa in tile_urls_sst else list(tile_urls_sst.keys())[0]
-                folium.TileLayer(
-                    tiles=tile_urls_sst[capa_key],
+                    tiles=tile_urls_sst['SST (°C)'],
                     attr='GEE · NOAA OISST v2.1',
-                    name=capa_key, overlay=False,
-                    max_native_zoom=9, max_zoom=9, opacity=0.85
+                    name=f'SST {mes_lbl}',
+                    overlay=True, show=False, max_native_zoom=9, max_zoom=9, opacity=0.85
                 ).add_to(mapa_enso)
+                folium.TileLayer(
+                    tiles=tile_urls_sst['Anomalía SST (°C)'],
+                    attr='GEE · NOAA OISST v2.1',
+                    name=f'Anomalía SST {mes_lbl}',
+                    overlay=True, show=True, max_native_zoom=9, max_zoom=9, opacity=0.85
+                ).add_to(mapa_enso)
+
+                # ── Capas de referencia histórica ──
+                ref_config = {
+                    'SST Dic 1997':              {'show': False},
+                    'Anomalía Dic 1997 (El Niño)': {'show': False},
+                    'Anomalía Dic 1998 (La Niña)': {'show': False},
+                }
+                for nombre, cfg in ref_config.items():
+                    if nombre in tile_refs:
+                        folium.TileLayer(
+                            tiles=tile_refs[nombre],
+                            attr='GEE · NOAA OISST v2.1',
+                            name=nombre,
+                            overlay=True, show=cfg['show'],
+                            max_native_zoom=9, max_zoom=9, opacity=0.85
+                        ).add_to(mapa_enso)
+
+                # ── Región Niño 3.4 ──
                 folium.Rectangle(
                     bounds=[[-5, -170], [5, -120]],
-                    color='#EF4444', weight=2, fill=False,
-                    popup=folium.Popup('Región Niño 3.4<br>5°N–5°S · 170°W–120°W', max_width=200),
-                    tooltip='Región Niño 3.4'
+                    color='#EF4444', weight=2,
+                    fill=True, fill_color='#EF4444', fill_opacity=0.04,
+                    popup=folium.Popup('Región Niño 3.4<br>5°N–5°S · 170°W–120°W<br>'
+                                       'Umbral El Niño: ≥+0.5°C', max_width=220),
+                    tooltip='📍 Región Niño 3.4'
                 ).add_to(mapa_enso)
-                # Colorbars como HTML flotantes
-                if enso_capa == "Anomalía SST (°C)":
-                    cbar_html = """<div style="position:relative;margin:6px 0 2px;display:flex;align-items:center;gap:10px;font-size:.72rem;color:rgba(255,255,255,.6)">
-                      <span>−4°C</span>
-                      <div style="flex:1;height:10px;border-radius:4px;background:linear-gradient(to right,#313695,#4575b4,#74add1,#abd9e9,#ffffbf,#fdae61,#f46d43,#d73027,#a50026)"></div>
-                      <span>+4°C</span>
-                      <span style="margin-left:4px;color:rgba(255,255,255,.35)">Anomalía SST</span>
-                    </div>"""
-                else:
-                    cbar_html = """<div style="position:relative;margin:6px 0 2px;display:flex;align-items:center;gap:10px;font-size:.72rem;color:rgba(255,255,255,.6)">
-                      <span>10°C</span>
-                      <div style="flex:1;height:10px;border-radius:4px;background:linear-gradient(to right,#313695,#4575b4,#74add1,#abd9e9,#e0f3f8,#ffffbf,#fee090,#fdae61,#f46d43,#d73027,#a50026)"></div>
-                      <span>32°C</span>
-                      <span style="margin-left:4px;color:rgba(255,255,255,.35)">SST</span>
-                    </div>"""
-                st.markdown(cbar_html, unsafe_allow_html=True)
-                st_folium(mapa_enso, width="100%", height=400, returned_objects=[])
+
+                folium.LayerControl(collapsed=False, position='topright').add_to(mapa_enso)
+                st_folium(mapa_enso, width="100%", height=500, returned_objects=[])
+
+                st.markdown("""<div style="font-size:.7rem;color:rgba(255,255,255,.3);margin-top:4px">
+                  💡 Usa el panel <b>Layers</b> (arriba derecha) para activar/desactivar capas.
+                  Basemap: OpenStreetMap · GEE · NOAA CDR OISST v2.1
+                </div>""", unsafe_allow_html=True)
             else:
                 st.warning("No se obtuvieron tiles GEE para el período seleccionado.")
         else:
