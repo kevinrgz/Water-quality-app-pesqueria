@@ -3091,9 +3091,15 @@ def _render_enso_section():
                 tile_refs     = obtener_eventos_referencia_gee()
 
             if tile_urls_sst:
-                # Basemap: OpenStreetMap — gratis, sin API key, sin watermarks
+                # Basemap: ESRI Dark Gray Canvas — gratis, sin API key, dark, sin watermarks
                 mapa_enso = folium.Map(location=[0, -150], zoom_start=2,
-                                       tiles='OpenStreetMap', max_bounds=False)
+                                       tiles=None, max_bounds=False)
+                folium.TileLayer(
+                    tiles='https://server.arcgisonline.com/ArcGIS/rest/services/'
+                          'Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+                    attr='Esri, DeLorme, HERE',
+                    name='Dark Gray', control=False
+                ).add_to(mapa_enso)
 
                 # ── Capas del mes seleccionado (activa por defecto: Anomalía) ──
                 mes_lbl = f"{mes_str} {enso_anio}"
