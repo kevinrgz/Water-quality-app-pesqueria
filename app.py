@@ -19,7 +19,7 @@ from datetime import date as date_cls
 warnings.filterwarnings("ignore")
 from i18n import t, IDIOMAS, get_param_label, get_param_desc, get_indice_nombre, get_indice_desc
 from pdf_report_module import (generar_pdf_fecha_unica, generar_pdf_serie_temporal,
-                               generar_pdf_reporte_espectral, generar_pdf_enso)
+                               generar_pdf_reporte_espectral)
 
 # ── Assets ────────────────────────────────────────────────────────────────────
 def _b64(fn):
@@ -3354,7 +3354,8 @@ def _render_enso_section():
                 _logo_geo_path = _logo_geo_path if os.path.exists(_logo_geo_path) else None
                 _serie = st.session_state.get('enso_serie_cache')
                 try:
-                    _pdf_bytes = generar_pdf_enso(
+                    from pdf_report_module import generar_pdf_enso as _gen_pdf_enso
+                    _pdf_bytes = _gen_pdf_enso(
                         enso_anio, enso_mes,
                         serie_cache=_serie if (_serie and len(_serie) > 0) else None,
                         logo_geo_path=_logo_geo_path
