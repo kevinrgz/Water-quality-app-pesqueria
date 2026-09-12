@@ -1080,3 +1080,315 @@ def generar_pdf_reporte_espectral(info, stats, thumbnails, indices_sel, bbox,
     doc.build(story, onFirstPage=header_fn3, onLaterPages=header_fn3)
     buf.seek(0)
     return buf
+
+
+# =============================================================================
+# FUNCIÓN: PDF de análisis SST / ENSO
+# =============================================================================
+def generar_pdf_enso(anio, mes, serie_cache=None, logo_geo_path=None, lang="es"):
+    """
+    Genera un reporte PDF del análisis SST / Fenómeno ENSO.
+
+    Parámetros
+    ----------
+    anio        : int  — Año del mapa SST analizado.
+    mes         : int  — Mes (1-12) del mapa SST analizado.
+    serie_cache : list[(str, float)] | None
+        Serie histórica Niño 3.4 calculada por GEE;
+        cada elemento es (fecha_str, anomalía_°C).
+    logo_geo_path : str | None — Ruta al logo de Geomática.
+    """
+    _MESES = {1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',
+              7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre'}
+    mes_nombre = _MESES.get(mes, str(mes))
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=letter,
+        topMargin=2.2*cm, bottomMargin=2*cm,
+        leftMargin=2*cm, rightMargin=2*cm,
+        title=f"SST ENSO Report — {mes_nombre} {anio}"
+    )
+    styles = get_pdf_styles()
+    story  = []
+
+    # ── Barras de color matplotlib → BytesIO ──────────────────────────────────
+    def _cbar(cmap_colors, lbl_min, lbl_max, title_str, w_cm=14.5, h_cm=0.7):
+        fig, ax = plt.subplots(figsize=(w_cm/2.54, h_cm/2.54))
+        gradient = np.linspace(0, 1, 256).reshape(1, -1)
+        from matplotlib.colors import LinearSegmentedColormap as _LSCM
+        cmap = _LSCM.from_list('_cb', cmap_colors)
+        ax.imshow(gradient, aspect='auto', cmap=cmap, extent=[0, 1, 0, 1])
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels([lbl_min, lbl_max], fontsize=7.5, color='#374151')
+        ax.set_yticks([])
+        ax.set_title(title_str, fontsize=7.5, color='#374151', pad=2.5)
+        fig.patch.set_facecolor('white')
+        ax.set_facecolor('white')
+        for sp in ax.spines.values():
+            sp.set_edgecolor('#D1D5DB'); sp.set_linewidth(0.5)
+        _b = io.BytesIO()
+        fig.savefig(_b, format='png', dpi=150, bbox_inches='tight',
+                    facecolor='white', edgecolor='none')
+        plt.close(fig)
+        _b.seek(0)
+        return _b
+
+    # ── PORTADA ────────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 1.2*cm))
+    story.append(Paragraph("Análisis SST / Fenómeno ENSO", styles["TituloPortada"]))
+    story.append(Paragraph(
+        "Temperatura Superficial del Mar · Anomalía · Región Niño 3.4",
+        styles["SubtituloPortada"]
+    ))
+    story.append(Spacer(1, 0.4*cm))
+    story.append(HRFlowable(width="60%", thickness=1.2, color=PDF_TEAL, hAlign="CENTER"))
+    story.append(Spacer(1, 0.5*cm))
+    story.append(Paragraph(
+        f"<b>Período analizado:</b> {mes_nombre} {anio}<br/>"
+        f"<b>Dataset SST:</b> NOAA CDR OISST v2.1 · resolución 0.25°<br/>"
+        f"<b>Dataset Clorofila-a:</b> NASA MODIS-Aqua L3SMI (2002–2024) / VIIRS-Snpp<br/>"
+        f"<b>Procesamiento:</b> Google Earth Engine (GEE) Python API<br/>"
+        f"<b>Generado:</b> {date.today().strftime('%d/%m/%Y')}",
+        styles["MetaPortada"]
+    ))
+    story.append(Spacer(1, 0.8*cm))
+    story.append(Paragraph(
+        "Reporte generado automáticamente por la plataforma Water Quality Mapping.",
+        styles["FootnoteCentro"]
+    ))
+    story.append(Spacer(1, 0.25*cm))
+    story.append(HRFlowable(width="40%", thickness=0.5,
+                             color=colors.HexColor("#CBD5E1"), hAlign="CENTER"))
+    story.append(Spacer(1, 0.15*cm))
+    story.append(Paragraph("Kevin Rodríguez González", styles["Credito"]))
+    story.append(Paragraph("Departamento de Geomática · FIME · UANL", styles["Credito"]))
+    story.append(PageBreak())
+
+    # ── 1. INTRODUCCIÓN ────────────────────────────────────────────────────────
+    story.append(Paragraph("1. Introducción", styles["SeccionTitulo"]))
+    story.append(Paragraph(
+        "El Fenómeno El Niño–Oscilación del Sur (ENSO) es el principal modo de variabilidad "
+        "climática interanual del planeta. Se manifiesta como variaciones anómalas de la "
+        "Temperatura Superficial del Mar (SST) en el Océano Pacífico Tropical, "
+        "particularmente en la región Niño 3.4 (5°N–5°S · 170°W–120°W). "
+        "Las anomalías positivas ≥+0.5°C (El Niño) y negativas ≤−0.5°C (La Niña) "
+        "alteran los patrones de precipitación, temperatura y productividad biológica oceánica "
+        "a escala global. En México el ENSO afecta directamente la disponibilidad hídrica, "
+        "la frecuencia de eventos extremos y la calidad del agua en cuerpos continentales "
+        "como el Río Pesquería, Nuevo León.",
+        styles["CuerpoTexto"]
+    ))
+    story.append(Spacer(1, 0.3*cm))
+
+    # ── 2. SST ─────────────────────────────────────────────────────────────────
+    story.append(Paragraph(
+        "2. Temperatura Superficial del Mar (SST)", styles["SeccionTitulo"]))
+    story.append(Paragraph(
+        f"El mapa de SST para <b>{mes_nombre} {anio}</b> proviene de la colección "
+        f"NOAA OISST v2.1 (Optimum Interpolation Sea Surface Temperature), derivada de datos "
+        f"AVHRR con resolución espacial de 0.25° (~28 km). "
+        f"La escala de color cubre el rango típico 10°C–32°C.",
+        styles["CuerpoTexto"]
+    ))
+    story.append(Spacer(1, 0.2*cm))
+    sst_cbar = _cbar(
+        ['#313695','#4575b4','#74add1','#abd9e9','#e0f3f8',
+         '#ffffbf','#fee090','#fdae61','#f46d43','#d73027','#a50026'],
+        '10°C', '32°C',
+        'SST (°C) — Escala RdYlBu · NOAA OISST v2.1'
+    )
+    story.append(RLImage(sst_cbar, width=14*cm, height=1.2*cm))
+    story.append(Spacer(1, 0.4*cm))
+
+    # ── 3. ANOMALÍA SST ────────────────────────────────────────────────────────
+    story.append(Paragraph(
+        "3. Anomalía SST — Región Niño 3.4", styles["SeccionTitulo"]))
+    story.append(Paragraph(
+        f"La anomalía es la diferencia entre la SST de <b>{mes_nombre} {anio}</b> "
+        f"y la climatología mensual 1982–2025. Anomalía positiva (cálida) en Niño 3.4 → "
+        f"El Niño; negativa (fría) → La Niña. Umbral operacional NOAA/CPC: ±0.5°C durante "
+        f"cinco meses consecutivos. En El Niño la clorofila-a oceánica disminuye (menor "
+        f"surgencia); en La Niña aumenta (mayor mezcla de aguas frías ricas en nutrientes).",
+        styles["CuerpoTexto"]
+    ))
+    story.append(Spacer(1, 0.2*cm))
+    anom_cbar = _cbar(
+        ['#313695','#4575b4','#74add1','#abd9e9','#ffffbf',
+         '#fdae61','#f46d43','#d73027','#a50026'],
+        '−4°C', '+4°C',
+        'Anomalía SST (°C) — Divergente azul-rojo · NOAA OISST v2.1'
+    )
+    story.append(RLImage(anom_cbar, width=14*cm, height=1.2*cm))
+    story.append(Spacer(1, 0.3*cm))
+
+    # Tabla de umbrales ENSO
+    story.append(Paragraph(
+        "Clasificación ENSO — Umbrales operacionales (NOAA/CPC):",
+        styles["SubseccionTitulo"]
+    ))
+    umbral_rows = [
+        ["Condición",  "Anomalía SST",        "Color en mapa", "Impacto Clorofila-a oceánica"],
+        ["El Niño",    "≥ +0.5°C",            "Rojo",
+         "Disminuye — aguas más cálidas, menor surgencia"],
+        ["La Niña",    "≤ −0.5°C",            "Azul",
+         "Aumenta — mayor surgencia de aguas frías"],
+        ["Neutral",    "−0.5°C a +0.5°C",     "Blanco/amarillo",
+         "Normal estacional"],
+    ]
+    umb_tbl = Table(umbral_rows, colWidths=[3.0*cm, 3.0*cm, 3.0*cm, 8.0*cm])
+    umb_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), PDF_BLUE),
+        ("TEXTCOLOR",  (0,0), (-1,0), colors.white),
+        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
+        ("TEXTCOLOR",  (0,1), (0,1), colors.HexColor("#991B1B")),
+        ("BACKGROUND", (0,1), (-1,1), colors.HexColor("#FEF2F2")),
+        ("TEXTCOLOR",  (0,2), (0,2), colors.HexColor("#1E40AF")),
+        ("BACKGROUND", (0,2), (-1,2), colors.HexColor("#EFF6FF")),
+        ("BACKGROUND", (0,3), (-1,3), colors.HexColor("#F9FAFB")),
+        ("FONTSIZE",   (0,0), (-1,-1), 8.5),
+        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTNAME",   (0,1), (0,-1), "Helvetica-Bold"),
+        ("GRID",       (0,0), (-1,-1), 0.4, colors.HexColor("#D0D8E0")),
+        ("TOPPADDING", (0,0), (-1,-1), 5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ("LEFTPADDING", (0,0), (-1,-1), 8),
+        ("RIGHTPADDING", (0,0), (-1,-1), 8),
+        ("VALIGN",     (0,0), (-1,-1), "MIDDLE"),
+    ]))
+    story.append(umb_tbl)
+    story.append(Spacer(1, 0.4*cm))
+
+    # ── 4. ESTADÍSTICAS HISTÓRICAS (si serie disponible) ──────────────────────
+    if serie_cache and len(serie_cache) > 0:
+        story.append(PageBreak())
+        story.append(Paragraph(
+            "4. Estadísticas Históricas ENSO — 1982–2025",
+            styles["SeccionTitulo"]
+        ))
+        anoms = [a for _, a in serie_cache]
+        total = len(anoms)
+        nino_c = sum(1 for a in anoms if a >= 0.5)
+        nina_c = sum(1 for a in anoms if a <= -0.5)
+        neut_c = total - nino_c - nina_c
+        max_nino = max((a for a in anoms if a >= 0.5), default=0.0)
+        min_nina = min((a for a in anoms if a <= -0.5), default=0.0)
+        f_max = next((f for f, a in serie_cache if abs(a - max_nino) < 0.001), '—')
+        f_min = next((f for f, a in serie_cache if abs(a - min_nina) < 0.001), '—')
+
+        story.append(Paragraph(
+            f"La serie comprende <b>{total} meses</b> (1982–2025). "
+            f"Media anomalía Niño 3.4: <b>{sum(anoms)/total:.3f}°C</b> · "
+            f"Desviación estándar: <b>{float(np.std(anoms)):.3f}°C</b>.",
+            styles["CuerpoTexto"]
+        ))
+        story.append(Spacer(1, 0.3*cm))
+
+        stats_rows = [
+            ["Condición", "N (meses)", "% período", "Pico anomalía", "Fecha pico"],
+            ["El Niño",   str(nino_c),  f"{nino_c/total*100:.1f}%",
+             f"+{max_nino:.2f}°C", f_max],
+            ["La Niña",   str(nina_c),  f"{nina_c/total*100:.1f}%",
+             f"{min_nina:.2f}°C",  f_min],
+            ["Neutral",   str(neut_c),  f"{neut_c/total*100:.1f}%", "—", "—"],
+            ["Total",     str(total),   "100%", "", "1982–2025"],
+        ]
+        stats_tbl = Table(stats_rows,
+                          colWidths=[3.5*cm, 2.4*cm, 2.4*cm, 3.5*cm, 5.2*cm])
+        stats_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), PDF_TEAL),
+            ("TEXTCOLOR",  (0,0), (-1,0), colors.white),
+            ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
+            ("FONTSIZE",   (0,0), (-1,-1), 8.5),
+            ("FONTNAME",   (0,-1), (-1,-1), "Helvetica-Bold"),
+            ("BACKGROUND", (0,1), (-1,1), colors.HexColor("#FEF2F2")),
+            ("BACKGROUND", (0,2), (-1,2), colors.HexColor("#EFF6FF")),
+            ("BACKGROUND", (0,-1), (-1,-1), colors.HexColor("#F3F4F6")),
+            ("ALIGN",      (1,0), (-1,-1), "CENTER"),
+            ("VALIGN",     (0,0), (-1,-1), "MIDDLE"),
+            ("GRID",       (0,0), (-1,-1), 0.4, colors.HexColor("#D0D8E0")),
+            ("TOPPADDING", (0,0), (-1,-1), 5),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+            ("LEFTPADDING", (0,0), (-1,-1), 8),
+        ]))
+        story.append(stats_tbl)
+        story.append(Spacer(1, 0.4*cm))
+
+        # Gráfico serie histórica
+        story.append(Paragraph(
+            "Serie Temporal Anomalía SST Niño 3.4 (1982–2025):",
+            styles["SubseccionTitulo"]
+        ))
+        fechas_s = [f for f, _ in serie_cache]
+        anoms_s  = [a for _, a in serie_cache]
+        fig2, ax2 = plt.subplots(figsize=(15/2.54, 6/2.54))
+        fig2.patch.set_facecolor('white')
+        ax2.set_facecolor('#FAFBFC')
+        colores_s = ['#EF4444' if a >= 0.5 else '#3B82F6' if a <= -0.5 else '#9CA3AF'
+                     for a in anoms_s]
+        xnum2 = np.arange(len(anoms_s))
+        ax2.axhspan(0.5, max(max(anoms_s)*1.1, 1.0),
+                    color='#EF4444', alpha=0.05)
+        ax2.axhspan(min(min(anoms_s)*1.1, -1.0), -0.5,
+                    color='#3B82F6', alpha=0.05)
+        ax2.plot(xnum2, anoms_s, '-', color='#9CA3AF', lw=0.7, alpha=0.4)
+        ax2.scatter(xnum2, anoms_s, c=colores_s, s=6, zorder=3)
+        ma3 = pd.Series(anoms_s).rolling(3, center=True).mean()
+        ax2.plot(xnum2, ma3, '-', color='#1A4F7A', lw=2,
+                 label='MM 3 meses', zorder=4)
+        ax2.axhline(0.5,  color='#EF4444', lw=0.8, ls='--', alpha=0.6,
+                    label='El Niño +0.5°C')
+        ax2.axhline(-0.5, color='#3B82F6', lw=0.8, ls='--', alpha=0.6,
+                    label='La Niña −0.5°C')
+        ax2.axhline(0, color='#6B7280', lw=0.5, ls=':', alpha=0.4)
+        _aplicar_eje_x(ax2, fechas_s, max_ticks=14)
+        ax2.set_ylabel('Anomalía SST (°C)', fontsize=7.5)
+        ax2.tick_params(axis='y', labelsize=7)
+        ax2.legend(fontsize=6.5, loc='upper right', framealpha=0.7)
+        ax2.grid(True, alpha=0.18, ls='--')
+        ax2.set_title('Índice Niño 3.4 — NOAA OISST v2.1 · GEE',
+                      fontsize=9, fontweight='bold', color='#1A4F7A')
+        for sp in ax2.spines.values(): sp.set_edgecolor('#D0D8E0')
+        plt.tight_layout()
+        buf2 = io.BytesIO()
+        fig2.savefig(buf2, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig2)
+        buf2.seek(0)
+        story.append(RLImage(buf2, width=15.5*cm, height=6.2*cm))
+        story.append(Spacer(1, 0.3*cm))
+        story.append(Paragraph(
+            "<i>Puntos rojos: El Niño (≥+0.5°C) · Azules: La Niña (≤−0.5°C) · "
+            "Grises: Neutral · Línea azul: media móvil 3 meses.</i>",
+            styles["FootnoteCentro"]
+        ))
+        sec_fuentes = "5."
+    else:
+        sec_fuentes = "4."
+
+    # ── FUENTES DE DATOS ──────────────────────────────────────────────────────
+    story.append(Spacer(1, 0.5*cm))
+    story.append(Paragraph(
+        f"{sec_fuentes} Fuentes de Datos y Referencias", styles["SeccionTitulo"]))
+    fuentes = [
+        "<b>NOAA OISST v2.1:</b> Huang et al. (2021). Improvements of the Daily Optimum "
+        "Interpolation SST Version 2.1. <i>Journal of Climate</i>, 34(8), 2923–2939.",
+        "<b>NASA MODIS-Aqua L3SMI:</b> Ocean Biology Processing Group. "
+        "Chlorophyll-a, 4 km Monthly. NASA GSFC.",
+        "<b>Google Earth Engine:</b> Gorelick et al. (2017). "
+        "<i>Remote Sensing of Environment</i>, 202, 18–27.",
+        "<b>Plataforma:</b> Water Quality Mapping — Dpto. de Geomática · FIME · UANL · "
+        "Kevin Rodríguez González.",
+    ]
+    for src in fuentes:
+        story.append(Paragraph(f"• {src}", styles["CuerpoTextoChico"]))
+        story.append(Spacer(1, 0.15*cm))
+
+    from functools import partial
+    hdr_fn = partial(
+        _draw_header_footer,
+        titulo_corto=f"SST / ENSO — {mes_nombre} {anio}",
+        logo_geo_path=logo_geo_path, lang=lang
+    )
+    doc.build(story, onFirstPage=hdr_fn, onLaterPages=hdr_fn)
+    buf.seek(0)
+    return buf

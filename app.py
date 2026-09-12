@@ -19,7 +19,7 @@ from datetime import date as date_cls
 warnings.filterwarnings("ignore")
 from i18n import t, IDIOMAS, get_param_label, get_param_desc, get_indice_nombre, get_indice_desc
 from pdf_report_module import (generar_pdf_fecha_unica, generar_pdf_serie_temporal,
-                               generar_pdf_reporte_espectral)
+                               generar_pdf_reporte_espectral, generar_pdf_enso)
 
 # ── Assets ────────────────────────────────────────────────────────────────────
 def _b64(fn):
@@ -3260,6 +3260,87 @@ def _render_enso_section():
                     tooltip='Región Niño 3.4'
                 ).add_to(mapa_enso)
 
+                # ── CSS del panel de capas (inyectado al iframe de Folium) ───────────
+                mapa_enso.get_root().html.add_child(folium.Element("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+.leaflet-control-layers{
+  background:rgba(2,6,14,.97)!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  border-radius:6px!important;
+  box-shadow:0 8px 32px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.05)!important;
+  min-width:218px!important;overflow:hidden!important;
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif!important;
+  position:relative!important;
+}
+.leaflet-control-layers::before{
+  content:'';display:block;height:2px;
+  background:linear-gradient(90deg,rgba(34,211,238,.75),rgba(14,165,233,.35),transparent);
+  position:absolute;top:0;left:0;right:0;z-index:10;pointer-events:none;
+}
+.leaflet-control-layers-toggle{
+  background:rgba(2,6,14,.97)!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  border-radius:6px!important;width:36px!important;height:36px!important;
+}
+.leaflet-control-layers-list{padding:14px 15px 15px!important;margin-top:2px!important}
+.layer-section-label{
+  font-size:9px!important;font-weight:700!important;
+  letter-spacing:.17em!important;text-transform:uppercase!important;
+  color:rgba(34,211,238,.5)!important;
+  margin:8px 0 5px!important;padding-bottom:5px!important;
+  border-bottom:1px solid rgba(255,255,255,.06)!important;
+  display:flex!important;align-items:center!important;gap:6px!important;
+}
+.layer-section-label::before{
+  content:'';display:inline-block;width:2px;height:9px;
+  background:rgba(34,211,238,.65);border-radius:1px;flex-shrink:0;
+}
+.layer-section-label:first-child{margin-top:0!important}
+.leaflet-control-layers label{
+  display:flex!important;align-items:center!important;gap:8px!important;
+  padding:4px 0!important;cursor:pointer!important;
+  color:rgba(255,255,255,.72)!important;
+  font-size:12.5px!important;font-weight:400!important;line-height:1.45!important;
+  font-family:'Inter',-apple-system,sans-serif!important;
+  transition:color .14s!important;
+}
+.leaflet-control-layers label:hover{color:rgba(255,255,255,.96)!important}
+.leaflet-control-layers label input[type=radio],
+.leaflet-control-layers label input[type=checkbox]{
+  accent-color:#22D3EE!important;width:13px!important;height:13px!important;
+  cursor:pointer!important;flex-shrink:0!important;margin:0!important;
+}
+.leaflet-control-layers-separator{
+  border:none!important;border-top:1px solid rgba(255,255,255,.07)!important;
+  margin:5px 0!important;
+}
+.leaflet-control-layers-list::-webkit-scrollbar{width:3px}
+.leaflet-control-layers-list::-webkit-scrollbar-thumb{
+  background:rgba(34,211,238,.3);border-radius:2px}
+</style>
+<script>
+(function(){
+  function addLabels(){
+    var base=document.querySelector('.leaflet-control-layers-base');
+    var ov=document.querySelector('.leaflet-control-layers-overlays');
+    if(base&&!base.querySelector('.layer-section-label')){
+      var l=document.createElement('div');
+      l.className='layer-section-label';l.textContent='Datos del período';
+      base.insertBefore(l,base.firstChild);
+    }
+    if(ov&&!ov.querySelector('.layer-section-label')){
+      var l2=document.createElement('div');
+      l2.className='layer-section-label';l2.textContent='Capas de referencia';
+      ov.insertBefore(l2,ov.firstChild);
+    }
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){setTimeout(addLabels,400)});
+  } else { setTimeout(addLabels,400); }
+})();
+</script>
+"""))
                 folium.LayerControl(collapsed=False, position='topright').add_to(mapa_enso)
                 st_folium(mapa_enso, width="100%", height=500, returned_objects=[])
 
@@ -3267,6 +3348,28 @@ def _render_enso_section():
                   Panel <b>Layers</b> (arriba derecha) para activar/desactivar capas.
                   Basemap: OpenStreetMap · GEE · NOAA CDR OISST v2.1
                 </div>""", unsafe_allow_html=True)
+
+                # ── Descarga de reporte PDF ──────────────────────────────────────────
+                _logo_geo_path = os.path.join(os.path.dirname(__file__), "logo_geomatica.png")
+                _logo_geo_path = _logo_geo_path if os.path.exists(_logo_geo_path) else None
+                _serie = st.session_state.get('enso_serie_cache')
+                try:
+                    _pdf_bytes = generar_pdf_enso(
+                        enso_anio, enso_mes,
+                        serie_cache=_serie if (_serie and len(_serie) > 0) else None,
+                        logo_geo_path=_logo_geo_path
+                    )
+                    st.download_button(
+                        label="Descargar reporte PDF",
+                        data=_pdf_bytes,
+                        file_name=f"SST_ENSO_{enso_anio}_{enso_mes:02d}.pdf",
+                        mime="application/pdf",
+                        key="btn_pdf_enso",
+                        help="Descarga el reporte científico en PDF con análisis SST/ENSO, "
+                             "barras de color, tabla de umbrales y estadísticas históricas."
+                    )
+                except Exception as _pdf_err:
+                    st.warning(f"No se pudo generar el PDF: {_pdf_err}")
             else:
                 st.warning("No se obtuvieron tiles GEE para el período seleccionado.")
         else:
