@@ -2222,6 +2222,92 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
     # cientos de kilómetros).
     m.fit_bounds([[lat_min, lon_min], [lat_max, lon_max]], padding=(20, 20))
 
+    # ── Layer-control styling inyectado directo al iframe de Folium ──────────
+    _lc_css = folium.Element("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+.leaflet-control-layers{
+  background:rgba(2,6,14,.97)!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  border-radius:6px!important;
+  box-shadow:0 8px 32px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.05)!important;
+  min-width:218px!important;
+  overflow:hidden!important;
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif!important;
+  position:relative!important;
+}
+.leaflet-control-layers::before{
+  content:'';display:block;height:2px;
+  background:linear-gradient(90deg,rgba(34,211,238,.75),rgba(14,165,233,.35),transparent);
+  position:absolute;top:0;left:0;right:0;z-index:10;pointer-events:none;
+}
+.leaflet-control-layers-toggle{
+  background:rgba(2,6,14,.97)!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  border-radius:6px!important;width:36px!important;height:36px!important;
+}
+.leaflet-control-layers-list{
+  padding:14px 15px 15px!important;margin-top:2px!important;
+}
+.layer-section-label{
+  font-size:9px!important;font-weight:700!important;
+  letter-spacing:.17em!important;text-transform:uppercase!important;
+  color:rgba(34,211,238,.5)!important;
+  margin:8px 0 5px!important;padding-bottom:5px!important;
+  border-bottom:1px solid rgba(255,255,255,.06)!important;
+  display:flex!important;align-items:center!important;gap:6px!important;
+}
+.layer-section-label::before{
+  content:'';display:inline-block;width:2px;height:9px;
+  background:rgba(34,211,238,.65);border-radius:1px;flex-shrink:0;
+}
+.layer-section-label:first-child{margin-top:0!important}
+.leaflet-control-layers label{
+  display:flex!important;align-items:center!important;gap:8px!important;
+  padding:4px 0!important;cursor:pointer!important;
+  color:rgba(255,255,255,.72)!important;
+  font-size:12.5px!important;font-weight:400!important;line-height:1.45!important;
+  font-family:'Inter',-apple-system,sans-serif!important;
+  transition:color .14s!important;
+}
+.leaflet-control-layers label:hover{color:rgba(255,255,255,.96)!important}
+.leaflet-control-layers label input[type=radio],
+.leaflet-control-layers label input[type=checkbox]{
+  accent-color:#22D3EE!important;width:13px!important;height:13px!important;
+  cursor:pointer!important;flex-shrink:0!important;margin:0!important;
+}
+.leaflet-control-layers-separator{
+  border:none!important;
+  border-top:1px solid rgba(255,255,255,.07)!important;
+  margin:5px 0!important;
+}
+.leaflet-control-layers-list::-webkit-scrollbar{width:3px}
+.leaflet-control-layers-list::-webkit-scrollbar-thumb{
+  background:rgba(34,211,238,.3);border-radius:2px}
+</style>
+<script>
+(function(){
+  function addSectionLabels(){
+    var base=document.querySelector('.leaflet-control-layers-base');
+    var overlay=document.querySelector('.leaflet-control-layers-overlays');
+    if(base&&!base.querySelector('.layer-section-label')){
+      var lbl=document.createElement('div');
+      lbl.className='layer-section-label';lbl.textContent='Visualización';
+      base.insertBefore(lbl,base.firstChild);
+    }
+    if(overlay&&!overlay.querySelector('.layer-section-label')){
+      var lbl2=document.createElement('div');
+      lbl2.className='layer-section-label';lbl2.textContent='Capas de Análisis';
+      overlay.insertBefore(lbl2,overlay.firstChild);
+    }
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){setTimeout(addSectionLabels,400)});
+  } else { setTimeout(addSectionLabels,400); }
+})();
+</script>
+""")
+    m.get_root().html.add_child(_lc_css)
     folium.LayerControl(position="topright", collapsed=False).add_to(m)
     return m
 
