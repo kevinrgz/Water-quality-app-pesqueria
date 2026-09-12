@@ -34,19 +34,19 @@ PHOTO_B64 = _b64("photo_researcher.png")
 # ── Constantes ────────────────────────────────────────────────────────────────
 PARAMS = {
     "P_TOT": dict(label="Fósforo Total", unidad="mg/L", vmin=0, vmax=6, oob=0.684,
-        icon="🧪", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], color="#74c476",
+        icon="P", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], color="#74c476",
         desc="Nutriente clave en eutrofización. Indica descargas de aguas residuales, "
              "efluentes industriales y escorrentía agrícola. Ref. NOM-001: 5 mg/L."),
     "N_NH3": dict(label="N-Amoniaco", unidad="mg/L", vmin=0, vmax=25, oob=0.645,
-        icon="⚗️", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], color="#238b45",
+        icon="NH", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], color="#238b45",
         desc="Forma reducida del nitrógeno. Indicador directo de contaminación orgánica "
              "reciente. Tóxico para fauna acuática. Ref. NOM-001: 25 mg/L."),
     "N_TOT": dict(label="N-Total", unidad="mg/L", vmin=0, vmax=35, oob=0.615,
-        icon="🔬", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], color="#2E8B8B",
+        icon="NT", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], color="#2E8B8B",
         desc="Suma de todas las formas de nitrógeno disuelto. Indicador integral de "
              "carga nitrogenada y riesgo de eutrofización del ecosistema acuático."),
     "N_TOTK": dict(label="N-Total Kjeldahl", unidad="mg/L", vmin=0, vmax=35, oob=0.662,
-        icon="🧫", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], color="#1A4F7A",
+        icon="NK", pal=["#f7fcf5","#c7e9c0","#74c476","#238b45","#005a32"], color="#1A4F7A",
         desc="Nitrógeno orgánico + amoniaco por método Kjeldahl. Estándar internacional "
              "para evaluar carga orgánica y potencial de demanda bioquímica de oxígeno."),
 }
@@ -108,7 +108,7 @@ LANG = st.session_state["lang"]
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 /* ══ TOKENS ══════════════════════════════════════════════════════════════ */
 :root{
@@ -117,9 +117,12 @@ st.markdown("""
   --t3:rgba(255,255,255,.5); --t4:rgba(255,255,255,.35);
   --blue:#0EA5E9; --cyan:#22D3EE; --teal:#14B8A6;
   --ok:#10B981; --warn:#F59E0B; --err:#EF4444;
-  --r:12px; --rl:20px;
+  --r:6px; --rl:10px;
   --f-sans:'Inter',system-ui,-apple-system,sans-serif;
+  --f-serif:'IBM Plex Serif',Georgia,'Times New Roman',serif;
   --f-mono:'JetBrains Mono',ui-monospace,monospace;
+  --border:rgba(255,255,255,.07);
+  --border-accent:rgba(34,211,238,.18);
 }
 
 /* ── BASE ──────────────────────────────────────────────────────────────── */
@@ -282,52 +285,23 @@ body,.stApp{background:var(--bg)!important}
 /* ── LIQUID GLASS (light) ────────────────────────────────────────────────── */
 .lqg{
   position:relative;overflow:hidden;
-  background:rgba(255,255,255,.018);
-  backdrop-filter:blur(4px);
-  -webkit-backdrop-filter:blur(4px);
-  box-shadow:inset 0 1px 1px rgba(255,255,255,.1);
+  background:rgba(255,255,255,.012);
+  border:1px solid var(--border);
 }
-.lqg::before{
-  content:'';position:absolute;inset:0;
-  padding:1.4px;
-  background:linear-gradient(180deg,
-    rgba(255,255,255,.45) 0%,rgba(255,255,255,.15) 20%,
-    transparent 40%,transparent 60%,
-    rgba(255,255,255,.15) 80%,rgba(255,255,255,.45) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;
-  mask-composite:exclude;
-  border-radius:inherit;
-  pointer-events:none;
-}
+.lqg::before{content:none}
 
 /* ── LIQUID GLASS (strong) ───────────────────────────────────────────────── */
 .lqg-s{
   position:relative;overflow:hidden;
-  background:rgba(255,255,255,.025);
-  backdrop-filter:blur(50px);
-  -webkit-backdrop-filter:blur(50px);
-  box-shadow:4px 4px 4px rgba(0,0,0,.06),inset 0 1px 1px rgba(255,255,255,.15);
+  background:rgba(255,255,255,.016);
+  border:1px solid var(--border);
 }
-.lqg-s::before{
-  content:'';position:absolute;inset:0;
-  padding:1.4px;
-  background:linear-gradient(180deg,
-    rgba(255,255,255,.5) 0%,rgba(255,255,255,.2) 20%,
-    transparent 40%,transparent 60%,
-    rgba(255,255,255,.2) 80%,rgba(255,255,255,.5) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;
-  mask-composite:exclude;
-  border-radius:inherit;
-  pointer-events:none;
-}
+.lqg-s::before{content:none}
 
 /* ── SIDEBAR ──────────────────────────────────────────────────────────────── */
 section[data-testid="stSidebar"]{
-  background:rgba(2,6,14,.97)!important;
-  border-right:1px solid rgba(255,255,255,.06)!important;
-  backdrop-filter:blur(20px)!important;
+  background:rgba(2,6,14,.98)!important;
+  border-right:1px solid rgba(255,255,255,.05)!important;
 }
 
 /* ── STREAMLIT NATIVE OVERRIDES ──────────────────────────────────────────── */
@@ -353,25 +327,34 @@ section[data-testid="stSidebar"]{
 .stSlider [data-baseweb="slider"] [role="slider"]{background:rgba(255,255,255,.9)!important}
 .stSlider [data-baseweb="slider"] div[data-testid="stSliderTrackFill"]{background:rgba(255,255,255,.4)!important}
 
-/* Buttons — liquid glass with subtle white */
+/* Buttons — scientific instrument style */
 .stButton>button,.stDownloadButton>button{
-  background:rgba(255,255,255,.1)!important;
-  border:none!important;color:#fff!important;font-weight:600!important;
-  font-size:.85rem!important;letter-spacing:.02em!important;
-  border-radius:40px!important;padding:.55rem 1.4rem!important;
-  transition:all .3s ease!important;
-  backdrop-filter:blur(12px)!important;
-  box-shadow:inset 0 1px 1px rgba(255,255,255,.15),0 2px 12px rgba(0,0,0,.2)!important;
-  position:relative!important;overflow:hidden!important;
+  background:rgba(255,255,255,.06)!important;
+  border:1px solid rgba(255,255,255,.1)!important;color:rgba(255,255,255,.9)!important;
+  font-weight:500!important;font-size:.8rem!important;letter-spacing:.04em!important;
+  border-radius:4px!important;padding:.45rem 1.2rem!important;
+  transition:all .2s ease!important;
+  font-family:var(--f-mono)!important;
+  text-transform:uppercase!important;
 }
 .stButton>button:hover,.stDownloadButton>button:hover{
-  background:rgba(255,255,255,.18)!important;
-  transform:scale(1.04) translateY(-1px)!important;
-  box-shadow:inset 0 1px 1px rgba(255,255,255,.25),0 8px 28px rgba(14,165,233,.3)!important;
+  background:rgba(34,211,238,.08)!important;
+  border-color:rgba(34,211,238,.3)!important;
+  color:#22D3EE!important;
+  transform:none!important;
+}
+.stButton>button[kind="primary"],.stButton>button[data-testid="baseButton-primary"]{
+  background:rgba(14,165,233,.12)!important;
+  border:1px solid rgba(14,165,233,.3)!important;
+  color:rgba(14,165,233,.95)!important;
+}
+.stButton>button[kind="primary"]:hover{
+  background:rgba(14,165,233,.2)!important;
+  border-color:rgba(14,165,233,.5)!important;
 }
 .stButton>button:disabled{
-  background:rgba(255,255,255,.04)!important;color:rgba(255,255,255,.3)!important;
-  box-shadow:none!important;transform:none!important;
+  background:rgba(255,255,255,.02)!important;color:rgba(255,255,255,.2)!important;
+  border-color:rgba(255,255,255,.04)!important;
 }
 
 /* ── HEADER HERO ──────────────────────────────────────────────────────────── */
@@ -441,20 +424,14 @@ section[data-testid="stSidebar"]{
 /* LIVE badge in nav */
 .hdr-live{
   display:inline-flex;align-items:center;gap:5px;margin-left:auto;
-  background:rgba(255,255,255,.06);
-  border-radius:40px;padding:4px 14px;
-  font-family:var(--f-mono)!important;font-size:.6rem;
-  color:rgba(255,255,255,.75);letter-spacing:.12em;
-  position:relative;overflow:hidden;
-  box-shadow:inset 0 1px rgba(255,255,255,.12);
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:4px;padding:3px 12px;
+  font-family:var(--f-mono)!important;font-size:.58rem;
+  color:rgba(255,255,255,.6);letter-spacing:.14em;
+  position:relative;
 }
-.hdr-live::before{
-  content:'';position:absolute;inset:0;padding:1px;
-  background:linear-gradient(180deg,rgba(255,255,255,.35) 0%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.35) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;
-  border-radius:inherit;
-}
+.hdr-live::before{content:none}
 .hdr-live-dot{
   width:6px;height:6px;background:var(--ok);border-radius:50%;
   animation:blink 2.2s ease infinite;flex-shrink:0;
@@ -481,25 +458,19 @@ section[data-testid="stSidebar"]{
   font-family:var(--f-mono)!important;letter-spacing:.02em;
 }
 
-/* PILL TAGS */
-.hdr-pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:1rem;position:relative;z-index:2}
+/* TECH TAGS — scientific style, not pills */
+.hdr-pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:1rem;position:relative;z-index:2}
 .hdr-pill{
-  font-family:var(--f-mono)!important;font-size:.62rem;
-  color:rgba(255,255,255,.75);
-  background:rgba(255,255,255,.06);
-  border-radius:40px;padding:4px 14px;
-  transition:all .25s;cursor:default;
-  box-shadow:inset 0 1px rgba(255,255,255,.1);
-  position:relative;overflow:hidden;
+  font-family:var(--f-mono)!important;font-size:.6rem;
+  color:rgba(255,255,255,.6);
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:3px;padding:3px 10px;
+  transition:border-color .2s,color .2s;cursor:default;
+  letter-spacing:.05em;
 }
-.hdr-pill::before{
-  content:'';position:absolute;inset:0;padding:1px;
-  background:linear-gradient(180deg,rgba(255,255,255,.3) 0%,rgba(255,255,255,.06) 50%,rgba(255,255,255,.3) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;
-  border-radius:inherit;
-}
-.hdr-pill:hover{background:rgba(255,255,255,.12);transform:scale(1.04)}
+.hdr-pill::before{content:none}
+.hdr-pill:hover{border-color:rgba(34,211,238,.25);color:rgba(34,211,238,.8)}
 
 /* META TAGS ROW */
 .hdr-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:.9rem;position:relative;z-index:2}
@@ -525,27 +496,21 @@ section[data-testid="stSidebar"]{
 .hdr-feat-grid{display:flex;gap:10px;flex:0 0 auto}
 .hdr-feat-card{
   flex:1;
-  background:rgba(255,255,255,.018);
-  backdrop-filter:blur(4px);
-  border-radius:20px;padding:1.1rem 1rem;
+  background:rgba(255,255,255,.012);
+  border:1px solid var(--border);
+  border-radius:10px;padding:1rem;
   display:flex;flex-direction:column;gap:8px;
-  transition:all .25s;cursor:default;
-  box-shadow:inset 0 1px rgba(255,255,255,.1);
+  transition:border-color .2s,background .2s;cursor:default;
   position:relative;overflow:hidden;
 }
-.hdr-feat-card::before{
-  content:'';position:absolute;inset:0;padding:1.4px;
-  background:linear-gradient(180deg,rgba(255,255,255,.45) 0%,rgba(255,255,255,.12) 25%,transparent 45%,transparent 55%,rgba(255,255,255,.12) 75%,rgba(255,255,255,.45) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;
-  border-radius:inherit;
-}
-.hdr-feat-card:hover{background:rgba(255,255,255,.03);transform:scale(1.02)}
+.hdr-feat-card::before{content:none}
+.hdr-feat-card:hover{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.12)}
 .hdr-feat-icon{
-  width:36px;height:36px;border-radius:12px;
-  background:rgba(255,255,255,.07);
+  width:32px;height:32px;border-radius:5px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.07);
   display:flex;align-items:center;justify-content:center;
-  color:rgba(255,255,255,.7);
+  color:rgba(255,255,255,.6);
 }
 .hdr-feat-t{font-size:.78rem;font-weight:600;color:rgba(255,255,255,.85)}
 .hdr-feat-s{font-family:var(--f-mono)!important;font-size:.58rem;color:rgba(255,255,255,.45);margin-top:2px}
@@ -553,21 +518,14 @@ section[data-testid="stSidebar"]{
 /* bottom feature card (wide) */
 .hdr-feat-bottom{
   flex:1;
-  background:rgba(255,255,255,.025);
-  backdrop-filter:blur(50px);
-  border-radius:24px;padding:1.1rem 1.3rem;
+  background:rgba(255,255,255,.012);
+  border:1px solid var(--border);
+  border-radius:10px;padding:1rem 1.2rem;
   display:flex;gap:14px;align-items:center;
-  transition:all .25s;
-  box-shadow:4px 4px 4px rgba(0,0,0,.05),inset 0 1px rgba(255,255,255,.15);
+  transition:border-color .2s,background .2s;
   position:relative;overflow:hidden;
 }
-.hdr-feat-bottom::before{
-  content:'';position:absolute;inset:0;padding:1.4px;
-  background:linear-gradient(180deg,rgba(255,255,255,.5) 0%,rgba(255,255,255,.18) 25%,transparent 45%,transparent 55%,rgba(255,255,255,.18) 75%,rgba(255,255,255,.5) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;
-  border-radius:inherit;
-}
+.hdr-feat-bottom::before{content:none}
 .hdr-feat-thumb{
   width:56px;height:56px;border-radius:14px;
   background:linear-gradient(135deg,rgba(14,165,233,.3),rgba(34,211,238,.2));
@@ -588,104 +546,104 @@ section[data-testid="stSidebar"]{
 /* ── LABELS ──────────────────────────────────────────────────────────────── */
 .slabel{
   display:flex;align-items:center;gap:8px;
-  font-family:var(--f-mono)!important;font-size:.6rem;
-  color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.14em;font-weight:700;
+  font-family:var(--f-mono)!important;font-size:.58rem;
+  color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.16em;font-weight:600;
   margin-bottom:.4rem;
 }
-.slabel::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.1),transparent)}
+.slabel::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.06)}
 .sec-t{
-  display:flex;align-items:center;gap:10px;
-  font-family:var(--f-mono)!important;font-size:.63rem;
-  color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.14em;font-weight:700;
-  margin:1.3rem 0 .7rem;
+  display:flex;align-items:center;gap:12px;
+  font-family:var(--f-mono)!important;font-size:.6rem;
+  color:rgba(34,211,238,.5);text-transform:uppercase;letter-spacing:.18em;font-weight:700;
+  margin:1.6rem 0 .8rem;padding-bottom:.5rem;
+  border-bottom:1px solid rgba(255,255,255,.05);
 }
-.sec-t::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.08),transparent)}
+.sec-t::before{
+  content:'';display:inline-block;width:3px;height:12px;
+  background:var(--cyan);border-radius:2px;flex-shrink:0;opacity:.7;
+}
+.sec-t::after{content:none}
 
 /* ── METRIC CARDS ────────────────────────────────────────────────────────── */
 .metric-row{display:flex;gap:10px;margin:1rem 0;flex-wrap:wrap}
 .metric-card{
   flex:1;min-width:140px;
-  background:rgba(255,255,255,.018);backdrop-filter:blur(12px);
+  background:rgba(255,255,255,.012);
+  border:1px solid var(--border);
   border-radius:var(--rl);padding:1.1rem 1.2rem;text-align:center;
-  transition:all .25s;position:relative;overflow:hidden;
-  box-shadow:inset 0 1px rgba(255,255,255,.1);
+  transition:border-color .2s,background .2s;position:relative;overflow:hidden;
 }
-.metric-card::before{
-  content:'';position:absolute;inset:0;padding:1.4px;
-  background:linear-gradient(180deg,rgba(255,255,255,.4) 0%,rgba(255,255,255,.1) 25%,transparent 45%,transparent 55%,rgba(255,255,255,.1) 75%,rgba(255,255,255,.4) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;border-radius:inherit;
-}
-.metric-card:hover{background:rgba(255,255,255,.032);transform:translateY(-2px);box-shadow:inset 0 1px rgba(255,255,255,.15),0 12px 32px rgba(0,0,0,.3)}
+.metric-card::before{content:none}
+.metric-card:hover{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.12)}
 .metric-value{font-family:var(--f-mono)!important;font-size:2rem;font-weight:700;color:rgba(255,255,255,.92);line-height:1.1}
-.metric-label{font-family:var(--f-mono)!important;font-size:.59rem;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.1em;margin-top:4px}
+.metric-label{font-family:var(--f-mono)!important;font-size:.57rem;color:rgba(255,255,255,.38);text-transform:uppercase;letter-spacing:.12em;margin-top:5px}
 .badge-ok{
-  display:inline-block;margin-top:8px;background:rgba(16,185,129,.08);
-  color:rgba(16,185,129,.9);padding:2px 10px;border-radius:20px;
-  font-size:.6rem;font-weight:600;font-family:var(--f-mono)!important;
-  position:relative;overflow:hidden;
-  box-shadow:inset 0 1px rgba(255,255,255,.08);
+  display:inline-block;margin-top:8px;background:rgba(16,185,129,.06);
+  color:rgba(16,185,129,.85);padding:2px 10px;border-radius:3px;
+  font-size:.58rem;font-weight:600;font-family:var(--f-mono)!important;
+  border:1px solid rgba(16,185,129,.15);letter-spacing:.06em;
 }
 
 /* ── MAP PANELS ──────────────────────────────────────────────────────────── */
 .map-panel{
-  background:rgba(255,255,255,.018);backdrop-filter:blur(16px);
+  background:rgba(255,255,255,.015);
+  border:1px solid var(--border);
   border-radius:var(--rl);padding:.9rem 1.1rem;margin-bottom:1rem;
   position:relative;overflow:hidden;
-  box-shadow:inset 0 1px rgba(255,255,255,.1);
 }
-.map-panel::before{
-  content:'';position:absolute;inset:0;padding:1.4px;
-  background:linear-gradient(180deg,rgba(255,255,255,.4) 0%,rgba(255,255,255,.08) 30%,transparent 50%,transparent 70%,rgba(255,255,255,.08) 85%,rgba(255,255,255,.4) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;border-radius:inherit;
+.map-panel::before{content:none}
+.map-panel::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(34,211,238,.15) 40%,transparent);
+  pointer-events:none;
 }
 .map-title{
-  font-family:var(--f-mono)!important;font-size:.62rem;font-weight:700;
-  color:rgba(34,211,238,.8);letter-spacing:.14em;text-transform:uppercase;margin-bottom:.6rem;
+  font-family:var(--f-mono)!important;font-size:.58rem;font-weight:700;
+  color:rgba(34,211,238,.6);letter-spacing:.18em;text-transform:uppercase;
+  margin-bottom:.6rem;display:flex;align-items:center;gap:8px;
 }
-.map-meta{font-size:.7rem;color:rgba(255,255,255,.5);margin-top:.5rem;line-height:1.65;font-family:var(--f-mono)!important}
+.map-title::before{
+  content:'';display:inline-block;width:2px;height:10px;
+  background:rgba(34,211,238,.5);border-radius:1px;flex-shrink:0;
+}
+.map-meta{font-size:.7rem;color:rgba(255,255,255,.45);margin-top:.5rem;line-height:1.7;font-family:var(--f-mono)!important}
 
 /* ── CHIPS ───────────────────────────────────────────────────────────────── */
 .chip{
-  display:inline-block;background:rgba(255,255,255,.06);
-  color:rgba(255,255,255,.7);font-size:.62rem;border-radius:40px;
-  padding:3px 10px;margin:2px;font-family:var(--f-mono)!important;
-  box-shadow:inset 0 1px rgba(255,255,255,.1);
+  display:inline-block;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  color:rgba(255,255,255,.6);font-size:.6rem;border-radius:3px;
+  padding:2px 8px;margin:2px 2px;font-family:var(--f-mono)!important;
+  letter-spacing:.04em;
 }
-.chip-warn{background:rgba(245,158,11,.1);color:rgba(245,158,11,.9)}
-.chip-bad{background:rgba(239,68,68,.08);color:rgba(239,68,68,.9)}
+.chip-warn{background:rgba(245,158,11,.06);border-color:rgba(245,158,11,.2);color:rgba(245,158,11,.85)}
+.chip-bad{background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.18);color:rgba(239,68,68,.85)}
+.chip-ok{background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.18);color:rgba(16,185,129,.85)}
 
 /* ── INFO PANELS ─────────────────────────────────────────────────────────── */
 .info-panel{
-  background:rgba(255,255,255,.016);backdrop-filter:blur(12px);
+  background:rgba(255,255,255,.012);
+  border:1px solid var(--border);
   border-radius:var(--rl);padding:.9rem 1.1rem;margin-bottom:1rem;
-  position:relative;overflow:hidden;box-shadow:inset 0 1px rgba(255,255,255,.08);
+  position:relative;overflow:hidden;
 }
-.info-panel::before{
-  content:'';position:absolute;inset:0;padding:1.4px;
-  background:linear-gradient(180deg,rgba(255,255,255,.35) 0%,rgba(255,255,255,.06) 30%,transparent 50%,transparent 70%,rgba(255,255,255,.06) 85%,rgba(255,255,255,.35) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;border-radius:inherit;
-}
-.info-title{font-family:var(--f-mono)!important;font-size:.62rem;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.6rem}
+.info-panel::before{content:none}
+.info-title{font-family:var(--f-mono)!important;font-size:.58rem;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:.16em;text-transform:uppercase;margin-bottom:.6rem}
 
 /* ── PARAM CARDS ─────────────────────────────────────────────────────────── */
 .param-card{
-  background:rgba(255,255,255,.016);backdrop-filter:blur(12px);
+  background:rgba(255,255,255,.012);
+  border:1px solid var(--border);
+  border-left:2px solid rgba(14,165,233,.2);
   border-radius:var(--rl);padding:1.1rem 1.4rem;margin-bottom:.7rem;
-  transition:all .28s;position:relative;overflow:hidden;
-  box-shadow:inset 0 1px rgba(255,255,255,.08);
+  transition:border-color .2s,background .2s;position:relative;overflow:hidden;
 }
-.param-card::before{
-  content:'';position:absolute;inset:0;padding:1.4px;
-  background:linear-gradient(180deg,rgba(255,255,255,.35) 0%,rgba(255,255,255,.06) 30%,transparent 50%,transparent 70%,rgba(255,255,255,.06) 85%,rgba(255,255,255,.35) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;border-radius:inherit;
-}
+.param-card::before{content:none}
 .param-card:hover{
-  background:rgba(255,255,255,.028);transform:translateY(-1px);
-  box-shadow:inset 0 1px rgba(255,255,255,.14),0 8px 28px rgba(0,0,0,.25);
+  background:rgba(14,165,233,.02);
+  border-left-color:rgba(14,165,233,.5);
+  border-color:rgba(14,165,233,.12);
 }
 .param-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;flex-wrap:wrap;gap:8px}
 .param-name{font-size:.95rem;font-weight:700;color:rgba(255,255,255,.9)}
@@ -702,44 +660,40 @@ section[data-testid="stSidebar"]{
 
 /* ── STEP BOXES ──────────────────────────────────────────────────────────── */
 .step-box{
-  background:rgba(255,255,255,.018);backdrop-filter:blur(12px);
+  background:rgba(255,255,255,.012);
+  border:1px solid var(--border);
+  border-left:2px solid rgba(34,211,238,.25);
   border-radius:var(--rl);padding:1.3rem 1.4rem;
-  position:relative;overflow:hidden;transition:all .3s;
+  position:relative;overflow:hidden;transition:border-color .2s,background .2s;
   animation:fadeUp .5s ease forwards;
-  box-shadow:inset 0 1px rgba(255,255,255,.1);
 }
-.step-box::before{
-  content:'';position:absolute;inset:0;padding:1.4px;
-  background:linear-gradient(180deg,rgba(255,255,255,.42) 0%,rgba(255,255,255,.12) 25%,transparent 45%,transparent 55%,rgba(255,255,255,.12) 75%,rgba(255,255,255,.42) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;border-radius:inherit;
-}
+.step-box::before{content:none}
 .step-box:hover{
-  background:rgba(255,255,255,.03);transform:translateY(-3px);
-  box-shadow:inset 0 1px rgba(255,255,255,.18),0 16px 40px rgba(0,0,0,.35);
+  background:rgba(34,211,238,.03);
+  border-left-color:rgba(34,211,238,.6);
+  border-color:rgba(34,211,238,.15);
 }
 .step-num{
-  font-family:var(--f-mono)!important;font-size:.58rem;font-weight:700;
-  color:rgba(34,211,238,.6);letter-spacing:.14em;text-transform:uppercase;
-  margin-bottom:.6rem;
+  font-family:var(--f-mono)!important;font-size:.55rem;font-weight:700;
+  color:rgba(34,211,238,.45);letter-spacing:.2em;text-transform:uppercase;
+  margin-bottom:.55rem;
 }
-.step-t{font-size:.9rem;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:.5rem}
-.step-b{font-size:.76rem;color:rgba(255,255,255,.5);line-height:1.7}
+.step-t{
+  font-family:var(--f-serif)!important;
+  font-size:.92rem;font-weight:500;color:rgba(255,255,255,.88);
+  margin-bottom:.45rem;line-height:1.3;
+}
+.step-b{font-size:.74rem;color:rgba(255,255,255,.45);line-height:1.75;font-family:var(--f-sans)!important}
 
 /* ── RESEARCHER CARD ─────────────────────────────────────────────────────── */
 .researcher-card{
-  background:rgba(255,255,255,.02);backdrop-filter:blur(20px);
+  background:rgba(255,255,255,.012);
+  border:1px solid var(--border);
   border-radius:var(--rl);padding:1.3rem 1.7rem;
   display:flex;gap:20px;align-items:center;
   position:relative;overflow:hidden;
-  box-shadow:inset 0 1px rgba(255,255,255,.12),4px 4px 4px rgba(0,0,0,.06);
 }
-.researcher-card::before{
-  content:'';position:absolute;inset:0;padding:1.4px;
-  background:linear-gradient(180deg,rgba(255,255,255,.45) 0%,rgba(255,255,255,.12) 25%,transparent 45%,transparent 55%,rgba(255,255,255,.12) 75%,rgba(255,255,255,.45) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;border-radius:inherit;
-}
+.researcher-card::before{content:none}
 .rphoto{
   width:88px;height:88px;border-radius:50%;object-fit:cover;flex-shrink:0;
   box-shadow:0 0 0 2px rgba(255,255,255,.2),0 0 0 6px rgba(255,255,255,.04),0 0 24px rgba(14,165,233,.25);
@@ -764,18 +718,25 @@ section[data-testid="stSidebar"]{
 .rlink:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.9)}
 
 /* ── MISC ────────────────────────────────────────────────────────────────── */
-.divider{border:0;border-top:1px solid rgba(255,255,255,.06);margin:1.2rem 0}
-.footer{text-align:center;font-family:var(--f-mono)!important;font-size:.62rem;color:rgba(255,255,255,.22);margin-top:2rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.05)}
+.divider{border:0;border-top:1px solid rgba(255,255,255,.05);margin:1.4rem 0}
+.footer{
+  font-family:var(--f-mono)!important;font-size:.58rem;color:rgba(255,255,255,.2);
+  margin-top:2.5rem;padding:1.2rem 0;
+  border-top:1px solid rgba(255,255,255,.05);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
+}
+.footer-l{display:flex;align-items:center;gap:16px}
+.footer-r{color:rgba(255,255,255,.12);letter-spacing:.06em}
 
 /* ── STATUS ROW ──────────────────────────────────────────────────────────── */
 .status-row{
   display:flex;align-items:center;gap:10px;flex-wrap:wrap;
   margin-bottom:1.2rem;
-  padding:.7rem 1.1rem;
-  border-radius:12px;
-  background:rgba(255,255,255,.016);
-  border:1px solid rgba(255,255,255,.06);
-  backdrop-filter:blur(12px);
+  padding:.6rem 1rem;
+  border-radius:4px;
+  background:rgba(255,255,255,.008);
+  border:1px solid rgba(255,255,255,.05);
+  border-left:2px solid rgba(16,185,129,.3);
 }
 .status-item{
   display:flex;align-items:center;gap:6px;
@@ -786,27 +747,23 @@ section[data-testid="stSidebar"]{
 .status-dot-warn{width:6px;height:6px;background:var(--warn);border-radius:50%;flex-shrink:0;box-shadow:0 0 6px var(--warn)}
 .status-sep{width:1px;height:14px;background:rgba(255,255,255,.08);flex-shrink:0}
 .status-badge{
-  margin-left:auto;font-family:var(--f-mono)!important;font-size:.58rem;
-  color:rgba(34,211,238,.8);background:rgba(34,211,238,.06);
-  border:1px solid rgba(34,211,238,.12);border-radius:20px;padding:2px 10px;
+  margin-left:auto;font-family:var(--f-mono)!important;font-size:.55rem;
+  color:rgba(34,211,238,.7);background:rgba(34,211,238,.05);
+  border:1px solid rgba(34,211,238,.15);border-radius:3px;padding:2px 9px;
+  letter-spacing:.1em;text-transform:uppercase;
 }
 
 /* ── STAT METRIC CARDS ───────────────────────────────────────────────────── */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:1rem 0}
 .stat-card{
-  background:rgba(255,255,255,.018);backdrop-filter:blur(12px);
-  border-radius:14px;padding:1.2rem 1.4rem;
+  background:rgba(255,255,255,.012);
+  border:1px solid var(--border);
+  border-radius:var(--rl);padding:1.2rem 1.4rem;
   position:relative;overflow:hidden;
-  box-shadow:inset 0 1px rgba(255,255,255,.1);
-  transition:all .25s;
+  transition:border-color .2s,background .2s;
 }
-.stat-card::before{
-  content:'';position:absolute;inset:0;padding:1.4px;
-  background:linear-gradient(180deg,rgba(255,255,255,.38) 0%,rgba(255,255,255,.08) 30%,transparent 50%,transparent 70%,rgba(255,255,255,.08) 85%,rgba(255,255,255,.38) 100%);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;border-radius:inherit;
-}
-.stat-card:hover{background:rgba(255,255,255,.03);transform:translateY(-2px);box-shadow:inset 0 1px rgba(255,255,255,.18),0 12px 32px rgba(0,0,0,.3)}
+.stat-card::before{content:none}
+.stat-card:hover{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.12)}
 .stat-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
 .stat-card-label{font-size:.82rem;font-weight:700;color:rgba(255,255,255,.9)}
 .stat-card-unit{font-family:var(--f-mono)!important;font-size:.6rem;color:rgba(255,255,255,.4);background:rgba(255,255,255,.05);border-radius:20px;padding:2px 8px}
@@ -1163,47 +1120,47 @@ df_global  = load_csv()
 # ── Configuración de capas espectrales disponibles ────────────────────────────
 INDICES_VIZ = {
     "RGB": dict(
-        nombre="📷 RGB (Color natural)",
+        nombre="RGB (Color natural)",
         desc="Composición B4-B3-B2. Vista natural de la escena.",
         vis={"bands": ["B4","B3","B2"], "min": 0, "max": 3000, "gamma": 1.3},
     ),
     "NDVI": dict(
-        nombre="🌿 NDVI (Vegetación)",
+        nombre="NDVI (Vegetación)",
         desc="Detecta vegetación ribereña que puede contaminar el píxel "
              "de agua. Verde=vegetación densa, café=suelo/agua.",
         vis={"min": -0.2, "max": 0.8,
              "palette": ["#a50026","#d73027","#fee08b","#d9ef8b","#66bd63","#1a9850","#006837"]},
     ),
     "NDWI": dict(
-        nombre="💧 NDWI (Índice de Agua)",
+        nombre="NDWI (Índice de Agua)",
         desc="Índice McFeeters. Azul intenso=agua, café=tierra. "
              "Delimita el cuerpo de agua dentro de tu wmask.",
         vis={"min": -0.5, "max": 0.5,
              "palette": ["#8c510a","#d8b365","#f6e8c3","#c7eae5","#5ab4ac","#01665e"]},
     ),
     "MNDWI": dict(
-        nombre="🌊 MNDWI (Agua mejorado)",
+        nombre="MNDWI (Agua mejorado)",
         desc="Índice Xu, mejor para aguas turbias que NDWI estándar. "
              "Recomendado para ríos con alta carga de sedimentos.",
         vis={"min": -0.5, "max": 0.5,
              "palette": ["#7f3b08","#b35806","#fee0b6","#d8daeb","#8073ac","#542788"]},
     ),
     "NDTI": dict(
-        nombre="🟤 NDTI (Turbidez)",
+        nombre="NDTI (Turbidez)",
         desc="Índice de turbidez normalizado. Rojo=alta turbidez, "
              "azul=agua clara. Correlaciona con SST y color del agua.",
         vis={"min": -0.3, "max": 0.3,
              "palette": ["#08519c","#6baed6","#fee5d9","#fc9272","#de2d26","#a50f15"]},
     ),
     "LST": dict(
-        nombre="🌡️ LST (Temperatura Superficial)",
+        nombre="LST (Temperatura Superficial)",
         desc="Temperatura superficial en °C desde Landsat 8/9 Collection 2 (ST_B10), "
              "con downscaling a 10 m vía TsHARP usando NDVI Sentinel-2.",
         vis={"min": 15, "max": 45,
              "palette": ["#313695","#4575b4","#abd9e9","#ffffbf","#fdae61","#d73027","#a50026"]},
     ),
     "NDCI": dict(
-        nombre="🌿 NDCI (Clorofila Red Edge)",
+        nombre="NDCI (Clorofila Red Edge)",
         desc="Normalized Difference Chlorophyll Index. Usa la banda red edge (B5) para "
              "estimar clorofila-a. Verde intenso = eutrofización activa.",
         vis={"min": -0.3, "max": 0.3,
@@ -1211,7 +1168,7 @@ INDICES_VIZ = {
         unidad="adim.",
     ),
     "SABI": dict(
-        nombre="🦠 SABI (Floraciones Algales)",
+        nombre="SABI (Floraciones Algales)",
         desc="Surface Algal Bloom Index. Detecta proliferación de algas y cianobacterias "
              "en superficie. Valores altos indican bloom activo.",
         vis={"min": -0.1, "max": 0.2,
@@ -1219,7 +1176,7 @@ INDICES_VIZ = {
         unidad="adim.",
     ),
     "CDOM": dict(
-        nombre="🟤 CDOM (Mat. Orgánica Disuelta)",
+        nombre="CDOM (Mat. Orgánica Disuelta)",
         desc="Colored Dissolved Organic Matter. Ratio B3/B4 como proxy de materia orgánica "
              "coloreada. Relacionado con DBO y carbono orgánico disuelto.",
         vis={"min": 0.5, "max": 3.0,
@@ -1227,7 +1184,7 @@ INDICES_VIZ = {
         unidad="ratio",
     ),
     "AWEInsh": dict(
-        nombre="💧 AWEInsh (Extracción Agua)",
+        nombre="AWEInsh (Extracción Agua)",
         desc="Automated Water Extraction Index (no shadow). Separa agua de suelo urbano y "
              "sombras con mayor precisión que NDWI estándar. Umbral=0.",
         vis={"min": -0.5, "max": 0.5,
@@ -1235,7 +1192,7 @@ INDICES_VIZ = {
         unidad="adim.",
     ),
     "EVI": dict(
-        nombre="🌱 EVI (Vegetación Mejorado)",
+        nombre="EVI (Vegetación Mejorado)",
         desc="Enhanced Vegetation Index. Corrige efectos de suelo y atmósfera. Mejor que NDVI "
              "en zonas con vegetación densa ribereña. Rango típico 0–1.",
         vis={"min": -0.1, "max": 0.8,
@@ -2207,7 +2164,7 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
 
     if "RGB" in tile_urls:
         folium.TileLayer(tiles=tile_urls["RGB"], attr="GEE — Sentinel-2 SR",
-                         name="📷 RGB (Color natural)", overlay=False,
+                         name="RGB (Color natural)", overlay=False,
                          control=True, show=True).add_to(m)
 
     for idx_name in ["NDVI","NDWI","MNDWI","NDTI","NDCI","SABI","CDOM","AWEInsh","EVI","LST"]:
@@ -2218,24 +2175,24 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
                              control=True, show=False).add_to(m)
     if "JRC" in tile_urls:
         folium.TileLayer(tiles=tile_urls["JRC"], attr="JRC Global Surface Water 1984-2021",
-                         name="🌊 JRC Ocurrencia de Agua (histórico)",
+                         name="JRC Ocurrencia de Agua (histórico)",
                          overlay=True, control=True, show=False).add_to(m)
     if "WorldCover" in tile_urls:
         folium.TileLayer(tiles=tile_urls["WorldCover"], attr="ESA WorldCover 2021",
-                         name="🟩 ESA WorldCover 2021 (Uso de Suelo)",
+                         name="ESA WorldCover 2021 (Uso de Suelo)",
                          overlay=True, control=True, show=False).add_to(m)
 
     folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/"
               "World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        attr="Esri World Imagery", name="🌍 Satélite (referencia actual)",
+        attr="Esri World Imagery", name="Satélite Esri (referencia)",
         overlay=False, control=True, show=(not tile_urls)).add_to(m)
 
-    folium.TileLayer(tiles="OpenStreetMap", name="🗺️ Mapa base",
+    folium.TileLayer(tiles="OpenStreetMap", name="OpenStreetMap",
                      overlay=False, control=True, show=False).add_to(m)
 
     folium.GeoJson(
-        wmask_gdf.__geo_interface__, name="📍 Área de estudio",
+        wmask_gdf.__geo_interface__, name="Área de estudio",
         style_function=lambda x: {"fillColor":"#2E8B8B","color":"#00FFCC",
                                   "weight":2.5,"fillOpacity":0.10}).add_to(m)
 
@@ -3108,7 +3065,7 @@ def _plot_enso_chart(serie_enso):
 def _render_enso_section():
     """Sección ENSO: mapa SST + serie histórica Niño 3.4. Sin shapefile requerido."""
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown("""<div class="sec-t">🌊&nbsp; Variables Climáticas Oceánicas — ENSO · El Niño / La Niña</div>""",
+    st.markdown("""<div class="sec-t">Variables Climáticas Oceánicas — ENSO · El Niño / La Niña</div>""",
                 unsafe_allow_html=True)
     st.markdown("""<div style="font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:16px;line-height:1.6">
       Análisis de la <b style="color:rgba(255,255,255,.7)">Temperatura Superficial del Mar (SST)</b>,
@@ -3120,7 +3077,7 @@ def _render_enso_section():
       En años El Niño la clorofila disminuye; en La Niña aumenta por mayor surgencia.
     </div>""", unsafe_allow_html=True)
 
-    with st.expander("🗺️ Mapa Oceánico SST / Anomalía — selecciona mes y año", expanded=False):
+    with st.expander("Mapa Oceánico — SST / Anomalía / Clorofila-a", expanded=False):
         ec1, ec2 = st.columns([2, 2])
         with ec1:
             import datetime as _dt_enso
@@ -3214,20 +3171,20 @@ def _render_enso_section():
                     fill=True, fill_color='#EF4444', fill_opacity=0.04,
                     popup=folium.Popup('Región Niño 3.4<br>5°N–5°S · 170°W–120°W<br>'
                                        'Umbral El Niño: ≥+0.5°C', max_width=220),
-                    tooltip='📍 Región Niño 3.4'
+                    tooltip='Región Niño 3.4'
                 ).add_to(mapa_enso)
 
                 folium.LayerControl(collapsed=False, position='topright').add_to(mapa_enso)
                 st_folium(mapa_enso, width="100%", height=500, returned_objects=[])
 
-                st.markdown("""<div style="font-size:.7rem;color:rgba(255,255,255,.3);margin-top:4px">
-                  💡 Usa el panel <b>Layers</b> (arriba derecha) para activar/desactivar capas.
+                st.markdown("""<div style="font-size:.65rem;color:rgba(255,255,255,.28);margin-top:4px;font-family:monospace;letter-spacing:.03em">
+                  Panel <b>Layers</b> (arriba derecha) para activar/desactivar capas.
                   Basemap: OpenStreetMap · GEE · NOAA CDR OISST v2.1
                 </div>""", unsafe_allow_html=True)
             else:
                 st.warning("No se obtuvieron tiles GEE para el período seleccionado.")
         else:
-            st.info("🔌 Conecta a Google Earth Engine para visualizar el mapa SST.")
+            st.info("Conecta a Google Earth Engine para visualizar el mapa SST.")
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
     with st.expander("📈 Serie Histórica Índice Niño 3.4 (1982–2025)", expanded=False):
@@ -3239,7 +3196,7 @@ def _render_enso_section():
         if 'enso_serie_cache' not in st.session_state:
             st.session_state.enso_serie_cache = None
 
-        if st.button("🌊 Calcular Índice Niño 3.4", key="btn_enso_calc",
+        if st.button("Calcular Índice Niño 3.4", key="btn_enso_calc",
                      help="Conecta a GEE y calcula la serie 1982-2025"):
             if GEE_OK:
                 with st.spinner("Calculando serie ENSO 1982–2025… puede tomar hasta 60 s."):
@@ -3255,7 +3212,14 @@ def _render_enso_section():
 
 # ── PANTALLA INICIAL ──────────────────────────────────────────────────────────
 if not correr:
-    _step_icons = ["📁", "⚙️", "🗺"]
+    _step_icons = [
+        # Upload / folder
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(34,211,238,.6)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+        # Configure / sliders
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(34,211,238,.6)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="rgba(34,211,238,.15)"/><circle cx="16" cy="12" r="2" fill="rgba(34,211,238,.15)"/><circle cx="10" cy="18" r="2" fill="rgba(34,211,238,.15)"/></svg>',
+        # Map / layers
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(34,211,238,.6)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>',
+    ]
     c1,c2,c3 = st.columns(3)
     for col, paso_num, paso_titulo, paso_texto, paso_icon in zip(
         [c1,c2,c3],
@@ -3267,11 +3231,11 @@ if not correr:
         with col:
             st.markdown(
                 f'<div class="step-box">'
-                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:.7rem">'
-                f'<div style="width:34px;height:34px;border-radius:10px;background:rgba(14,165,233,.1);'
-                f'border:1px solid rgba(14,165,233,.2);display:flex;align-items:center;'
-                f'justify-content:center;font-size:16px;flex-shrink:0">{paso_icon}</div>'
-                f'<div class="step-num" style="margin:0">STEP {paso_num}</div>'
+                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:.8rem">'
+                f'<div style="width:32px;height:32px;border-radius:6px;background:rgba(34,211,238,.05);'
+                f'border:1px solid rgba(34,211,238,.15);display:flex;align-items:center;'
+                f'justify-content:center;flex-shrink:0">{paso_icon}</div>'
+                f'<div class="step-num" style="margin:0">PASO {paso_num}</div>'
                 f'</div>'
                 f'<div class="step-t">{paso_titulo}</div>'
                 f'<div class="step-b">{paso_texto}</div></div>',
@@ -3327,10 +3291,10 @@ if not correr:
                 nubes_real = s2_info.get("nubes_pct", "N/D")
                 st.markdown(f"""
                 <div class="map-meta">
-                  <span class="chip">✅ {n_imgs} {t("imagenes_encontradas", LANG)}</span>
-                  <span class="chip">☁️ {t("nubes_reales", LANG)}: {nubes_real}%</span>
-                  <span class="chip">📅 {fecha_ini.strftime('%d %b')} → {fecha_fin.strftime('%d %b %Y')}</span>
-                  <span class="chip">🧪 {t("muestreo", LANG)}: {fecha_dt.strftime('%d %b %Y')}</span><br>
+                  <span class="chip chip-ok">{n_imgs} {t("imagenes_encontradas", LANG)}</span>
+                  <span class="chip">{t("nubes_reales", LANG)}: {nubes_real}%</span>
+                  <span class="chip">{fecha_ini.strftime('%d %b')} — {fecha_fin.strftime('%d %b %Y')}</span>
+                  <span class="chip">Muestreo: {fecha_dt.strftime('%d %b %Y')}</span><br>
                   {t("capas_disponibles", LANG)}
                 </div></div>""", unsafe_allow_html=True)
 
@@ -3398,9 +3362,9 @@ if not correr:
                                                  key="n_frames_gif")
 
                     dias_rango = (fecha_fin - fecha_ini).days
-                    st.caption(f'📅 {t("gif_rango_actual", LANG)}: {fecha_ini.strftime("%d %b %Y")} → '
+                    st.caption(f'{t("gif_rango_actual", LANG)}: {fecha_ini.strftime("%d %b %Y")} → '
                               f'{fecha_fin.strftime("%d %b %Y")} ({dias_rango} {t("sidebar_dias", LANG)}) · '
-                              f'☁️ {t("gif_nubes", LANG)} < {max_nubes}%')
+                              f'{t("gif_nubes", LANG)} < {max_nubes}%')
 
                     if dias_rango < 30:
                         st.warning(t("gif_rango_corto_warn", LANG))
@@ -3517,17 +3481,17 @@ if not correr:
                                 from scipy.stats import kendalltau as _kt
                                 _tau, _pval = _kt(range(len(vals_ts)), vals_ts)
                                 _dir = ("↑ Ascendente" if _tau > 0 else "↓ Descendente")
-                                _sig = "✅ Significativa" if _pval < 0.05 else "⚠ No significativa"
+                                _sig = "p<0.05 · Significativa" if _pval < 0.05 else "p≥0.05 · No significativa"
                                 _col_dir = "#22D3EE" if _tau > 0 else "#F87171"
                                 st.markdown(
-                                    f'<div style="background:rgba(15,25,40,0.7);border:1px solid '
-                                    f'rgba(34,211,238,0.2);border-radius:8px;padding:10px 14px;margin-top:8px;'
+                                    f'<div style="background:rgba(255,255,255,.02);border:1px solid '
+                                    f'rgba(255,255,255,.07);border-radius:4px;padding:8px 14px;margin-top:8px;'
                                     f'display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
-                                    f'<span style="font-size:11px;color:#94A3B8;font-weight:600">📊 MANN-KENDALL</span>'
-                                    f'<span style="color:{_col_dir};font-weight:700">{_dir}</span>'
-                                    f'<span style="color:#CBD5E1">τ = {_tau:.3f}</span>'
-                                    f'<span style="color:#CBD5E1">p = {_pval:.4f}</span>'
-                                    f'<span style="color:#A7F3D0">{_sig}</span>'
+                                    f'<span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-family:monospace">MANN-KENDALL</span>'
+                                    f'<span style="color:{_col_dir};font-weight:700;font-size:.8rem">{_dir}</span>'
+                                    f'<span style="color:rgba(255,255,255,.5);font-family:monospace;font-size:.75rem">τ = {_tau:.3f}</span>'
+                                    f'<span style="color:rgba(255,255,255,.5);font-family:monospace;font-size:.75rem">p = {_pval:.4f}</span>'
+                                    f'<span style="color:rgba(16,185,129,.7);font-family:monospace;font-size:.72rem">{_sig}</span>'
                                     f'</div>',
                                     unsafe_allow_html=True
                                 )
@@ -3545,7 +3509,7 @@ if not correr:
                 if GEE_OK and wmask_prev is not None:
                     st.markdown('<div class="map-panel" style="margin-top:.6rem">',
                                unsafe_allow_html=True)
-                    st.markdown('<div class="map-title">🌊 Análisis de Cuenca — JRC & WorldCover</div>',
+                    st.markdown('<div class="map-title">Análisis de Cuenca — JRC &amp; WorldCover</div>',
                                unsafe_allow_html=True)
                     st.caption("Análisis integrado de ocurrencia histórica de agua (JRC 1984–2021) "
                                "y uso de suelo (ESA WorldCover 2021) en tu área de estudio.")
@@ -3560,7 +3524,7 @@ if not correr:
                             col_jrc, col_lulc = st.columns(2)
 
                             with col_jrc:
-                                st.markdown("**🌊 JRC Global Surface Water (1984–2021)**")
+                                st.markdown("**JRC Global Surface Water (1984–2021)**")
                                 occ_m  = res_cuenca.get("jrc_ocurrencia_media", None)
                                 occ_mx = res_cuenca.get("jrc_ocurrencia_max", None)
                                 seas   = res_cuenca.get("jrc_estacionalidad", None)
@@ -3576,7 +3540,7 @@ if not correr:
                                     st.info(t("msg_sin_jrc", LANG))
 
                             with col_lulc:
-                                st.markdown("**🗺️ ESA WorldCover 2021 — Uso de Suelo**")
+                                st.markdown("**ESA WorldCover 2021 — Uso de Suelo**")
                                 lulc = res_cuenca.get("lulc", {})
                                 if lulc:
                                     import plotly.graph_objects as go
@@ -3618,7 +3582,7 @@ if not correr:
                 if GEE_OK and wmask_prev is not None:
                     st.markdown('<div class="map-panel" style="margin-top:.6rem">',
                                unsafe_allow_html=True)
-                    st.markdown('<div class="map-title">🔬 Perfil Espectral Interactivo (S2)</div>',
+                    st.markdown('<div class="map-title">Perfil Espectral Interactivo — Sentinel-2</div>',
                                unsafe_allow_html=True)
                     st.caption("Ingresa coordenadas de un punto en tu área de estudio para extraer "
                                "los valores de reflectancia de todas las bandas Sentinel-2.")
@@ -3691,7 +3655,7 @@ if not correr:
                 if GEE_OK and wmask_prev is not None:
                     st.markdown('<div class="map-panel" style="margin-top:.6rem">',
                                unsafe_allow_html=True)
-                    st.markdown('<div class="map-title">⚠️ Mapa de Riesgo de Contaminación (MCDA)</div>',
+                    st.markdown('<div class="map-title">Mapa de Riesgo de Contaminación — MCDA</div>',
                                unsafe_allow_html=True)
                     st.caption("Índice compuesto de riesgo = 0.30·NDCI + 0.25·NDTI + 0.25·CDOM + 0.20·AWEInsh⁻¹ "
                                "(escala 0–1, donde 1 = mayor riesgo potencial de contaminación).")
@@ -3731,9 +3695,9 @@ if not correr:
                                 _rm1, _rm2 = st.columns(2)
                                 _rm_mean = _res_mcda.get("mean") or 0
                                 _rm_max  = _res_mcda.get("max") or 0
-                                _rm_nivel = ("🔴 ALTO" if _rm_mean > 0.65
-                                             else "🟡 MEDIO" if _rm_mean > 0.35
-                                             else "🟢 BAJO")
+                                _rm_nivel = ("ALTO" if _rm_mean > 0.65
+                                             else "MEDIO" if _rm_mean > 0.35
+                                             else "BAJO")
                                 _rm1.metric("Riesgo medio zonal", f"{_rm_mean:.3f}", _rm_nivel)
                                 _rm2.metric("Riesgo máximo", f"{_rm_max:.3f}")
                                 st.info(t("msg_pesos_mcda", LANG))
@@ -3878,13 +3842,17 @@ if not correr:
                 </div></div>""", unsafe_allow_html=True)
             with ci3:
                 st.markdown(f'<div class="info-panel"><div class="info-title">{t("parametros_titulo_corto", LANG)}</div>', unsafe_allow_html=True)
-                ph = "".join(f'<div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">'
-                            f'<span style="color:{PARAMS[p]["color"]}">{PARAMS[p]["icon"]}</span> '
-                            f'<b style="color:#fff">{get_param_label(p, LANG)}</b></div>' for p in params_sel)
+                ph = "".join(f'<div style="font-size:.74rem;color:rgba(255,255,255,.55);line-height:1.9;display:flex;align-items:center;gap:6px">'
+                            f'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:{PARAMS[p]["color"]};flex-shrink:0"></span>'
+                            f'<span style="color:rgba(255,255,255,.85);font-weight:500">{get_param_label(p, LANG)}</span>'
+                            f'<span style="font-family:monospace;font-size:.6rem;color:rgba(255,255,255,.3)">{PARAMS[p]["unidad"]}</span>'
+                            f'</div>' for p in params_sel)
                 st.markdown(ph + "</div>", unsafe_allow_html=True)
     else:
         st.markdown(f"""<div class="empty-state">
-          <div class="empty-icon">🗺️</div>
+          <div class="empty-icon" style="font-size:2.4rem;margin-bottom:1.2rem;opacity:.4">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(34,211,238,.6)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+          </div>
           <div class="empty-title">{t("puntos_titulo", LANG)}</div>
           <div class="empty-sub">{t("sube_wmask_para_ver", LANG)}</div>
           <div class="empty-steps">
@@ -3932,7 +3900,7 @@ if not correr:
                     f"Lat: {lat:.5f}°N<br>Lon: {lon:.5f}°W</span>",
                     max_width=160
                 ),
-                tooltip=f"📍 {nombre}"
+                tooltip=f"{nombre}"
             ).add_to(_mapa_pts)
         # Badge número de punto
         for i, (nombre, (lon, lat)) in enumerate(_pts):
@@ -4026,7 +3994,7 @@ if not correr:
                         st.error(f"Error de conexión: {_ex}")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown(f'<div class="sec-t">🔬&nbsp; {t("parametros_seccion_titulo", LANG)}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sec-t">{t("parametros_seccion_titulo", LANG)}</div>', unsafe_allow_html=True)
     for col,cfg in PARAMS.items():
         label_t = get_param_label(col, LANG)
         desc_t  = get_param_desc(col, LANG)
@@ -4034,7 +4002,7 @@ if not correr:
           <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,{cfg['color']},transparent);border-radius:3px 0 0 3px"></div>
           <div class="param-hdr">
             <div style="display:flex;align-items:center;gap:10px">
-              <div style="width:36px;height:36px;border-radius:10px;background:{cfg['color']}18;border:1px solid {cfg['color']}30;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">{cfg["icon"]}</div>
+              <div style="width:32px;height:32px;border-radius:4px;background:{cfg['color']}12;border:1px solid {cfg['color']}30;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:monospace;color:{cfg['color']};flex-shrink:0">{cfg["icon"]}</div>
               <div class="param-name" style="color:{cfg['color']}">{label_t}</div>
             </div>
             <span class="param-oob">OOB R² = {cfg["oob"]:.3f}</span>
@@ -4043,14 +4011,14 @@ if not correr:
           <div class="param-meta">
             <div class="pmi">{t("param_unidad", LANG)}: <span class="pmv">{cfg["unidad"]}</span></div>
             <div class="pmi">{t("param_rango", LANG)}: <span class="pmv">{cfg["vmin"]}–{cfg["vmax"]} {cfg["unidad"]}</span></div>
-            <div class="pmi">{t("param_estado", LANG)}: <span class="pmv" style="color:rgba(16,185,129,.9)">✓ {t("param_bueno", LANG)}</span></div>
+            <div class="pmi">{t("param_estado", LANG)}: <span class="pmv" style="color:rgba(16,185,129,.9)">{t("param_bueno", LANG)}</span></div>
           </div></div>""", unsafe_allow_html=True)
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
     # ── TABLA DE DATOS HISTÓRICOS EXPORTABLE ──────────────────────────────────
     if df_global is not None:
-        st.markdown(f'<div class="sec-t">📊&nbsp; {t("hist_titulo", LANG)}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="sec-t">{t("hist_titulo", LANG)}</div>', unsafe_allow_html=True)
         _param_cols = [c for c in ["P_TOT","N_NH3","N_TOT","N_TOTK"] if c in df_global.columns]
         _df_show = df_global[["target_date","nombre"] + _param_cols].copy()
         _df_show["target_date"] = pd.to_datetime(_df_show["target_date"]).dt.strftime("%Y-%m-%d")
@@ -4199,11 +4167,17 @@ if not correr:
       <div class="rdept">{t("investigador_depto", LANG)}</div>
       <div class="rlinks">
         <a class="rlink" href="mailto:krodriguezge@uanl.edu.mx">✉ krodriguezge@uanl.edu.mx</a>
-        <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">🔗 ORCID</a>
+        <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">ORCID 0009-0004-3060-8575</a>
       </div></div></div>""", unsafe_allow_html=True)
 
-    st.markdown(f"""<div class="footer">{t("footer_texto", LANG)}</div>""",
-               unsafe_allow_html=True)
+    st.markdown(f"""<div class="footer">
+  <div class="footer-l">
+    <span>Departamento de Geomática · FIME · UANL</span>
+    <span style="color:rgba(255,255,255,.08)">|</span>
+    <span>Water Quality Mapping — Río Pesquería · NL · México</span>
+  </div>
+  <div class="footer-r">GEE · Sentinel-2 SR · RF v3 · {t("footer_texto", LANG)}</div>
+</div>""", unsafe_allow_html=True)
     st.stop()
 
 # ── PROCESAMIENTO ─────────────────────────────────────────────────────────────
@@ -4377,11 +4351,11 @@ st.markdown(f"""<div class="status-row" style="margin-bottom:.8rem">
 st.image(buf_panel,caption=t("panel_caption", LANG),use_column_width=True)
 
 # ── NOM-001 ALERT TABLE ──────────────────────────────────────────────────────
-st.markdown('<div class="sec-t">⚠️&nbsp; Semáforo NOM-001-SEMARNAT-1996 · Valores por punto de muestreo</div>', unsafe_allow_html=True)
+st.markdown('<div class="sec-t">Semáforo NOM-001-SEMARNAT-1996 · Valores por punto de muestreo</div>', unsafe_allow_html=True)
 _nom_cols_active = [c for c in params_sel if c in mapas]
 _leg = '<div class="nom-legend"><div class="nom-leg-item"><div class="nom-leg-dot" style="background:rgba(16,185,129,.8)"></div>OK</div><div class="nom-leg-item"><div class="nom-leg-dot" style="background:rgba(245,158,11,.8)"></div>≥90% límite</div><div class="nom-leg-item"><div class="nom-leg-dot" style="background:rgba(239,68,68,.8)"></div>Excede NOM</div></div>'
 _nom_th = '<th>Punto</th><th>Coordenadas</th>' + "".join(
-    f'<th>{PARAMS[c]["icon"]} {get_param_label(c, LANG)}<br><span style="font-weight:400;color:rgba(255,255,255,.3)">lím. {NOM_LIMITS[c]["lim"]} {PARAMS[c]["unidad"]}</span></th>'
+    f'<th><span style="font-family:monospace;font-size:.7em;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:2px;margin-right:4px">{PARAMS[c]["icon"]}</span>{get_param_label(c, LANG)}<br><span style="font-weight:400;color:rgba(255,255,255,.3)">lím. {NOM_LIMITS[c]["lim"]} {PARAMS[c]["unidad"]}</span></th>'
     for c in _nom_cols_active
 )
 _nom_rows = ""
@@ -4449,7 +4423,7 @@ for param, info in mapas.items():
     _stat_cards_html += f"""<div class="stat-card">
       <div class="stat-glow" style="background:{_col}"></div>
       <div class="stat-card-header">
-        <div class="stat-card-label">{_icon}&nbsp; {label_stat_t}</div>
+        <div class="stat-card-label"><span style="font-family:monospace;font-size:.75em;background:rgba(255,255,255,.07);padding:1px 5px;border-radius:2px;margin-right:5px;color:{_col}">{_icon}</span>{label_stat_t}</div>
         <div class="stat-card-unit">{_unit}</div>
       </div>
       <div class="stat-row">
@@ -4480,9 +4454,15 @@ st.markdown(f"""<div class="researcher-card">
   <div class="rtitle">{t("investigador_cargo", LANG)}</div>
   <div class="rdept">{t("investigador_depto", LANG)}</div>
   <div class="rlinks">
-    <a class="rlink" href="mailto:krodriguezge@uanl.edu.mx">✉ krodriguezge@uanl.edu.mx</a>
-    <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">🔗 ORCID</a>
+    <a class="rlink" href="mailto:krodriguezge@uanl.edu.mx">krodriguezge@uanl.edu.mx</a>
+    <a class="rlink" href="https://orcid.org/0009-0004-3060-8575" target="_blank">ORCID 0009-0004-3060-8575</a>
   </div></div></div>""",unsafe_allow_html=True)
 
-st.markdown(f"""<div class="footer">{t("footer_texto", LANG)}</div>""",
-           unsafe_allow_html=True)
+st.markdown(f"""<div class="footer">
+  <div class="footer-l">
+    <span>Departamento de Geomática · FIME · UANL</span>
+    <span style="color:rgba(255,255,255,.08)">|</span>
+    <span>Water Quality Mapping — Río Pesquería · NL · México</span>
+  </div>
+  <div class="footer-r">GEE · Sentinel-2 SR · RF v3 · {t("footer_texto", LANG)}</div>
+</div>""", unsafe_allow_html=True)
