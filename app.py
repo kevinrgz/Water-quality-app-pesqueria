@@ -3138,7 +3138,7 @@ def _render_enso_section():
             <b>Clorofila:</b><span>0.03</span>
             <div style="width:140px;height:8px;border-radius:3px;background:linear-gradient(to right,#08306b,#2171b5,#6baed6,#74c476,#238b45,#ffeda0,#feb24c)"></div>
             <span>10 mg/m³</span>
-            <span style="color:rgba(255,255,255,.35);font-size:.67rem">(desde 2002 · MODIS)</span>
+            <span style="color:rgba(255,255,255,.35);font-size:.67rem">(2002–2024 · MODIS-Aqua)</span>
           </div>
         </div>""", unsafe_allow_html=True)
 
