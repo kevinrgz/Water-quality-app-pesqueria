@@ -3349,28 +3349,71 @@ def _render_enso_section():
                   Basemap: OpenStreetMap · GEE · NOAA CDR OISST v2.1
                 </div>""", unsafe_allow_html=True)
 
-                # ── Descarga de reporte PDF ──────────────────────────────────────────
+                # ── Reporte PDF con mapa (flujo preparar → descargar) ─────────────
+                _pdf_cache_key = f"enso_pdf_{enso_anio}_{enso_mes}"
                 _logo_geo_path = os.path.join(os.path.dirname(__file__), "logo_geomatica.png")
                 _logo_geo_path = _logo_geo_path if os.path.exists(_logo_geo_path) else None
-                _serie = st.session_state.get('enso_serie_cache')
-                try:
-                    from pdf_report_module import generar_pdf_enso as _gen_pdf_enso
-                    _pdf_bytes = _gen_pdf_enso(
-                        enso_anio, enso_mes,
-                        serie_cache=_serie if (_serie and len(_serie) > 0) else None,
-                        logo_geo_path=_logo_geo_path
-                    )
+
+                if st.button("Preparar reporte PDF con mapa",
+                             key="btn_prep_enso_pdf",
+                             help="Obtiene imágenes del mapa desde GEE (~20-30 s) "
+                                  "y genera el reporte PDF."):
+                    with st.spinner("Generando imágenes del mapa desde GEE…"):
+                        try:
+                            import urllib.request as _ureq
+                            _f_ini = f'{enso_anio}-{enso_mes:02d}-01'
+                            _f_sig = ee.Date(_f_ini).advance(1,'month').format('YYYY-MM-dd').getInfo()
+                            _sst_img = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
+                                          .filterDate(_f_ini, _f_sig).select('sst')
+                                          .map(lambda i: i.multiply(0.01).rename('SST')).mean())
+                            import datetime as _dtp
+                            _clim_end = f'{_dtp.date.today().year+1}-01-01'
+                            _clim_img = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
+                                           .filterDate('1982-01-01', _clim_end).select('sst')
+                                           .filter(ee.Filter.calendarRange(enso_mes, enso_mes, 'month'))
+                                           .map(lambda i: i.multiply(0.01).rename('SST')).mean())
+                            _anom_img = _sst_img.subtract(_clim_img).rename('SST_anom')
+                            _pal_sst  = ['313695','4575b4','74add1','abd9e9','e0f3f8',
+                                         'ffffbf','fee090','fdae61','f46d43','d73027','a50026']
+                            _pal_anom = ['313695','4575b4','74add1','abd9e9','ffffbf',
+                                         'fdae61','f46d43','d73027','a50026']
+                            _region   = ee.Geometry.BBox(-180, -60, 180, 60)
+                            _url_sst  = _sst_img.getThumbURL({
+                                'min':10,'max':32,'palette':_pal_sst,
+                                'dimensions':[900,450],'region':_region,'format':'png'})
+                            _url_anom = _anom_img.getThumbURL({
+                                'min':-4,'max':4,'palette':_pal_anom,
+                                'dimensions':[900,450],'region':_region,'format':'png'})
+                            _buf_sst  = io.BytesIO(_ureq.urlopen(_url_sst,  timeout=30).read())
+                            _buf_anom = io.BytesIO(_ureq.urlopen(_url_anom, timeout=30).read())
+                        except Exception as _thumb_err:
+                            st.warning(f"No se pudo obtener el mapa desde GEE: {_thumb_err}")
+                            _buf_sst = _buf_anom = None
+                    with st.spinner("Generando PDF…"):
+                        try:
+                            from pdf_report_module import generar_pdf_enso as _gen_pdf_enso
+                            _serie = st.session_state.get('enso_serie_cache')
+                            _pdf_b = _gen_pdf_enso(
+                                enso_anio, enso_mes,
+                                serie_cache=_serie if (_serie and len(_serie) > 0) else None,
+                                logo_geo_path=_logo_geo_path,
+                                mapa_sst_buf=_buf_sst,
+                                mapa_anom_buf=_buf_anom
+                            )
+                            st.session_state[_pdf_cache_key] = _pdf_b.read() if hasattr(_pdf_b,'read') else _pdf_b
+                        except Exception as _pdf_err:
+                            st.error(f"Error generando PDF: {_pdf_err}")
+
+                if _pdf_cache_key in st.session_state:
                     st.download_button(
                         label="Descargar reporte PDF",
-                        data=_pdf_bytes,
+                        data=st.session_state[_pdf_cache_key],
                         file_name=f"SST_ENSO_{enso_anio}_{enso_mes:02d}.pdf",
                         mime="application/pdf",
-                        key="btn_pdf_enso",
-                        help="Descarga el reporte científico en PDF con análisis SST/ENSO, "
-                             "barras de color, tabla de umbrales y estadísticas históricas."
+                        key="btn_dl_enso_pdf",
+                        help="Reporte SST/ENSO con mapas, barras de color, "
+                             "tabla de umbrales y estadísticas históricas."
                     )
-                except Exception as _pdf_err:
-                    st.warning(f"No se pudo generar el PDF: {_pdf_err}")
             else:
                 st.warning("No se obtuvieron tiles GEE para el período seleccionado.")
         else:

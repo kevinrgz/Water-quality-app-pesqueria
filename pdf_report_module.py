@@ -1085,18 +1085,21 @@ def generar_pdf_reporte_espectral(info, stats, thumbnails, indices_sel, bbox,
 # =============================================================================
 # FUNCIÓN: PDF de análisis SST / ENSO
 # =============================================================================
-def generar_pdf_enso(anio, mes, serie_cache=None, logo_geo_path=None, lang="es"):
+def generar_pdf_enso(anio, mes, serie_cache=None, logo_geo_path=None, lang="es",
+                     mapa_sst_buf=None, mapa_anom_buf=None):
     """
     Genera un reporte PDF del análisis SST / Fenómeno ENSO.
 
     Parámetros
     ----------
-    anio        : int  — Año del mapa SST analizado.
-    mes         : int  — Mes (1-12) del mapa SST analizado.
-    serie_cache : list[(str, float)] | None
+    anio          : int  — Año del mapa SST analizado.
+    mes           : int  — Mes (1-12) del mapa SST analizado.
+    serie_cache   : list[(str, float)] | None
         Serie histórica Niño 3.4 calculada por GEE;
         cada elemento es (fecha_str, anomalía_°C).
     logo_geo_path : str | None — Ruta al logo de Geomática.
+    mapa_sst_buf  : BytesIO | None — Thumbnail PNG del mapa SST (de GEE).
+    mapa_anom_buf : BytesIO | None — Thumbnail PNG del mapa Anomalía (de GEE).
     """
     _MESES = {1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',
               7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre'}
@@ -1199,6 +1202,14 @@ def generar_pdf_enso(anio, mes, serie_cache=None, logo_geo_path=None, lang="es")
         'SST (°C) — Escala RdYlBu · NOAA OISST v2.1'
     )
     story.append(RLImage(sst_cbar, width=14*cm, height=1.2*cm))
+    if mapa_sst_buf is not None:
+        story.append(Spacer(1, 0.25*cm))
+        mapa_sst_buf.seek(0)
+        story.append(RLImage(mapa_sst_buf, width=15.5*cm, height=7.8*cm))
+        story.append(Paragraph(
+            f"<i>Mapa SST — {mes_nombre} {anio} · NOAA CDR OISST v2.1 · GEE</i>",
+            styles["FootnoteCentro"]
+        ))
     story.append(Spacer(1, 0.4*cm))
 
     # ── 3. ANOMALÍA SST ────────────────────────────────────────────────────────
@@ -1220,6 +1231,14 @@ def generar_pdf_enso(anio, mes, serie_cache=None, logo_geo_path=None, lang="es")
         'Anomalía SST (°C) — Divergente azul-rojo · NOAA OISST v2.1'
     )
     story.append(RLImage(anom_cbar, width=14*cm, height=1.2*cm))
+    if mapa_anom_buf is not None:
+        story.append(Spacer(1, 0.25*cm))
+        mapa_anom_buf.seek(0)
+        story.append(RLImage(mapa_anom_buf, width=15.5*cm, height=7.8*cm))
+        story.append(Paragraph(
+            f"<i>Anomalía SST — {mes_nombre} {anio} · Referencia climatológica 1982–2025 · GEE</i>",
+            styles["FootnoteCentro"]
+        ))
     story.append(Spacer(1, 0.3*cm))
 
     # Tabla de umbrales ENSO
