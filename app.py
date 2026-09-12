@@ -1690,20 +1690,28 @@ def obtener_mapa_sst_gee(anio: int, mes: int):
         tile_anom = anomalia.getMapId({'min':-4,'max':4,'palette':pal_anom}
                              )['tile_fetcher'].url_format
         result = {'SST (°C)': tile_sst, 'Anomalía SST (°C)': tile_anom}
-        # Clorofila MODIS Aqua (disponible desde julio 2002)
+        # Clorofila: MODIS-Aqua (2002-2024) con fallback a VIIRS-Snpp (2012-presente)
         if anio > 2002 or (anio == 2002 and mes >= 7):
             try:
                 pal_chl = ['#08306b','#08519c','#2171b5','#4292c6','#6baed6',
                            '#74c476','#41ab5d','#238b45','#006d2c','#ffeda0','#feb24c']
+                fuente_chl = None
                 chl_col = (ee.ImageCollection('NASA/OCEANDATA/MODIS-Aqua/L3SMI')
                              .filterDate(f_ini, f_sig).select('chlor_a'))
                 if chl_col.size().getInfo() > 0:
-                    chl_img = chl_col.mean()
+                    fuente_chl = ('MODIS-Aqua', chl_col.mean())
+                elif anio >= 2012:
+                    chl_col_v = (ee.ImageCollection('NASA/OCEANDATA/VIIRS-Snpp/L3SMI')
+                                   .filterDate(f_ini, f_sig).select('chlor_a'))
+                    if chl_col_v.size().getInfo() > 0:
+                        fuente_chl = ('VIIRS-Snpp', chl_col_v.mean())
+                if fuente_chl:
+                    nombre_sensor, chl_img = fuente_chl
                     chl_log = chl_img.log10().rename('chl_log')
                     tile_chl = chl_log.getMapId(
                         {'min': -1.5, 'max': 1.0, 'palette': pal_chl}
                     )['tile_fetcher'].url_format
-                    result['Clorofila-a (mg/m³)'] = tile_chl
+                    result[f'Clorofila-a ({nombre_sensor}) mg/m³'] = tile_chl
             except Exception:
                 pass
         return result
@@ -3138,7 +3146,7 @@ def _render_enso_section():
             <b>Clorofila:</b><span>0.03</span>
             <div style="width:140px;height:8px;border-radius:3px;background:linear-gradient(to right,#08306b,#2171b5,#6baed6,#74c476,#238b45,#ffeda0,#feb24c)"></div>
             <span>10 mg/m³</span>
-            <span style="color:rgba(255,255,255,.35);font-size:.67rem">(2002–2024 · MODIS-Aqua)</span>
+            <span style="color:rgba(255,255,255,.35);font-size:.67rem">(2002–hoy · MODIS-Aqua / VIIRS-Snpp)</span>
           </div>
         </div>""", unsafe_allow_html=True)
 
@@ -3173,11 +3181,13 @@ def _render_enso_section():
                     name=f'Anomalía SST {mes_lbl}',
                     overlay=True, show=True, max_native_zoom=9, max_zoom=9, opacity=0.85
                 ).add_to(mapa_enso)
-                if 'Clorofila-a (mg/m³)' in tile_urls_sst:
+                chl_key = next((k for k in tile_urls_sst if k.startswith('Clorofila-a')), None)
+                if chl_key:
+                    sensor_lbl = 'MODIS-Aqua' if 'MODIS' in chl_key else 'VIIRS-Snpp'
                     folium.TileLayer(
-                        tiles=tile_urls_sst['Clorofila-a (mg/m³)'],
-                        attr='GEE · NASA MODIS-Aqua L3SMI',
-                        name=f'Clorofila-a {mes_lbl} (mg/m³)',
+                        tiles=tile_urls_sst[chl_key],
+                        attr=f'GEE · NASA {sensor_lbl} L3SMI',
+                        name=f'Clorofila-a {mes_lbl} · {sensor_lbl}',
                         overlay=True, show=False, max_native_zoom=9, max_zoom=9, opacity=0.88
                     ).add_to(mapa_enso)
 
