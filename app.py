@@ -1674,9 +1674,10 @@ def obtener_mapa_sst_gee(anio: int, mes: int):
         sst_mes = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
                      .filterDate(f_ini, f_sig).select('sst')
                      .map(lambda i: i.multiply(0.01).rename('SST')).mean())
+        import datetime as _dt_m
+        _clim_fin = f'{_dt_m.date.today().year + 1}-01-01'
         clim = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
-                  .filterDate('1982-01-01', ee.Date.fromYMD(
-                      ee.Date(ee.Date.now()).get('year').add(1), 1, 1)).select('sst')
+                  .filterDate('1982-01-01', _clim_fin).select('sst')
                   .filter(ee.Filter.calendarRange(mes, mes, 'month'))
                   .map(lambda i: i.multiply(0.01).rename('SST')).mean())
         anomalia = sst_mes.subtract(clim).rename('SST_anom')
@@ -1689,7 +1690,9 @@ def obtener_mapa_sst_gee(anio: int, mes: int):
         tile_anom = anomalia.getMapId({'min':-4,'max':4,'palette':pal_anom}
                              )['tile_fetcher'].url_format
         return {'SST (°C)': tile_sst, 'Anomalía SST (°C)': tile_anom}
-    except Exception:
+    except Exception as _e:
+        import traceback as _tb
+        print(f"[ENSO map error] {_e}\n{_tb.format_exc()}")
         return {}
 
 
@@ -1714,9 +1717,10 @@ def obtener_eventos_referencia_gee():
             sst_m = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
                        .filterDate(f_ini, f_sig).select('sst')
                        .map(lambda i: i.multiply(0.01).rename('SST')).mean())
+            import datetime as _dt_ref
+            _clim_fin_ref = f'{_dt_ref.date.today().year + 1}-01-01'
             clim  = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
-                       .filterDate('1982-01-01', ee.Date.fromYMD(
-                      ee.Date(ee.Date.now()).get('year').add(1), 1, 1)).select('sst')
+                       .filterDate('1982-01-01', _clim_fin_ref).select('sst')
                        .filter(ee.Filter.calendarRange(mes, mes, 'month'))
                        .map(lambda i: i.multiply(0.01).rename('SST')).mean())
             anom  = sst_m.subtract(clim).rename('SST_anom')
