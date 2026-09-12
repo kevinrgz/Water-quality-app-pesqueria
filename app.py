@@ -2965,62 +2965,84 @@ _MESES_ES = {1:"Enero",2:"Febrero",3:"Marzo",4:"Abril",5:"Mayo",6:"Junio",
              7:"Julio",8:"Agosto",9:"Septiembre",10:"Octubre",11:"Noviembre",12:"Diciembre"}
 
 def _plot_enso_chart(serie_enso):
-    """Genera gráfico matplotlib de anomalía SST Niño 3.4 con clasificación ENSO."""
-    import datetime as _dt
+    """Gráfico Plotly interactivo de anomalía SST Niño 3.4 (hover, zoom, pan)."""
+    import plotly.graph_objects as go
+
     fechas_dt = [pd.to_datetime(f + "-01") for f, _ in serie_enso]
-    anoms_raw  = np.array([a for _, a in serie_enso], dtype=float)
+    anoms_raw = np.array([a for _, a in serie_enso], dtype=float)
+    fechas_str = [f for f, _ in serie_enso]
 
     # Media móvil 3 meses
-    ma3 = np.convolve(anoms_raw, np.ones(3)/3, mode='same')
+    ma3 = pd.Series(anoms_raw).rolling(3, center=True).mean().to_numpy()
 
-    fig, ax = plt.subplots(figsize=(14, 3.8))
-    fig.patch.set_facecolor('#0D1117')
-    ax.set_facecolor('#0D1117')
+    # Colores por punto según fase ENSO
+    colores = ['#EF4444' if v >= 0.5 else '#3B82F6' if v <= -0.5 else '#6B7280'
+               for v in anoms_raw]
+    fases   = ['El Niño' if v >= 0.5 else 'La Niña' if v <= -0.5 else 'Neutral'
+               for v in anoms_raw]
 
-    # Barras coloreadas por fase ENSO
-    for i, (fecha, val) in enumerate(zip(fechas_dt, anoms_raw)):
-        if val >= 0.5:
-            color = (0.86, 0.15, 0.15, 0.75)   # rojo → El Niño
-        elif val <= -0.5:
-            color = (0.16, 0.55, 0.92, 0.75)   # azul → La Niña
-        else:
-            color = (0.45, 0.45, 0.50, 0.55)   # gris → Neutral
-        ax.bar(fecha, val, width=25, color=color, linewidth=0)
+    fig = go.Figure()
 
-    # Línea media móvil 3m
-    ax.plot(fechas_dt, ma3, color='#FFFFFF', linewidth=1.2, alpha=0.85, label='MM 3 meses')
+    # Bandas de fondo ENSO
+    fig.add_hrect(y0=0.5,  y1=3.5,  fillcolor='rgba(239,68,68,0.10)',  line_width=0)
+    fig.add_hrect(y0=-3.5, y1=-0.5, fillcolor='rgba(59,130,246,0.10)', line_width=0)
 
-    # Umbrales
-    ax.axhline(0.5,  color='#EF4444', linewidth=0.7, linestyle='--', alpha=0.6)
-    ax.axhline(-0.5, color='#3B82F6', linewidth=0.7, linestyle='--', alpha=0.6)
-    ax.axhline(0,    color='rgba(255,255,255,0.2)', linewidth=0.5, alpha=0.4)
+    # Línea principal coloreada por fase (un tramo por punto)
+    fig.add_trace(go.Scatter(
+        x=fechas_dt, y=anoms_raw,
+        mode='lines+markers',
+        name='Anomalía SST Niño 3.4',
+        line=dict(width=1.2, color='rgba(100,150,220,0.6)'),
+        marker=dict(size=4, color=colores, line=dict(width=0)),
+        customdata=list(zip(fechas_str, fases)),
+        hovertemplate=(
+            '<b>%{customdata[0]}</b><br>'
+            'Anomalía SST: <b>%{y:.3f}°C</b><br>'
+            'Fase ENSO: <b>%{customdata[1]}</b>'
+            '<extra></extra>'
+        )
+    ))
 
-    ax.set_xlim(fechas_dt[0], fechas_dt[-1])
-    ax.set_ylim(-3.2, 3.2)
-    ax.set_ylabel('Anomalía SST (°C)', color='#8EAAC8', fontsize=9)
-    ax.tick_params(colors='#8EAAC8', labelsize=8)
-    for sp in ax.spines.values():
-        sp.set_edgecolor('#2E8B8B44')
+    # Media móvil 3 meses encima
+    fig.add_trace(go.Scatter(
+        x=fechas_dt, y=ma3,
+        mode='lines',
+        name='MM 3 meses',
+        line=dict(width=2.2, color='#FFFFFF', dash='solid'),
+        opacity=0.85,
+        hovertemplate='MM 3m: <b>%{y:.3f}°C</b><extra></extra>'
+    ))
 
-    # Leyenda manual compacta
-    from matplotlib.patches import Patch
-    leyenda = [
-        Patch(color=(0.86,0.15,0.15,0.75), label='El Niño (≥+0.5°C)'),
-        Patch(color=(0.16,0.55,0.92,0.75), label='La Niña (≤−0.5°C)'),
-        Patch(color=(0.45,0.45,0.50,0.55), label='Neutral'),
-    ]
-    ax.legend(handles=leyenda, loc='upper left', fontsize=7.5,
-              facecolor='#161B22', edgecolor='#2E8B8B44', labelcolor='#8EAAC8')
-    ax.set_title('Índice Niño 3.4 — Anomalía SST · 1982–2025 | NOAA OISST v2.1 · GEE',
-                 color='white', fontsize=9, fontweight='bold')
-    ax.text(0.99, 0.02, 'Región: 5°N–5°S · 170°W–120°W · Media móvil 3 meses',
-            transform=ax.transAxes, fontsize=7, color='#8EAAC8', ha='right', va='bottom')
+    # Líneas de umbral
+    for y_val, color, label in [(0.5, '#EF4444', 'El Niño +0.5°C'),
+                                 (-0.5, '#3B82F6', 'La Niña −0.5°C'),
+                                 (0, 'rgba(255,255,255,0.25)', '')]:
+        fig.add_hline(y=y_val, line_dash='dash' if y_val != 0 else 'dot',
+                      line_color=color, line_width=1,
+                      annotation_text=label if label else '',
+                      annotation_font_color=color,
+                      annotation_position='top right')
 
-    plt.tight_layout()
-    buf_enso = io.BytesIO()
-    fig.savefig(buf_enso, dpi=150, bbox_inches='tight', facecolor='#0D1117')
-    plt.close(fig)
-    st.image(buf_enso, use_column_width=True)
+    fig.update_layout(
+        title=dict(
+            text='Anomalía SST Niño 3.4 — 1982–2025 · NOAA OISST v2.1 · GEE',
+            font=dict(size=13, color='white')
+        ),
+        xaxis=dict(title='Fecha', color='#8EAAC8', gridcolor='rgba(255,255,255,0.07)',
+                   tickformat='%Y-%m'),
+        yaxis=dict(title='Anomalía SST (°C)', color='#8EAAC8',
+                   gridcolor='rgba(255,255,255,0.07)', range=[-3.3, 3.3]),
+        paper_bgcolor='#0D1117',
+        plot_bgcolor='#161B22',
+        font=dict(color='#8EAAC8'),
+        hovermode='x unified',
+        legend=dict(bgcolor='rgba(0,0,0,0.4)', bordercolor='rgba(255,255,255,0.1)',
+                    borderwidth=1, font=dict(size=11)),
+        height=380,
+        margin=dict(l=60, r=20, t=50, b=50),
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
 
     # Tabla de clasificación ENSO
     nino_count = sum(1 for a in anoms_raw if a >= 0.5)
