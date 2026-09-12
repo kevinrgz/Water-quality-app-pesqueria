@@ -1589,6 +1589,106 @@ def obtener_serie_tiempo_gee(bbox, geojson_poligono, indice, fecha_ini_str, fech
         return []
 
 
+# ── ENSO / Variables Climáticas Oceánicas ─────────────────────────────────────
+@st.cache_data(ttl=86400, show_spinner=False)
+def obtener_enso_serie_gee():
+    """
+    Serie histórica Niño 3.4 (anomalía SST) 1982-2025.
+    Fuente: NOAA CDR OISST v2.1 vía GEE.
+    Retorna lista de ('YYYY-MM', anom_float), ordenada cronológicamente.
+    """
+    if not GEE_OK:
+        return []
+    try:
+        inicio = ee.Date('1982-01-01')
+        fin    = ee.Date('2026-01-01')
+        nino34 = ee.Geometry.Rectangle([-170, -5, -120, 5])
+
+        sst_diaria = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
+                        .filterDate(inicio, fin)
+                        .select('sst')
+                        .map(lambda img: img.multiply(0.01).rename('SST')
+                             .copyProperties(img, ['system:time_start'])))
+
+        n_meses = int(fin.difference(inicio, 'month').getInfo())
+        lista_meses = ee.List.sequence(0, n_meses - 1)
+
+        def make_mensual(n):
+            n = ee.Number(n)
+            f = inicio.advance(n, 'month')
+            s = f.advance(1, 'month')
+            return (sst_diaria.filterDate(f, s).mean().rename('SST')
+                    .set({'system:time_start': f.millis(),
+                          'year': f.get('year'), 'month': f.get('month')}))
+
+        sst_mensual = ee.ImageCollection.fromImages(lista_meses.map(make_mensual))
+
+        def make_clim(m):
+            m = ee.Number(m)
+            return (sst_mensual.filter(ee.Filter.eq('month', m)).mean()
+                    .rename('SST_clim').set('month', m))
+
+        climatologia = ee.ImageCollection.fromImages(
+            ee.List.sequence(1, 12).map(make_clim))
+
+        def make_anom(img):
+            mes = ee.Number(img.get('month'))
+            clim = ee.Image(climatologia.filter(ee.Filter.eq('month', mes)).first())
+            return (img.subtract(clim).rename('SST_anom')
+                    .set({'system:time_start': img.get('system:time_start'),
+                          'year': img.get('year'), 'month': img.get('month')}))
+
+        anomalias = sst_mensual.map(make_anom)
+
+        def extraer_nino34(img):
+            val = img.reduceRegion(
+                reducer=ee.Reducer.mean(), geometry=nino34,
+                scale=27830, bestEffort=True, maxPixels=1e9).get('SST_anom')
+            return ee.Feature(None, {
+                'fecha': ee.Date(img.get('system:time_start')).format('YYYY-MM'),
+                'anom': val
+            })
+
+        serie_fc = anomalias.map(extraer_nino34)
+        fechas = serie_fc.aggregate_array('fecha').getInfo()
+        anoms  = serie_fc.aggregate_array('anom').getInfo()
+        return [(f, a) for f, a in zip(fechas, anoms) if a is not None]
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def obtener_mapa_sst_gee(anio: int, mes: int):
+    """
+    Tile URLs para SST y anomalía SST de un mes/año (NOAA OISST v2.1).
+    Anomalía relativa a climatología mensual 1982-2025.
+    """
+    if not GEE_OK:
+        return {}
+    try:
+        f_ini = f'{anio}-{mes:02d}-01'
+        f_sig = ee.Date(f_ini).advance(1, 'month').format('YYYY-MM-dd').getInfo()
+        sst_mes = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
+                     .filterDate(f_ini, f_sig).select('sst')
+                     .map(lambda i: i.multiply(0.01).rename('SST')).mean())
+        clim = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
+                  .filterDate('1982-01-01', '2026-01-01').select('sst')
+                  .filter(ee.Filter.calendarRange(mes, mes, 'month'))
+                  .map(lambda i: i.multiply(0.01).rename('SST')).mean())
+        anomalia = sst_mes.subtract(clim).rename('SST_anom')
+        pal_sst  = ['#313695','#4575b4','#74add1','#abd9e9','#e0f3f8',
+                    '#ffffbf','#fee090','#fdae61','#f46d43','#d73027','#a50026']
+        pal_anom = ['#313695','#4575b4','#74add1','#abd9e9','#ffffbf',
+                    '#fdae61','#f46d43','#d73027','#a50026']
+        tile_sst  = sst_mes.getMapId({'min':10,'max':32,'palette':pal_sst}
+                            )['tile_fetcher'].url_format
+        tile_anom = anomalia.getMapId({'min':-4,'max':4,'palette':pal_anom}
+                             )['tile_fetcher'].url_format
+        return {'SST (°C)': tile_sst, 'Anomalía SST (°C)': tile_anom}
+    except Exception:
+        return {}
+
+
 @st.cache_data(ttl=7200, show_spinner=False)
 @st.cache_data(ttl=3600, show_spinner=False)
 def obtener_mapa_riesgo_gee(bbox, geojson_poligono, fecha_str, max_nubes=30):
@@ -2818,6 +2918,189 @@ with st.sidebar:
     if wmask_zip is None:
         st.warning(t("sidebar_sube_wmask_warn", LANG))
 
+# ── ENSO: nombres de mes y función de renderizado ─────────────────────────────
+_MESES_ES = {1:"Enero",2:"Febrero",3:"Marzo",4:"Abril",5:"Mayo",6:"Junio",
+             7:"Julio",8:"Agosto",9:"Septiembre",10:"Octubre",11:"Noviembre",12:"Diciembre"}
+
+def _plot_enso_chart(serie_enso):
+    """Genera gráfico matplotlib de anomalía SST Niño 3.4 con clasificación ENSO."""
+    import datetime as _dt
+    fechas_dt = [pd.to_datetime(f + "-01") for f, _ in serie_enso]
+    anoms_raw  = np.array([a for _, a in serie_enso], dtype=float)
+
+    # Media móvil 3 meses
+    ma3 = np.convolve(anoms_raw, np.ones(3)/3, mode='same')
+
+    fig, ax = plt.subplots(figsize=(14, 3.8))
+    fig.patch.set_facecolor('#0D1117')
+    ax.set_facecolor('#0D1117')
+
+    # Barras coloreadas por fase ENSO
+    for i, (fecha, val) in enumerate(zip(fechas_dt, anoms_raw)):
+        if val >= 0.5:
+            color = (0.86, 0.15, 0.15, 0.75)   # rojo → El Niño
+        elif val <= -0.5:
+            color = (0.16, 0.55, 0.92, 0.75)   # azul → La Niña
+        else:
+            color = (0.45, 0.45, 0.50, 0.55)   # gris → Neutral
+        ax.bar(fecha, val, width=25, color=color, linewidth=0)
+
+    # Línea media móvil 3m
+    ax.plot(fechas_dt, ma3, color='#FFFFFF', linewidth=1.2, alpha=0.85, label='MM 3 meses')
+
+    # Umbrales
+    ax.axhline(0.5,  color='#EF4444', linewidth=0.7, linestyle='--', alpha=0.6)
+    ax.axhline(-0.5, color='#3B82F6', linewidth=0.7, linestyle='--', alpha=0.6)
+    ax.axhline(0,    color='rgba(255,255,255,0.2)', linewidth=0.5, alpha=0.4)
+
+    ax.set_xlim(fechas_dt[0], fechas_dt[-1])
+    ax.set_ylim(-3.2, 3.2)
+    ax.set_ylabel('Anomalía SST (°C)', color='#8EAAC8', fontsize=9)
+    ax.tick_params(colors='#8EAAC8', labelsize=8)
+    for sp in ax.spines.values():
+        sp.set_edgecolor('#2E8B8B44')
+
+    # Leyenda manual compacta
+    from matplotlib.patches import Patch
+    leyenda = [
+        Patch(color=(0.86,0.15,0.15,0.75), label='El Niño (≥+0.5°C)'),
+        Patch(color=(0.16,0.55,0.92,0.75), label='La Niña (≤−0.5°C)'),
+        Patch(color=(0.45,0.45,0.50,0.55), label='Neutral'),
+    ]
+    ax.legend(handles=leyenda, loc='upper left', fontsize=7.5,
+              facecolor='#161B22', edgecolor='#2E8B8B44', labelcolor='#8EAAC8')
+    ax.set_title('Índice Niño 3.4 — Anomalía SST · 1982–2025 | NOAA OISST v2.1 · GEE',
+                 color='white', fontsize=9, fontweight='bold')
+    ax.text(0.99, 0.02, 'Región: 5°N–5°S · 170°W–120°W · Media móvil 3 meses',
+            transform=ax.transAxes, fontsize=7, color='#8EAAC8', ha='right', va='bottom')
+
+    plt.tight_layout()
+    buf_enso = io.BytesIO()
+    fig.savefig(buf_enso, dpi=150, bbox_inches='tight', facecolor='#0D1117')
+    plt.close(fig)
+    st.image(buf_enso, use_column_width=True)
+
+    # Tabla de clasificación ENSO
+    nino_count = sum(1 for a in anoms_raw if a >= 0.5)
+    nina_count = sum(1 for a in anoms_raw if a <= -0.5)
+    neut_count = len(anoms_raw) - nino_count - nina_count
+    max_nino = max((a for a in anoms_raw if a >= 0.5), default=0.0)
+    min_nina = min((a for a in anoms_raw if a <= -0.5), default=0.0)
+    f_max    = [f for f, a in serie_enso if abs(a - max_nino) < 0.001]
+    f_min    = [f for f, a in serie_enso if abs(a - min_nina) < 0.001]
+    st.markdown(f"""<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
+      <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:1.6rem;font-weight:800;color:#EF4444">{nino_count}</div>
+        <div style="font-size:.7rem;color:rgba(255,255,255,.5)">meses El Niño (≥+0.5°C)</div>
+        <div style="font-size:.65rem;color:#EF4444;margin-top:4px">Pico: {max_nino:.2f}°C · {f_max[0] if f_max else '—'}</div>
+      </div>
+      <div style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:1.6rem;font-weight:800;color:#3B82F6">{nina_count}</div>
+        <div style="font-size:.7rem;color:rgba(255,255,255,.5)">meses La Niña (≤−0.5°C)</div>
+        <div style="font-size:.65rem;color:#3B82F6;margin-top:4px">Pico: {min_nina:.2f}°C · {f_min[0] if f_min else '—'}</div>
+      </div>
+      <div style="background:rgba(107,114,128,.1);border:1px solid rgba(107,114,128,.25);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:1.6rem;font-weight:800;color:rgba(255,255,255,.7)">{neut_count}</div>
+        <div style="font-size:.7rem;color:rgba(255,255,255,.5)">meses Neutral</div>
+        <div style="font-size:.65rem;color:rgba(255,255,255,.4);margin-top:4px">Total analizado: {len(anoms_raw)} meses</div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+
+def _render_enso_section():
+    """Sección ENSO: mapa SST + serie histórica Niño 3.4. Sin shapefile requerido."""
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
+    st.markdown("""<div class="sec-t">🌊&nbsp; Variables Climáticas Oceánicas — ENSO · El Niño / La Niña</div>""",
+                unsafe_allow_html=True)
+    st.markdown("""<div style="font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:16px;line-height:1.6">
+      Análisis de la <b style="color:rgba(255,255,255,.7)">Temperatura Superficial del Mar (SST)</b>
+      y sus anomalías en la región <b style="color:rgba(255,255,255,.7)">Niño 3.4</b>
+      (5°N–5°S · 170°W–120°W). Fuente: NOAA CDR OISST v2.1 · Google Earth Engine.
+      La anomalía positiva (≥+0.5°C) indica <span style="color:#EF4444">El Niño</span>;
+      la negativa (≤−0.5°C) indica <span style="color:#3B82F6">La Niña</span>.
+    </div>""", unsafe_allow_html=True)
+
+    with st.expander("🗺️ Mapa Oceánico SST / Anomalía — selecciona mes y año", expanded=False):
+        ec1, ec2, ec3 = st.columns([2, 2, 3])
+        with ec1:
+            enso_anio = st.slider("Año", 1982, 2025, 1997, key="enso_slider_anio")
+        with ec2:
+            enso_mes = st.selectbox("Mes", list(range(1, 13)), index=11,
+                                    format_func=lambda m: _MESES_ES[m], key="enso_sel_mes")
+        with ec3:
+            enso_capa = st.radio("Capa", ["SST (°C)", "Anomalía SST (°C)"],
+                                 horizontal=True, key="enso_radio_capa")
+
+        if GEE_OK:
+            with st.spinner("Calculando SST via GEE…"):
+                tile_urls_sst = obtener_mapa_sst_gee(enso_anio, enso_mes)
+
+            if tile_urls_sst:
+                mapa_enso = folium.Map(location=[0, -150], zoom_start=3,
+                                       tiles=None, max_bounds=False)
+                folium.TileLayer(
+                    tiles='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                    attr='&copy; CartoDB', name='Dark', control=False
+                ).add_to(mapa_enso)
+                capa_key = enso_capa if enso_capa in tile_urls_sst else list(tile_urls_sst.keys())[0]
+                folium.TileLayer(
+                    tiles=tile_urls_sst[capa_key],
+                    attr='GEE · NOAA OISST v2.1',
+                    name=capa_key, overlay=False,
+                    max_native_zoom=9, max_zoom=9, opacity=0.85
+                ).add_to(mapa_enso)
+                folium.Rectangle(
+                    bounds=[[-5, -170], [5, -120]],
+                    color='#EF4444', weight=2, fill=False,
+                    popup=folium.Popup('Región Niño 3.4<br>5°N–5°S · 170°W–120°W', max_width=200),
+                    tooltip='Región Niño 3.4'
+                ).add_to(mapa_enso)
+                # Colorbars como HTML flotantes
+                if enso_capa == "Anomalía SST (°C)":
+                    cbar_html = """<div style="position:relative;margin:6px 0 2px;display:flex;align-items:center;gap:10px;font-size:.72rem;color:rgba(255,255,255,.6)">
+                      <span>−4°C</span>
+                      <div style="flex:1;height:10px;border-radius:4px;background:linear-gradient(to right,#313695,#4575b4,#74add1,#abd9e9,#ffffbf,#fdae61,#f46d43,#d73027,#a50026)"></div>
+                      <span>+4°C</span>
+                      <span style="margin-left:4px;color:rgba(255,255,255,.35)">Anomalía SST</span>
+                    </div>"""
+                else:
+                    cbar_html = """<div style="position:relative;margin:6px 0 2px;display:flex;align-items:center;gap:10px;font-size:.72rem;color:rgba(255,255,255,.6)">
+                      <span>10°C</span>
+                      <div style="flex:1;height:10px;border-radius:4px;background:linear-gradient(to right,#313695,#4575b4,#74add1,#abd9e9,#e0f3f8,#ffffbf,#fee090,#fdae61,#f46d43,#d73027,#a50026)"></div>
+                      <span>32°C</span>
+                      <span style="margin-left:4px;color:rgba(255,255,255,.35)">SST</span>
+                    </div>"""
+                st.markdown(cbar_html, unsafe_allow_html=True)
+                st_folium(mapa_enso, width="100%", height=400, returned_objects=[])
+            else:
+                st.warning("No se obtuvieron tiles GEE para el período seleccionado.")
+        else:
+            st.info("🔌 Conecta a Google Earth Engine para visualizar el mapa SST.")
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    with st.expander("📈 Serie Histórica Índice Niño 3.4 (1982–2025)", expanded=False):
+        st.markdown("""<div style="font-size:.78rem;color:rgba(255,255,255,.4);margin-bottom:12px">
+          El cálculo incluye ~528 imágenes mensuales. La primera carga puede tomar ~30–60 s;
+          el resultado se almacena en caché 24 h.
+        </div>""", unsafe_allow_html=True)
+
+        if 'enso_serie_cache' not in st.session_state:
+            st.session_state.enso_serie_cache = None
+
+        if st.button("🌊 Calcular Índice Niño 3.4", key="btn_enso_calc",
+                     help="Conecta a GEE y calcula la serie 1982-2025"):
+            if GEE_OK:
+                with st.spinner("Calculando serie ENSO 1982–2025… puede tomar hasta 60 s."):
+                    st.session_state.enso_serie_cache = obtener_enso_serie_gee()
+            else:
+                st.error("GEE no disponible. Verifica las credenciales en los secretos de la app.")
+
+        if st.session_state.enso_serie_cache:
+            _plot_enso_chart(st.session_state.enso_serie_cache)
+        elif st.session_state.enso_serie_cache is not None and len(st.session_state.enso_serie_cache) == 0:
+            st.error("No se pudieron obtener datos ENSO de GEE.")
+
+
 # ── PANTALLA INICIAL ──────────────────────────────────────────────────────────
 if not correr:
     _step_icons = ["📁", "⚙️", "🗺"]
@@ -3751,6 +4034,8 @@ if not correr:
             except Exception as e:
                 st.error(f'{t("serie_error", LANG)} {e}')
 
+    _render_enso_section()
+
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
     st.markdown(f'<div class="sec-t">{t("investigador_titulo", LANG)}</div>', unsafe_allow_html=True)
@@ -4032,6 +4317,8 @@ for param, info in mapas.items():
     </div>"""
 _stat_cards_html += '</div>'
 st.markdown(_stat_cards_html, unsafe_allow_html=True)
+
+_render_enso_section()
 
 st.markdown('<hr class="divider">',unsafe_allow_html=True)
 st.markdown(f'<div class="sec-t">{t("investigador_titulo", LANG)}</div>',unsafe_allow_html=True)
