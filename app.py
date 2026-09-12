@@ -1600,8 +1600,11 @@ def obtener_enso_serie_gee():
     if not GEE_OK:
         return []
     try:
+        import datetime as _dt
+        _hoy = _dt.date.today()
         inicio = ee.Date('1982-01-01')
-        fin    = ee.Date('2026-01-01')
+        # Fin = primer día del mes siguiente al actual para incluir datos recientes
+        fin    = ee.Date(f'{_hoy.year}-{_hoy.month:02d}-01').advance(1, 'month')
         nino34 = ee.Geometry.Rectangle([-170, -5, -120, 5])
 
         sst_diaria = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
@@ -1672,7 +1675,8 @@ def obtener_mapa_sst_gee(anio: int, mes: int):
                      .filterDate(f_ini, f_sig).select('sst')
                      .map(lambda i: i.multiply(0.01).rename('SST')).mean())
         clim = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
-                  .filterDate('1982-01-01', '2026-01-01').select('sst')
+                  .filterDate('1982-01-01', ee.Date.fromYMD(
+                      ee.Date(ee.Date.now()).get('year').add(1), 1, 1)).select('sst')
                   .filter(ee.Filter.calendarRange(mes, mes, 'month'))
                   .map(lambda i: i.multiply(0.01).rename('SST')).mean())
         anomalia = sst_mes.subtract(clim).rename('SST_anom')
@@ -1711,7 +1715,8 @@ def obtener_eventos_referencia_gee():
                        .filterDate(f_ini, f_sig).select('sst')
                        .map(lambda i: i.multiply(0.01).rename('SST')).mean())
             clim  = (ee.ImageCollection('NOAA/CDR/OISST/V2_1')
-                       .filterDate('1982-01-01', '2026-01-01').select('sst')
+                       .filterDate('1982-01-01', ee.Date.fromYMD(
+                      ee.Date(ee.Date.now()).get('year').add(1), 1, 1)).select('sst')
                        .filter(ee.Filter.calendarRange(mes, mes, 'month'))
                        .map(lambda i: i.multiply(0.01).rename('SST')).mean())
             anom  = sst_m.subtract(clim).rename('SST_anom')
@@ -3087,7 +3092,9 @@ def _render_enso_section():
     with st.expander("🗺️ Mapa Oceánico SST / Anomalía — selecciona mes y año", expanded=False):
         ec1, ec2 = st.columns([2, 2])
         with ec1:
-            enso_anio = st.slider("Año", 1982, 2025, 1997, key="enso_slider_anio")
+            import datetime as _dt_enso
+            _anio_max = _dt_enso.date.today().year
+            enso_anio = st.slider("Año", 1982, _anio_max, 1997, key="enso_slider_anio")
         with ec2:
             enso_mes = st.selectbox("Mes", list(range(1, 13)), index=11,
                                     format_func=lambda m: _MESES_ES[m], key="enso_sel_mes")
