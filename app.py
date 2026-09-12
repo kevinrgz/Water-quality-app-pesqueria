@@ -1689,7 +1689,24 @@ def obtener_mapa_sst_gee(anio: int, mes: int):
                             )['tile_fetcher'].url_format
         tile_anom = anomalia.getMapId({'min':-4,'max':4,'palette':pal_anom}
                              )['tile_fetcher'].url_format
-        return {'SST (°C)': tile_sst, 'Anomalía SST (°C)': tile_anom}
+        result = {'SST (°C)': tile_sst, 'Anomalía SST (°C)': tile_anom}
+        # Clorofila MODIS Aqua (disponible desde julio 2002)
+        if anio > 2002 or (anio == 2002 and mes >= 7):
+            try:
+                pal_chl = ['#08306b','#08519c','#2171b5','#4292c6','#6baed6',
+                           '#74c476','#41ab5d','#238b45','#006d2c','#ffeda0','#feb24c']
+                chl_col = (ee.ImageCollection('NASA/OCEANDATA/MODIS-Aqua/L3SMI')
+                             .filterDate(f_ini, f_sig).select('chlor_a'))
+                if chl_col.size().getInfo() > 0:
+                    chl_img = chl_col.mean()
+                    chl_log = chl_img.log10().rename('chl_log')
+                    tile_chl = chl_log.getMapId(
+                        {'min': -1.5, 'max': 1.0, 'palette': pal_chl}
+                    )['tile_fetcher'].url_format
+                    result['Clorofila-a (mg/m³)'] = tile_chl
+            except Exception:
+                pass
+        return result
     except Exception as _e:
         import traceback as _tb
         print(f"[ENSO map error] {_e}\n{_tb.format_exc()}")
@@ -3086,11 +3103,13 @@ def _render_enso_section():
     st.markdown("""<div class="sec-t">🌊&nbsp; Variables Climáticas Oceánicas — ENSO · El Niño / La Niña</div>""",
                 unsafe_allow_html=True)
     st.markdown("""<div style="font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:16px;line-height:1.6">
-      Análisis de la <b style="color:rgba(255,255,255,.7)">Temperatura Superficial del Mar (SST)</b>
-      y sus anomalías en la región <b style="color:rgba(255,255,255,.7)">Niño 3.4</b>
-      (5°N–5°S · 170°W–120°W). Fuente: NOAA CDR OISST v2.1 · Google Earth Engine.
+      Análisis de la <b style="color:rgba(255,255,255,.7)">Temperatura Superficial del Mar (SST)</b>,
+      sus anomalías y la <b style="color:rgba(255,255,255,.7)">Clorofila-a</b> oceánica en la región
+      <b style="color:rgba(255,255,255,.7)">Niño 3.4</b> (5°N–5°S · 170°W–120°W).
+      Fuente: NOAA CDR OISST v2.1 · NASA MODIS-Aqua · Google Earth Engine.
       La anomalía positiva (≥+0.5°C) indica <span style="color:#EF4444">El Niño</span>;
       la negativa (≤−0.5°C) indica <span style="color:#3B82F6">La Niña</span>.
+      En años El Niño la clorofila disminuye; en La Niña aumenta por mayor surgencia.
     </div>""", unsafe_allow_html=True)
 
     with st.expander("🗺️ Mapa Oceánico SST / Anomalía — selecciona mes y año", expanded=False):
@@ -3103,7 +3122,7 @@ def _render_enso_section():
             enso_mes = st.selectbox("Mes", list(range(1, 13)), index=11,
                                     format_func=lambda m: _MESES_ES[m], key="enso_sel_mes")
 
-        # Colorbars (ambas siempre visibles)
+        # Colorbars
         st.markdown("""<div style="display:flex;gap:24px;margin:4px 0 8px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:8px;font-size:.71rem;color:rgba(255,255,255,.55)">
             <b>SST:</b><span>10°C</span>
@@ -3114,6 +3133,12 @@ def _render_enso_section():
             <b>Anomalía:</b><span style="color:#4575b4">−4°C</span>
             <div style="width:160px;height:8px;border-radius:3px;background:linear-gradient(to right,#313695,#4575b4,#74add1,#abd9e9,#ffffbf,#fdae61,#f46d43,#d73027,#a50026)"></div>
             <span style="color:#a50026">+4°C</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:.71rem;color:rgba(255,255,255,.55)">
+            <b>Clorofila:</b><span>0.03</span>
+            <div style="width:140px;height:8px;border-radius:3px;background:linear-gradient(to right,#08306b,#2171b5,#6baed6,#74c476,#238b45,#ffeda0,#feb24c)"></div>
+            <span>10 mg/m³</span>
+            <span style="color:rgba(255,255,255,.35);font-size:.67rem">(desde 2002 · MODIS)</span>
           </div>
         </div>""", unsafe_allow_html=True)
 
@@ -3148,6 +3173,13 @@ def _render_enso_section():
                     name=f'Anomalía SST {mes_lbl}',
                     overlay=True, show=True, max_native_zoom=9, max_zoom=9, opacity=0.85
                 ).add_to(mapa_enso)
+                if 'Clorofila-a (mg/m³)' in tile_urls_sst:
+                    folium.TileLayer(
+                        tiles=tile_urls_sst['Clorofila-a (mg/m³)'],
+                        attr='GEE · NASA MODIS-Aqua L3SMI',
+                        name=f'Clorofila-a {mes_lbl} (mg/m³)',
+                        overlay=True, show=False, max_native_zoom=9, max_zoom=9, opacity=0.88
+                    ).add_to(mapa_enso)
 
                 # ── Capas de referencia histórica ──
                 ref_config = {
