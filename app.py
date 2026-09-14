@@ -17,10 +17,22 @@ import ee
 import imageio.v2 as imageio
 from datetime import date as date_cls
 warnings.filterwarnings("ignore")
+import importlib, sys
+
+# Streamlit Cloud re-ejecuta app.py tras un git pull pero puede conservar la versión vieja de estos módulos
+_LOCAL_MODULES = ("i18n", "pdf_report_module")
+_recargar = False
+for _nombre in _LOCAL_MODULES:
+    _mod = sys.modules.get(_nombre)
+    if _mod is not None and (_recargar or getattr(_mod, "_src_mtime", None) != os.path.getmtime(_mod.__file__)):
+        importlib.reload(_mod)
+        _recargar = True
 from i18n import (t, IDIOMAS, get_param_label, get_param_desc, get_indice_nombre, get_indice_desc,
                   mes_nombre, mes_abrev, fecha_corta)
 from pdf_report_module import (generar_pdf_fecha_unica, generar_pdf_serie_temporal,
                                generar_pdf_reporte_espectral)
+for _nombre in _LOCAL_MODULES:
+    sys.modules[_nombre]._src_mtime = os.path.getmtime(sys.modules[_nombre].__file__)
 
 # ── Assets ────────────────────────────────────────────────────────────────────
 def _b64(fn):
