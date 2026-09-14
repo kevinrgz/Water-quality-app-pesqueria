@@ -17,7 +17,8 @@ import ee
 import imageio.v2 as imageio
 from datetime import date as date_cls
 warnings.filterwarnings("ignore")
-from i18n import t, IDIOMAS, get_param_label, get_param_desc, get_indice_nombre, get_indice_desc
+from i18n import (t, IDIOMAS, get_param_label, get_param_desc, get_indice_nombre, get_indice_desc,
+                  mes_nombre, mes_abrev, fecha_corta)
 from pdf_report_module import (generar_pdf_fecha_unica, generar_pdf_serie_temporal,
                                generar_pdf_reporte_espectral)
 
@@ -99,12 +100,16 @@ def make_cmap(pal):
 
 
 # ── Page config ───────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Water Quality RF — Río Pesquería", page_icon="💧", layout="wide")
-
 # ── Estado del idioma (debe inicializarse antes de cualquier texto) ──────────
 if "lang" not in st.session_state:
     st.session_state["lang"] = "es"
 LANG = st.session_state["lang"]
+st.set_page_config(page_title=f"Water Quality RF — {t('rio_pesqueria', LANG)}", page_icon="💧", layout="wide")
+
+
+def _punto_lbl(nombre):
+    return nombre.replace("Punto_", f"{t('hist_col_punto', LANG)} ")
+
 
 st.markdown("""
 <style>
@@ -1291,7 +1296,7 @@ def obtener_datos_reporte_espectral(bbox, fecha_ini_str, fecha_fin_str, max_nube
 
         img_ref = coll.first()
         props   = img_ref.getInfo().get("properties", {})
-        fecha_real = props.get("PRODUCT_ID", "")[7:15] if "PRODUCT_ID" in props else "N/D"
+        fecha_real = props.get("PRODUCT_ID", "")[7:15] if "PRODUCT_ID" in props else "—"
         nubes_pct  = props.get("CLOUDY_PIXEL_PERCENTAGE", None)
 
         # Composite mediana con máscara de nubes píxel a píxel (QA60)
@@ -1409,7 +1414,7 @@ def buscar_imagen_s2(bbox, fecha_ini_str, fecha_fin_str, max_nubes,
         # Metadatos de referencia desde la imagen con menos nubes
         img_ref   = coll.first()
         props     = img_ref.getInfo().get("properties", {})
-        fecha_real = props.get("PRODUCT_ID", "")[7:15] if "PRODUCT_ID" in props else "N/D"
+        fecha_real = props.get("PRODUCT_ID", "")[7:15] if "PRODUCT_ID" in props else "—"
         nubes_pct  = props.get("CLOUDY_PIXEL_PERCENTAGE", None)
 
         # Composite mediana con máscara de nubes píxel a píxel (QA60).
@@ -1713,11 +1718,7 @@ def obtener_eventos_referencia_gee():
         sst97, anom97 = _tiles_mes(1997, 12)
         _,     anom98 = _tiles_mes(1998, 12)
 
-        return {
-            'SST Dic 1997': sst97,
-            'Anomalía Dic 1997 (El Niño)': anom97,
-            'Anomalía Dic 1998 (La Niña)': anom98,
-        }
+        return {'sst97': sst97, 'anom97': anom97, 'anom98': anom98}
     except Exception:
         return {}
 
@@ -1846,18 +1847,14 @@ def obtener_analisis_cuenca_gee(bbox, geojson_poligono=None):
         # ── ESA WorldCover 2021 ───────────────────────────────────────────────
         try:
             wc = ee.ImageCollection("ESA/WorldCover/v200").first().clip(geom)
-            clases = {
-                10: "Árboles", 20: "Arbustos", 30: "Pastizal", 40: "Cultivos",
-                50: "Zona urbana", 60: "Suelo desnudo", 70: "Nieve/Hielo",
-                80: "Agua permanente", 90: "Humedales", 95: "Manglar", 100: "Musgo/Liquen"
-            }
             hist = wc.reduceRegion(
                 reducer=ee.Reducer.frequencyHistogram(),
                 geometry=geom, scale=10, maxPixels=1e9).getInfo()
             raw = hist.get("Map", {})
             total = sum(raw.values()) if raw else 1
+            # Claves = código de clase WorldCover; el nombre se traduce al mostrarlo
             lulc_pct = {
-                clases.get(int(k), f"Clase {k}"): round(v / total * 100, 1)
+                int(k): round(v / total * 100, 1)
                 for k, v in raw.items() if v > 0
             }
             lulc_ordenado = dict(sorted(lulc_pct.items(), key=lambda x: -x[1]))
@@ -2037,7 +2034,7 @@ def obtener_url_descarga_tiff(_bbox, fecha_ini_str, fecha_fin_str, max_nubes, in
 
 
 def generar_gif_sentinel2(capa_key, bbox, fecha_ini, fecha_fin, max_nubes,
-                          n_frames_max=8, wmask_gdf=None):
+                          n_frames_max=8, wmask_gdf=None, lang="es"):
     """
     Genera un GIF animado a partir de imágenes Sentinel-2 reales (RGB o índice
     espectral), descargando una imagen representativa por cada sub-período
@@ -2087,9 +2084,9 @@ def generar_gif_sentinel2(capa_key, bbox, fecha_ini, fecha_fin, max_nubes,
             fecha_real_str = props.get("PRODUCT_ID", "")[7:15]
             img = coll.sort("CLOUDY_PIXEL_PERCENTAGE", False).mosaic().clip(geom)
             try:
-                fecha_legible = pd.to_datetime(fecha_real_str, format="%Y%m%d").strftime("%d %b %Y")
+                fecha_legible = fecha_corta(pd.to_datetime(fecha_real_str, format="%Y%m%d"), lang)
             except Exception:
-                fecha_legible = f"{sub_ini} a {sub_fin}"
+                fecha_legible = f"{sub_ini} – {sub_fin}"
 
             if capa_key == "RGB":
                 img_vis = img
@@ -2116,7 +2113,7 @@ def generar_gif_sentinel2(capa_key, bbox, fecha_ini, fecha_fin, max_nubes,
             if wmask_gdf is not None:
                 wmask_gdf.boundary.plot(ax=ax_f, color="#00FFCC", linewidth=1.3, alpha=0.85)
 
-            ax_f.set_title(f"{cfg['nombre']}\n{fecha_legible}",
+            ax_f.set_title(f"{get_indice_nombre(capa_key, lang, plain=True)}\n{fecha_legible}",
                            color="white", fontsize=12, fontweight="bold")
             ax_f.set_xticks([]); ax_f.set_yticks([])
             for sp in ax_f.spines.values(): sp.set_edgecolor("#2E8B8B44")
@@ -2164,35 +2161,35 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
 
     if "RGB" in tile_urls:
         folium.TileLayer(tiles=tile_urls["RGB"], attr="GEE — Sentinel-2 SR",
-                         name="RGB (Color natural)", overlay=False,
+                         name=get_indice_nombre("RGB", LANG, plain=True), overlay=False,
                          control=True, show=True).add_to(m)
 
     for idx_name in ["NDVI","NDWI","MNDWI","NDTI","NDCI","SABI","CDOM","AWEInsh","EVI","LST"]:
         if idx_name in tile_urls:
             cfg = INDICES_VIZ[idx_name]
             folium.TileLayer(tiles=tile_urls[idx_name], attr="GEE — Sentinel-2 SR",
-                             name=cfg["nombre"], overlay=False,
+                             name=get_indice_nombre(idx_name, LANG, plain=True), overlay=False,
                              control=True, show=False).add_to(m)
     if "JRC" in tile_urls:
         folium.TileLayer(tiles=tile_urls["JRC"], attr="JRC Global Surface Water 1984-2021",
-                         name="JRC Ocurrencia de Agua (histórico)",
+                         name=t("capa_jrc", LANG),
                          overlay=True, control=True, show=False).add_to(m)
     if "WorldCover" in tile_urls:
         folium.TileLayer(tiles=tile_urls["WorldCover"], attr="ESA WorldCover 2021",
-                         name="ESA WorldCover 2021 (Uso de Suelo)",
+                         name=t("capa_worldcover", LANG),
                          overlay=True, control=True, show=False).add_to(m)
 
     folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/"
               "World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        attr="Esri World Imagery", name="Satélite Esri (referencia)",
+        attr="Esri World Imagery", name=t("capa_esri", LANG),
         overlay=False, control=True, show=(not tile_urls)).add_to(m)
 
     folium.TileLayer(tiles="OpenStreetMap", name="OpenStreetMap",
                      overlay=False, control=True, show=False).add_to(m)
 
     folium.GeoJson(
-        wmask_gdf.__geo_interface__, name="Área de estudio",
+        wmask_gdf.__geo_interface__, name=t("capa_area_estudio", LANG),
         style_function=lambda x: {"fillColor":"#2E8B8B","color":"#00FFCC",
                                   "weight":2.5,"fillOpacity":0.10}).add_to(m)
 
@@ -2208,8 +2205,8 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
         folium.CircleMarker(
             location=[lat,lon], radius=8, color="#FFD700",
             fill=True, fill_color="#FFD700", fill_opacity=0.9, weight=2,
-            popup=folium.Popup(f"<b>{nombre}</b><br>Lon:{lon:.5f}°<br>Lat:{lat:.5f}°", max_width=150),
-            tooltip=f"P{j+1} — {nombre}").add_to(m)
+            popup=folium.Popup(f"<b>{_punto_lbl(nombre)}</b><br>Lon:{lon:.5f}°<br>Lat:{lat:.5f}°", max_width=150),
+            tooltip=f"P{j+1} — {_punto_lbl(nombre)}").add_to(m)
         folium.Marker(
             location=[lat+0.0015, lon+0.001],
             icon=folium.DivIcon(
@@ -2292,12 +2289,12 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
     var overlay=document.querySelector('.leaflet-control-layers-overlays');
     if(base&&!base.querySelector('.layer-section-label')){
       var lbl=document.createElement('div');
-      lbl.className='layer-section-label';lbl.textContent='Visualización';
+      lbl.className='layer-section-label';lbl.textContent=__LBL_BASE__;
       base.insertBefore(lbl,base.firstChild);
     }
     if(overlay&&!overlay.querySelector('.layer-section-label')){
       var lbl2=document.createElement('div');
-      lbl2.className='layer-section-label';lbl2.textContent='Capas de Análisis';
+      lbl2.className='layer-section-label';lbl2.textContent=__LBL_OVERLAY__;
       overlay.insertBefore(lbl2,overlay.firstChild);
     }
   }
@@ -2306,7 +2303,8 @@ def build_folium_map_s2(wmask_gdf, coords_dict, bbox, tile_urls=None, height=460
   } else { setTimeout(addSectionLabels,400); }
 })();
 </script>
-""")
+""".replace("__LBL_BASE__", json.dumps(t("capas_grupo_visualizacion", LANG)))
+   .replace("__LBL_OVERLAY__", json.dumps(t("capas_grupo_analisis", LANG))))
     m.get_root().html.add_child(_lc_css)
     folium.LayerControl(position="topright", collapsed=False).add_to(m)
     return m
@@ -2915,8 +2913,8 @@ st.markdown(f"""<div class="status-row">
   <div class="status-sep"></div>
   <div class="status-item"><span class="status-dot-ok"></span><span><b>Sentinel-2</b> SR Harmonized · 10 m</span></div>
   <div class="status-sep"></div>
-  <div class="status-item"><span class="status-dot-ok"></span><span><b>19</b> campañas · <b>7</b> puntos · EPSG:4326</span></div>
-  <div class="status-badge">SISTEMA ACTIVO</div>
+  <div class="status-item"><span class="status-dot-ok"></span><span><b>19</b> {t("status_campanas", LANG)} · <b>7</b> {t("status_puntos", LANG)} · EPSG:4326</span></div>
+  <div class="status-badge">{t("status_sistema_activo", LANG)}</div>
 </div>""", unsafe_allow_html=True)
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
@@ -2989,7 +2987,7 @@ with st.sidebar:
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
     st.markdown(f'<div class="slabel">{t("sidebar_fecha_muestreo", LANG)}</div>', unsafe_allow_html=True)
     fecha_campo = st.selectbox("", FECHAS_CAMPO, index=16,
-        format_func=lambda f: pd.to_datetime(f, format="%m/%d/%Y").strftime("%d %b %Y"))
+        format_func=lambda f: fecha_corta(pd.to_datetime(f, format="%m/%d/%Y"), LANG))
     fecha_dt = pd.to_datetime(fecha_campo, format="%m/%d/%Y")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
@@ -3037,10 +3035,7 @@ with st.sidebar:
     if wmask_zip is None:
         st.warning(t("sidebar_sube_wmask_warn", LANG))
 
-# ── ENSO: nombres de mes y función de renderizado ─────────────────────────────
-_MESES_ES = {1:"Enero",2:"Febrero",3:"Marzo",4:"Abril",5:"Mayo",6:"Junio",
-             7:"Julio",8:"Agosto",9:"Septiembre",10:"Octubre",11:"Noviembre",12:"Diciembre"}
-
+# ── ENSO: gráfico y sección ─────────────────────────────
 def _plot_enso_chart(serie_enso):
     """Gráfico Plotly interactivo de anomalía SST Niño 3.4 (hover, zoom, pan)."""
     import plotly.graph_objects as go
@@ -3055,7 +3050,7 @@ def _plot_enso_chart(serie_enso):
     # Colores por punto según fase ENSO
     colores = ['#EF4444' if v >= 0.5 else '#3B82F6' if v <= -0.5 else '#6B7280'
                for v in anoms_raw]
-    fases   = ['El Niño' if v >= 0.5 else 'La Niña' if v <= -0.5 else 'Neutral'
+    fases   = ['El Niño' if v >= 0.5 else 'La Niña' if v <= -0.5 else t('enso_neutral', LANG)
                for v in anoms_raw]
 
     fig = go.Figure()
@@ -3068,14 +3063,14 @@ def _plot_enso_chart(serie_enso):
     fig.add_trace(go.Scatter(
         x=fechas_dt, y=anoms_raw,
         mode='lines+markers',
-        name='Anomalía SST Niño 3.4',
+        name=t('enso_traza_anom', LANG),
         line=dict(width=1.2, color='rgba(100,150,220,0.6)'),
         marker=dict(size=4, color=colores, line=dict(width=0)),
         customdata=list(zip(fechas_str, fases)),
         hovertemplate=(
             '<b>%{customdata[0]}</b><br>'
-            'Anomalía SST: <b>%{y:.3f}°C</b><br>'
-            'Fase ENSO: <b>%{customdata[1]}</b>'
+            f"{t('enso_capa_anomalia', LANG)}: " + '<b>%{y:.3f}°C</b><br>'
+            f"{t('enso_fase', LANG)}: " + '<b>%{customdata[1]}</b>'
             '<extra></extra>'
         )
     ))
@@ -3084,10 +3079,10 @@ def _plot_enso_chart(serie_enso):
     fig.add_trace(go.Scatter(
         x=fechas_dt, y=ma3,
         mode='lines',
-        name='MM 3 meses',
+        name=t('enso_mm3', LANG),
         line=dict(width=2.2, color='#FFFFFF', dash='solid'),
         opacity=0.85,
-        hovertemplate='MM 3m: <b>%{y:.3f}°C</b><extra></extra>'
+        hovertemplate=f"{t('enso_mm3_corto', LANG)}: " + '<b>%{y:.3f}°C</b><extra></extra>'
     ))
 
     # Líneas de umbral
@@ -3102,12 +3097,12 @@ def _plot_enso_chart(serie_enso):
 
     fig.update_layout(
         title=dict(
-            text='Anomalía SST Niño 3.4 — 1982–2025 · NOAA OISST v2.1 · GEE',
+            text=f"{t('enso_traza_anom', LANG)} — 1982–2025 · NOAA OISST v2.1 · GEE",
             font=dict(size=13, color='white')
         ),
-        xaxis=dict(title='Fecha', color='#8EAAC8', gridcolor='rgba(255,255,255,0.07)',
+        xaxis=dict(title=t('hist_col_fecha', LANG), color='#8EAAC8', gridcolor='rgba(255,255,255,0.07)',
                    tickformat='%Y-%m'),
-        yaxis=dict(title='Anomalía SST (°C)', color='#8EAAC8',
+        yaxis=dict(title=t('enso_eje_anom', LANG), color='#8EAAC8',
                    gridcolor='rgba(255,255,255,0.07)', range=[-3.3, 3.3]),
         paper_bgcolor='#0D1117',
         plot_bgcolor='#161B22',
@@ -3132,18 +3127,18 @@ def _plot_enso_chart(serie_enso):
     st.markdown(f"""<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
       <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:14px;text-align:center">
         <div style="font-size:1.6rem;font-weight:800;color:#EF4444">{nino_count}</div>
-        <div style="font-size:.7rem;color:rgba(255,255,255,.5)">meses El Niño (≥+0.5°C)</div>
-        <div style="font-size:.65rem;color:#EF4444;margin-top:4px">Pico: {max_nino:.2f}°C · {f_max[0] if f_max else '—'}</div>
+        <div style="font-size:.7rem;color:rgba(255,255,255,.5)">{t('enso_meses_nino', LANG)}</div>
+        <div style="font-size:.65rem;color:#EF4444;margin-top:4px">{t('enso_pico', LANG)}: {max_nino:.2f}°C · {f_max[0] if f_max else '—'}</div>
       </div>
       <div style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:10px;padding:14px;text-align:center">
         <div style="font-size:1.6rem;font-weight:800;color:#3B82F6">{nina_count}</div>
-        <div style="font-size:.7rem;color:rgba(255,255,255,.5)">meses La Niña (≤−0.5°C)</div>
-        <div style="font-size:.65rem;color:#3B82F6;margin-top:4px">Pico: {min_nina:.2f}°C · {f_min[0] if f_min else '—'}</div>
+        <div style="font-size:.7rem;color:rgba(255,255,255,.5)">{t('enso_meses_nina', LANG)}</div>
+        <div style="font-size:.65rem;color:#3B82F6;margin-top:4px">{t('enso_pico', LANG)}: {min_nina:.2f}°C · {f_min[0] if f_min else '—'}</div>
       </div>
       <div style="background:rgba(107,114,128,.1);border:1px solid rgba(107,114,128,.25);border-radius:10px;padding:14px;text-align:center">
         <div style="font-size:1.6rem;font-weight:800;color:rgba(255,255,255,.7)">{neut_count}</div>
-        <div style="font-size:.7rem;color:rgba(255,255,255,.5)">meses Neutral</div>
-        <div style="font-size:.65rem;color:rgba(255,255,255,.4);margin-top:4px">Total analizado: {len(anoms_raw)} meses</div>
+        <div style="font-size:.7rem;color:rgba(255,255,255,.5)">{t('enso_meses_neutral', LANG)}</div>
+        <div style="font-size:.65rem;color:rgba(255,255,255,.4);margin-top:4px">{t('enso_total', LANG).format(n=len(anoms_raw))}</div>
       </div>
     </div>""", unsafe_allow_html=True)
 
@@ -3151,51 +3146,47 @@ def _plot_enso_chart(serie_enso):
 def _render_enso_section():
     """Sección ENSO: mapa SST + serie histórica Niño 3.4. Sin shapefile requerido."""
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown("""<div class="sec-t">Variables Climáticas Oceánicas — ENSO · El Niño / La Niña</div>""",
-                unsafe_allow_html=True)
-    st.markdown("""<div style="font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:16px;line-height:1.6">
-      Análisis de la <b style="color:rgba(255,255,255,.7)">Temperatura Superficial del Mar (SST)</b>,
-      sus anomalías y la <b style="color:rgba(255,255,255,.7)">Clorofila-a</b> oceánica en la región
-      <b style="color:rgba(255,255,255,.7)">Niño 3.4</b> (5°N–5°S · 170°W–120°W).
-      Fuente: NOAA CDR OISST v2.1 · NASA MODIS-Aqua · Google Earth Engine.
-      La anomalía positiva (≥+0.5°C) indica <span style="color:#EF4444">El Niño</span>;
-      la negativa (≤−0.5°C) indica <span style="color:#3B82F6">La Niña</span>.
-      En años El Niño la clorofila disminuye; en La Niña aumenta por mayor surgencia.
-    </div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="sec-t">{t("enso_titulo", LANG)}</div>', unsafe_allow_html=True)
+    _enso_intro = (t("enso_intro", LANG)
+                   .replace("<b>", '<b style="color:rgba(255,255,255,.7)">')
+                   .format(nino='<span style="color:#EF4444">El Niño</span>',
+                           nina='<span style="color:#3B82F6">La Niña</span>'))
+    st.markdown(f'<div style="font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:16px;line-height:1.6">'
+                f'{_enso_intro}</div>', unsafe_allow_html=True)
 
-    with st.expander("Mapa Oceánico — SST / Anomalía / Clorofila-a", expanded=False):
+    with st.expander(t("enso_expander_mapa", LANG), expanded=False):
         ec1, ec2 = st.columns([2, 2])
         with ec1:
             import datetime as _dt_enso
             _anio_max = _dt_enso.date.today().year
-            enso_anio = st.slider("Año", 1982, _anio_max, 1997, key="enso_slider_anio")
+            enso_anio = st.slider(t("anio", LANG), 1982, _anio_max, 1997, key="enso_slider_anio")
         with ec2:
-            enso_mes = st.selectbox("Mes", list(range(1, 13)), index=11,
-                                    format_func=lambda m: _MESES_ES[m], key="enso_sel_mes")
+            enso_mes = st.selectbox(t("mes", LANG), list(range(1, 13)), index=11,
+                                    format_func=lambda m: mes_nombre(m, LANG), key="enso_sel_mes")
 
         # Colorbars
-        st.markdown("""<div style="display:flex;gap:24px;margin:4px 0 8px;flex-wrap:wrap">
+        st.markdown(f"""<div style="display:flex;gap:24px;margin:4px 0 8px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:8px;font-size:.71rem;color:rgba(255,255,255,.55)">
             <b>SST:</b><span>10°C</span>
             <div style="width:180px;height:8px;border-radius:3px;background:linear-gradient(to right,#313695,#4575b4,#74add1,#abd9e9,#e0f3f8,#ffffbf,#fee090,#fdae61,#f46d43,#d73027,#a50026)"></div>
             <span>32°C</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px;font-size:.71rem;color:rgba(255,255,255,.55)">
-            <b>Anomalía:</b><span style="color:#4575b4">−4°C</span>
+            <b>{t("enso_leg_anomalia", LANG)}</b><span style="color:#4575b4">−4°C</span>
             <div style="width:160px;height:8px;border-radius:3px;background:linear-gradient(to right,#313695,#4575b4,#74add1,#abd9e9,#ffffbf,#fdae61,#f46d43,#d73027,#a50026)"></div>
             <span style="color:#a50026">+4°C</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px;font-size:.71rem;color:rgba(255,255,255,.55)">
-            <b>Clorofila:</b><span>0.03</span>
+            <b>{t("enso_leg_clorofila", LANG)}</b><span>0.03</span>
             <div style="width:140px;height:8px;border-radius:3px;background:linear-gradient(to right,#08306b,#2171b5,#6baed6,#74c476,#238b45,#ffeda0,#feb24c)"></div>
             <span>10 mg/m³</span>
-            <span style="color:rgba(255,255,255,.35);font-size:.67rem">(2002–hoy · MODIS-Aqua / VIIRS-Snpp)</span>
+            <span style="color:rgba(255,255,255,.35);font-size:.67rem">{t("enso_leg_chl_fuente", LANG)}</span>
           </div>
         </div>""", unsafe_allow_html=True)
 
         if GEE_OK:
-            mes_str = _MESES_ES[enso_mes][:3]
-            with st.spinner(f"Cargando {mes_str} {enso_anio} y eventos de referencia…"):
+            mes_str = mes_abrev(enso_mes, LANG)
+            with st.spinner(t("enso_cargando", LANG).format(periodo=f"{mes_str} {enso_anio}")):
                 tile_urls_sst = obtener_mapa_sst_gee(enso_anio, enso_mes)
                 tile_refs     = obtener_eventos_referencia_gee()
 
@@ -3221,7 +3212,7 @@ def _render_enso_section():
                 folium.TileLayer(
                     tiles=tile_urls_sst['Anomalía SST (°C)'],
                     attr='GEE · NOAA OISST v2.1',
-                    name=f'Anomalía SST {mes_lbl}',
+                    name=f"{t('enso_capa_anomalia', LANG)} {mes_lbl}",
                     overlay=True, show=True, max_native_zoom=9, max_zoom=9, opacity=0.85
                 ).add_to(mapa_enso)
                 chl_key = next((k for k in tile_urls_sst if k.startswith('Clorofila-a')), None)
@@ -3230,23 +3221,25 @@ def _render_enso_section():
                     folium.TileLayer(
                         tiles=tile_urls_sst[chl_key],
                         attr=f'GEE · NASA {sensor_lbl} L3SMI',
-                        name=f'Clorofila-a {mes_lbl} · {sensor_lbl}',
+                        name=f"{t('clorofila_a', LANG)} {mes_lbl} · {sensor_lbl}",
                         overlay=True, show=False, max_native_zoom=9, max_zoom=9, opacity=0.88
                     ).add_to(mapa_enso)
 
                 # ── Capas de referencia histórica ──
-                ref_config = {
-                    'SST Dic 1997':              {'show': False},
-                    'Anomalía Dic 1997 (El Niño)': {'show': False},
-                    'Anomalía Dic 1998 (La Niña)': {'show': False},
+                _dic = mes_abrev(12, LANG)
+                _anom_lbl = t('enso_capa_anomalia', LANG)
+                ref_nombres = {
+                    'sst97':  f"SST {_dic} 1997",
+                    'anom97': f"{_anom_lbl} {_dic} 1997 (El Niño)",
+                    'anom98': f"{_anom_lbl} {_dic} 1998 (La Niña)",
                 }
-                for nombre, cfg in ref_config.items():
-                    if nombre in tile_refs:
+                for ref_key, nombre in ref_nombres.items():
+                    if ref_key in tile_refs:
                         folium.TileLayer(
-                            tiles=tile_refs[nombre],
+                            tiles=tile_refs[ref_key],
                             attr='GEE · NOAA OISST v2.1',
                             name=nombre,
-                            overlay=True, show=cfg['show'],
+                            overlay=True, show=False,
                             max_native_zoom=9, max_zoom=9, opacity=0.85
                         ).add_to(mapa_enso)
 
@@ -3255,9 +3248,9 @@ def _render_enso_section():
                     bounds=[[-5, -170], [5, -120]],
                     color='#EF4444', weight=2,
                     fill=True, fill_color='#EF4444', fill_opacity=0.04,
-                    popup=folium.Popup('Región Niño 3.4<br>5°N–5°S · 170°W–120°W<br>'
-                                       'Umbral El Niño: ≥+0.5°C', max_width=220),
-                    tooltip='Región Niño 3.4'
+                    popup=folium.Popup(f"{t('enso_region', LANG)}<br>5°N–5°S · 170°W–120°W<br>"
+                                       f"{t('enso_umbral_nino', LANG)}: ≥+0.5°C", max_width=220),
+                    tooltip=t('enso_region', LANG)
                 ).add_to(mapa_enso)
 
                 # ── CSS del panel de capas (inyectado al iframe de Folium) ───────────
@@ -3326,12 +3319,12 @@ def _render_enso_section():
     var ov=document.querySelector('.leaflet-control-layers-overlays');
     if(base&&!base.querySelector('.layer-section-label')){
       var l=document.createElement('div');
-      l.className='layer-section-label';l.textContent='Datos del período';
+      l.className='layer-section-label';l.textContent=__LBL_BASE__;
       base.insertBefore(l,base.firstChild);
     }
     if(ov&&!ov.querySelector('.layer-section-label')){
       var l2=document.createElement('div');
-      l2.className='layer-section-label';l2.textContent='Capas de referencia';
+      l2.className='layer-section-label';l2.textContent=__LBL_OVERLAY__;
       ov.insertBefore(l2,ov.firstChild);
     }
   }
@@ -3340,25 +3333,24 @@ def _render_enso_section():
   } else { setTimeout(addLabels,400); }
 })();
 </script>
-"""))
+""".replace("__LBL_BASE__", json.dumps(t("enso_grupo_periodo", LANG)))
+   .replace("__LBL_OVERLAY__", json.dumps(t("enso_grupo_referencia", LANG)))))
                 folium.LayerControl(collapsed=False, position='topright').add_to(mapa_enso)
                 st_folium(mapa_enso, width="100%", height=500, returned_objects=[])
 
-                st.markdown("""<div style="font-size:.65rem;color:rgba(255,255,255,.28);margin-top:4px;font-family:monospace;letter-spacing:.03em">
-                  Panel <b>Layers</b> (arriba derecha) para activar/desactivar capas.
-                  Basemap: OpenStreetMap · GEE · NOAA CDR OISST v2.1
+                st.markdown(f"""<div style="font-size:.65rem;color:rgba(255,255,255,.28);margin-top:4px;font-family:monospace;letter-spacing:.03em">
+                  {t("enso_mapa_nota", LANG)}
                 </div>""", unsafe_allow_html=True)
 
                 # ── Reporte PDF con mapa (flujo preparar → descargar) ─────────────
-                _pdf_cache_key = f"enso_pdf_{enso_anio}_{enso_mes}"
+                _pdf_cache_key = f"enso_pdf_{enso_anio}_{enso_mes}_{LANG}"
                 _logo_geo_path = os.path.join(os.path.dirname(__file__), "logo_geomatica.png")
                 _logo_geo_path = _logo_geo_path if os.path.exists(_logo_geo_path) else None
 
-                if st.button("Preparar reporte PDF con mapa",
+                if st.button(t("enso_pdf_preparar", LANG),
                              key="btn_prep_enso_pdf",
-                             help="Obtiene imágenes del mapa desde GEE (~20-30 s) "
-                                  "y genera el reporte PDF."):
-                    with st.spinner("Generando imágenes del mapa desde GEE…"):
+                             help=t("enso_pdf_preparar_help", LANG)):
+                    with st.spinner(t("enso_pdf_mapas_gen", LANG)):
                         try:
                             import urllib.request as _ureq
                             _f_ini = f'{enso_anio}-{enso_mes:02d}-01'
@@ -3387,9 +3379,9 @@ def _render_enso_section():
                             _buf_sst  = io.BytesIO(_ureq.urlopen(_url_sst,  timeout=30).read())
                             _buf_anom = io.BytesIO(_ureq.urlopen(_url_anom, timeout=30).read())
                         except Exception as _thumb_err:
-                            st.warning(f"No se pudo obtener el mapa desde GEE: {_thumb_err}")
+                            st.warning(f'{t("enso_pdf_mapa_error", LANG)} {_thumb_err}')
                             _buf_sst = _buf_anom = None
-                    with st.spinner("Generando PDF…"):
+                    with st.spinner(t("generando_pdf", LANG)):
                         try:
                             from pdf_report_module import generar_pdf_enso as _gen_pdf_enso
                             _serie = st.session_state.get('enso_serie_cache')
@@ -3397,50 +3389,48 @@ def _render_enso_section():
                                 enso_anio, enso_mes,
                                 serie_cache=_serie if (_serie and len(_serie) > 0) else None,
                                 logo_geo_path=_logo_geo_path,
+                                lang=LANG,
                                 mapa_sst_buf=_buf_sst,
                                 mapa_anom_buf=_buf_anom
                             )
                             st.session_state[_pdf_cache_key] = _pdf_b.read() if hasattr(_pdf_b,'read') else _pdf_b
                         except Exception as _pdf_err:
-                            st.error(f"Error generando PDF: {_pdf_err}")
+                            st.error(f'{t("error_pdf", LANG)} {_pdf_err}')
 
                 if _pdf_cache_key in st.session_state:
                     st.download_button(
-                        label="Descargar reporte PDF",
+                        label=t("enso_pdf_descargar", LANG),
                         data=st.session_state[_pdf_cache_key],
                         file_name=f"SST_ENSO_{enso_anio}_{enso_mes:02d}.pdf",
                         mime="application/pdf",
                         key="btn_dl_enso_pdf",
-                        help="Reporte SST/ENSO con mapas, barras de color, "
-                             "tabla de umbrales y estadísticas históricas."
+                        help=t("enso_pdf_descargar_help", LANG)
                     )
             else:
-                st.warning("No se obtuvieron tiles GEE para el período seleccionado.")
+                st.warning(t("enso_sin_tiles", LANG))
         else:
-            st.info("Conecta a Google Earth Engine para visualizar el mapa SST.")
+            st.info(t("enso_conecta_gee", LANG))
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-    with st.expander("📈 Serie Histórica Índice Niño 3.4 (1982–2025)", expanded=False):
-        st.markdown("""<div style="font-size:.78rem;color:rgba(255,255,255,.4);margin-bottom:12px">
-          El cálculo incluye ~528 imágenes mensuales. La primera carga puede tomar ~30–60 s;
-          el resultado se almacena en caché 24 h.
-        </div>""", unsafe_allow_html=True)
+    with st.expander(t("enso_expander_serie", LANG), expanded=False):
+        st.markdown(f'<div style="font-size:.78rem;color:rgba(255,255,255,.4);margin-bottom:12px">'
+                    f'{t("enso_serie_nota", LANG)}</div>', unsafe_allow_html=True)
 
         if 'enso_serie_cache' not in st.session_state:
             st.session_state.enso_serie_cache = None
 
-        if st.button("Calcular Índice Niño 3.4", key="btn_enso_calc",
-                     help="Conecta a GEE y calcula la serie 1982-2025"):
+        if st.button(t("enso_btn_calcular", LANG), key="btn_enso_calc",
+                     help=t("enso_btn_calcular_help", LANG)):
             if GEE_OK:
-                with st.spinner("Calculando serie ENSO 1982–2025… puede tomar hasta 60 s."):
+                with st.spinner(t("enso_calculando", LANG)):
                     st.session_state.enso_serie_cache = obtener_enso_serie_gee()
             else:
-                st.error("GEE no disponible. Verifica las credenciales en los secretos de la app.")
+                st.error(t("enso_gee_no_disp", LANG))
 
         if st.session_state.enso_serie_cache:
             _plot_enso_chart(st.session_state.enso_serie_cache)
         elif st.session_state.enso_serie_cache is not None and len(st.session_state.enso_serie_cache) == 0:
-            st.error("No se pudieron obtener datos ENSO de GEE.")
+            st.error(t("enso_sin_datos", LANG))
 
 
 # ── PANTALLA INICIAL ──────────────────────────────────────────────────────────
@@ -3468,7 +3458,7 @@ if not correr:
                 f'<div style="width:32px;height:32px;border-radius:6px;background:rgba(34,211,238,.05);'
                 f'border:1px solid rgba(34,211,238,.15);display:flex;align-items:center;'
                 f'justify-content:center;flex-shrink:0">{paso_icon}</div>'
-                f'<div class="step-num" style="margin:0">PASO {paso_num}</div>'
+                f'<div class="step-num" style="margin:0">{t("paso_label", LANG)} {paso_num}</div>'
                 f'</div>'
                 f'<div class="step-t">{paso_titulo}</div>'
                 f'<div class="step-b">{paso_texto}</div></div>',
@@ -3477,7 +3467,7 @@ if not correr:
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
     if wmask_zip is not None and fecha_ini < fecha_fin:
-        with st.spinner("Cargando shapefile..."):
+        with st.spinner(t("cargando_shapefile", LANG)):
             try:
                 with tempfile.TemporaryDirectory() as tmpdir:
                     with zipfile.ZipFile(wmask_zip,"r") as z: z.extractall(tmpdir)
@@ -3488,7 +3478,7 @@ if not correr:
                     bbox_prev = tuple(wmask_prev.total_bounds)
                     lon_min,lat_min,lon_max,lat_max = bbox_prev
             except Exception as e:
-                st.error(f"Error: {e}"); wmask_prev = None
+                st.error(f'{t("error_generico", LANG)}: {e}'); wmask_prev = None
 
         if wmask_prev is not None:
             st.markdown(f'<div class="sec-t">{t("previsualizacion_titulo", LANG)}</div>', unsafe_allow_html=True)
@@ -3521,13 +3511,13 @@ if not correr:
                 </div></div>""", unsafe_allow_html=True)
             else:
                 n_imgs   = s2_info.get("n_imagenes", 0)
-                nubes_real = s2_info.get("nubes_pct", "N/D")
+                nubes_real = s2_info.get("nubes_pct", "—")
                 st.markdown(f"""
                 <div class="map-meta">
                   <span class="chip chip-ok">{n_imgs} {t("imagenes_encontradas", LANG)}</span>
                   <span class="chip">{t("nubes_reales", LANG)}: {nubes_real}%</span>
-                  <span class="chip">{fecha_ini.strftime('%d %b')} — {fecha_fin.strftime('%d %b %Y')}</span>
-                  <span class="chip">Muestreo: {fecha_dt.strftime('%d %b %Y')}</span><br>
+                  <span class="chip">{fecha_corta(fecha_ini, LANG, anio=False)} — {fecha_corta(fecha_fin, LANG)}</span>
+                  <span class="chip">{t("muestreo", LANG)}: {fecha_corta(fecha_dt, LANG)}</span><br>
                   {t("capas_disponibles", LANG)}
                 </div></div>""", unsafe_allow_html=True)
 
@@ -3595,8 +3585,8 @@ if not correr:
                                                  key="n_frames_gif")
 
                     dias_rango = (fecha_fin - fecha_ini).days
-                    st.caption(f'{t("gif_rango_actual", LANG)}: {fecha_ini.strftime("%d %b %Y")} → '
-                              f'{fecha_fin.strftime("%d %b %Y")} ({dias_rango} {t("sidebar_dias", LANG)}) · '
+                    st.caption(f'{t("gif_rango_actual", LANG)}: {fecha_corta(fecha_ini, LANG)} → '
+                              f'{fecha_corta(fecha_fin, LANG)} ({dias_rango} {t("sidebar_dias", LANG)}) · '
                               f'{t("gif_nubes", LANG)} < {max_nubes}%')
 
                     if dias_rango < 30:
@@ -3611,7 +3601,7 @@ if not correr:
                         with st.spinner(t("gif_generando", LANG)):
                             buf_gif_s2, n_frames_ok, fechas_usadas_gif = generar_gif_sentinel2(
                                 capa_gif_sel, bbox_prev, fecha_ini, fecha_fin, max_nubes,
-                                n_frames_max=n_frames_sel, wmask_gdf=wmask_prev
+                                n_frames_max=n_frames_sel, wmask_gdf=wmask_prev, lang=LANG
                             )
 
                         if buf_gif_s2 is not None:
@@ -3622,7 +3612,7 @@ if not correr:
                             st.download_button(
                                 t("gif_descargar_btn", LANG),
                                 buf_gif_s2.getvalue(),
-                                f"Animacion_S2_{capa_gif_sel}_"
+                                f"{t('archivo_animacion', LANG)}_{capa_gif_sel}_"
                                 f"{fecha_ini.strftime('%Y%m%d')}_{fecha_fin.strftime('%Y%m%d')}.gif",
                                 "image/gif", use_container_width=True
                             )
@@ -3634,28 +3624,27 @@ if not correr:
                 if GEE_OK and wmask_prev is not None:
                     st.markdown('<div class="map-panel" style="margin-top:.6rem">',
                                unsafe_allow_html=True)
-                    st.markdown('<div class="map-title">📈 Serie Temporal de Índices (GEE)</div>',
+                    st.markdown(f'<div class="map-title">{t("ts_titulo", LANG)}</div>',
                                unsafe_allow_html=True)
-                    st.caption("Evolución temporal del índice seleccionado en tu área de estudio — "
-                               "cada punto representa la media zonal de una imagen Sentinel-2.")
+                    st.caption(t("ts_caption", LANG))
 
                     col_st1, col_st2, col_st3 = st.columns([2, 1, 1])
                     with col_st1:
                         indice_ts = st.selectbox(
-                            "Índice a graficar",
+                            t("ts_indice", LANG),
                             options=["NDWI","MNDWI","NDVI","NDTI","NDCI","SABI","CDOM","AWEInsh","EVI"],
-                            format_func=lambda k: INDICES_VIZ[k]["nombre"],
+                            format_func=lambda k: get_indice_nombre(k, LANG, plain=True),
                             key="sel_serie_tiempo"
                         )
                     with col_st2:
-                        fecha_ts_ini = st.date_input("Desde", value=date(2019,1,1), key="ts_ini")
+                        fecha_ts_ini = st.date_input(t("sidebar_desde", LANG), value=date(2019,1,1), key="ts_ini")
                     with col_st3:
-                        fecha_ts_fin = st.date_input("Hasta", value=date.today(), key="ts_fin")
+                        fecha_ts_fin = st.date_input(t("sidebar_hasta", LANG), value=date.today(), key="ts_fin")
 
                     if st.button(t("btn_serie_temporal", LANG), key="btn_ts", type="primary",
                                  use_container_width=True):
                         _geojson_ts = wmask_prev.geometry.union_all().__geo_interface__
-                        with st.spinner(f"Extrayendo {indice_ts} mes a mes desde GEE…"):
+                        with st.spinner(t("ts_extrayendo", LANG).format(idx=indice_ts)):
                             serie = obtener_serie_tiempo_gee(
                                 bbox_prev, _geojson_ts, indice_ts,
                                 fecha_ts_ini.strftime("%Y-%m-%d"),
@@ -3682,7 +3671,7 @@ if not correr:
                                 trend = _np.polyval(z, range(len(vals_ts)))
                                 fig_ts.add_trace(go.Scatter(
                                     x=fechas_ts, y=trend.tolist(), mode="lines",
-                                    name="Tendencia", line=dict(color="#F59E0B",
+                                    name=t("ts_tendencia", LANG), line=dict(color="#F59E0B",
                                     width=1.5, dash="dash"),
                                     hoverinfo="skip"
                                 ))
@@ -3695,26 +3684,26 @@ if not correr:
                                 legend=dict(orientation="h", yanchor="bottom",
                                            y=1.02, xanchor="right", x=1),
                                 xaxis=dict(gridcolor="rgba(255,255,255,0.05)",
-                                           title="Fecha"),
+                                           title=t("hist_col_fecha", LANG)),
                                 yaxis=dict(gridcolor="rgba(255,255,255,0.05)",
-                                           title=INDICES_VIZ[indice_ts]["nombre"].split("(")[0].strip()),
-                                title=dict(text=f"{INDICES_VIZ[indice_ts]['nombre']} — media zonal",
+                                           title=indice_ts),
+                                title=dict(text=f"{get_indice_nombre(indice_ts, LANG, plain=True)} — {t('ts_media_zonal', LANG)}",
                                            font=dict(size=12), x=0.5)
                             )
                             st.plotly_chart(fig_ts, use_container_width=True)
                             # Stats rápidas + Mann-Kendall
                             _vmin, _vmax, _vmean = min(vals_ts), max(vals_ts), sum(vals_ts)/len(vals_ts)
                             c1,c2,c3,c4 = st.columns(4)
-                            c1.metric("N imágenes", len(serie))
-                            c2.metric("Mínimo", f"{_vmin:.4f}")
-                            c3.metric("Máximo", f"{_vmax:.4f}")
-                            c4.metric("Media", f"{_vmean:.4f}")
+                            c1.metric(t("ts_n_imagenes", LANG), len(serie))
+                            c2.metric(t("stat_minimo", LANG), f"{_vmin:.4f}")
+                            c3.metric(t("stat_maximo", LANG), f"{_vmax:.4f}")
+                            c4.metric(t("stat_media", LANG), f"{_vmean:.4f}")
                             # Mann-Kendall trend test
                             if len(vals_ts) >= 4:
                                 from scipy.stats import kendalltau as _kt
                                 _tau, _pval = _kt(range(len(vals_ts)), vals_ts)
-                                _dir = ("↑ Ascendente" if _tau > 0 else "↓ Descendente")
-                                _sig = "p<0.05 · Significativa" if _pval < 0.05 else "p≥0.05 · No significativa"
+                                _dir = t("mk_ascendente" if _tau > 0 else "mk_descendente", LANG)
+                                _sig = t("mk_significativa" if _pval < 0.05 else "mk_no_significativa", LANG)
                                 _col_dir = "#22D3EE" if _tau > 0 else "#F87171"
                                 st.markdown(
                                     f'<div style="background:rgba(255,255,255,.02);border:1px solid '
@@ -3730,9 +3719,9 @@ if not correr:
                                 )
                             # Descarga CSV
                             import io as _io
-                            _csv_ts = "fecha,valor\n" + "\n".join(f"{f},{v}" for f,v in serie)
+                            _csv_ts = t("csv_fecha_valor", LANG) + "\n" + "\n".join(f"{f},{v}" for f,v in serie)
                             st.download_button(t("btn_descargar_csv", LANG), _csv_ts.encode(),
-                                               f"serie_{indice_ts}.csv", "text/csv",
+                                               f"{t('archivo_serie_csv', LANG)}_{indice_ts}.csv", "text/csv",
                                                use_container_width=True)
                         else:
                             st.warning(t("msg_no_imagenes", LANG))
@@ -3742,15 +3731,14 @@ if not correr:
                 if GEE_OK and wmask_prev is not None:
                     st.markdown('<div class="map-panel" style="margin-top:.6rem">',
                                unsafe_allow_html=True)
-                    st.markdown('<div class="map-title">Análisis de Cuenca — JRC &amp; WorldCover</div>',
+                    st.markdown(f'<div class="map-title">{t("cuenca_titulo", LANG)}</div>',
                                unsafe_allow_html=True)
-                    st.caption("Análisis integrado de ocurrencia histórica de agua (JRC 1984–2021) "
-                               "y uso de suelo (ESA WorldCover 2021) en tu área de estudio.")
+                    st.caption(t("cuenca_caption", LANG))
 
                     if st.button(t("btn_cuenca", LANG), key="btn_cuenca", type="primary",
                                  use_container_width=True):
                         _geojson_cuenca = wmask_prev.geometry.union_all().__geo_interface__
-                        with st.spinner("Consultando JRC Global Surface Water y ESA WorldCover en GEE…"):
+                        with st.spinner(t("cuenca_consultando", LANG)):
                             res_cuenca = obtener_analisis_cuenca_gee(bbox_prev, _geojson_cuenca)
 
                         if res_cuenca:
@@ -3763,31 +3751,33 @@ if not correr:
                                 seas   = res_cuenca.get("jrc_estacionalidad", None)
                                 if occ_m is not None:
                                     j1, j2, j3 = st.columns(3)
-                                    j1.metric("Ocurrencia media", f"{occ_m}%",
-                                              help="% de tiempo con agua en el período 1984-2021")
-                                    j2.metric("Ocurrencia máx.", f"{occ_mx}%",
-                                              help="Píxeles con presencia de agua permanente")
-                                    j3.metric("Estacionalidad", f"{seas} meses",
-                                              help="Meses promedio con agua por año")
+                                    j1.metric(t("cuenca_occ_media", LANG), f"{occ_m}%",
+                                              help=t("cuenca_occ_media_help", LANG))
+                                    j2.metric(t("cuenca_occ_max", LANG), f"{occ_mx}%",
+                                              help=t("cuenca_occ_max_help", LANG))
+                                    j3.metric(t("cuenca_estacionalidad", LANG), f"{seas} {t('meses', LANG)}",
+                                              help=t("cuenca_estacionalidad_help", LANG))
                                 else:
                                     st.info(t("msg_sin_jrc", LANG))
 
                             with col_lulc:
-                                st.markdown("**ESA WorldCover 2021 — Uso de Suelo**")
+                                st.markdown(f"**{t('cuenca_lulc_titulo', LANG)}**")
                                 lulc = res_cuenca.get("lulc", {})
                                 if lulc:
                                     import plotly.graph_objects as go
                                     _clrs = {
-                                        "Árboles":"#1a9850","Arbustos":"#a6d96a",
-                                        "Pastizal":"#d9ef8b","Cultivos":"#fee08b",
-                                        "Zona urbana":"#d73027","Suelo desnudo":"#bf812d",
-                                        "Agua permanente":"#4575b4","Humedales":"#74add1",
-                                        "Manglar":"#006837","Nieve/Hielo":"#f1f1f1",
-                                        "Musgo/Liquen":"#9970ab"
+                                        10:"#1a9850", 20:"#a6d96a", 30:"#d9ef8b", 40:"#fee08b",
+                                        50:"#d73027", 60:"#bf812d", 70:"#f1f1f1", 80:"#4575b4",
+                                        90:"#74add1", 95:"#006837", 100:"#9970ab"
                                     }
-                                    labels = list(lulc.keys())
+
+                                    def _wc_lbl(code):
+                                        lbl = t(f"wc_{code}", LANG)
+                                        return t("wc_otro", LANG).format(k=code) if lbl == f"wc_{code}" else lbl
+
+                                    labels = [_wc_lbl(c) for c in lulc]
                                     values = list(lulc.values())
-                                    colors = [_clrs.get(l,"#888888") for l in labels]
+                                    colors = [_clrs.get(c, "#888888") for c in lulc]
                                     fig_pie = go.Figure(go.Pie(
                                         labels=labels, values=values,
                                         marker=dict(colors=colors,
@@ -3815,23 +3805,22 @@ if not correr:
                 if GEE_OK and wmask_prev is not None:
                     st.markdown('<div class="map-panel" style="margin-top:.6rem">',
                                unsafe_allow_html=True)
-                    st.markdown('<div class="map-title">Perfil Espectral Interactivo — Sentinel-2</div>',
+                    st.markdown(f'<div class="map-title">{t("perfil_titulo", LANG)}</div>',
                                unsafe_allow_html=True)
-                    st.caption("Ingresa coordenadas de un punto en tu área de estudio para extraer "
-                               "los valores de reflectancia de todas las bandas Sentinel-2.")
+                    st.caption(t("perfil_caption", LANG))
                     _pc1, _pc2, _pc3 = st.columns([2,2,1])
                     with _pc1:
-                        _ps_lon = st.number_input("Longitud", value=float(bbox_prev[0]+(bbox_prev[2]-bbox_prev[0])/2),
+                        _ps_lon = st.number_input(t("pdf_longitud", LANG), value=float(bbox_prev[0]+(bbox_prev[2]-bbox_prev[0])/2),
                                                   format="%.5f", key="ps_lon")
                     with _pc2:
-                        _ps_lat = st.number_input("Latitud", value=float(bbox_prev[1]+(bbox_prev[3]-bbox_prev[1])/2),
+                        _ps_lat = st.number_input(t("pdf_latitud", LANG), value=float(bbox_prev[1]+(bbox_prev[3]-bbox_prev[1])/2),
                                                   format="%.5f", key="ps_lat")
                     with _pc3:
-                        _ps_fecha = st.date_input("Fecha", value=fecha_fin,
+                        _ps_fecha = st.date_input(t("hist_col_fecha", LANG), value=fecha_fin,
                                                   key="ps_fecha")
                     if st.button(t("btn_perfil_espectral", LANG), key="btn_perfil", type="primary",
                                  use_container_width=True):
-                        with st.spinner("Consultando GEE para el perfil espectral…"):
+                        with st.spinner(t("perfil_consultando", LANG)):
                             _perfil = obtener_perfil_espectral_gee(
                                 float(_ps_lon), float(_ps_lat),
                                 _ps_fecha.strftime("%Y-%m-%d"), bbox_prev
@@ -3851,7 +3840,7 @@ if not correr:
                                 marker_color=_colors[:len(_xb)],
                                 text=[f"{v:.4f}" for v in _yb],
                                 textposition="outside",
-                                hovertemplate="<b>%{x}</b><br>Reflectancia: %{y:.4f}<extra></extra>"
+                                hovertemplate="<b>%{x}</b><br>" + t("reflectancia", LANG) + ": %{y:.4f}<extra></extra>"
                             ))
                             fig_sp.add_trace(go.Scatter(
                                 x=_xb, y=_yb, mode="lines",
@@ -3866,8 +3855,8 @@ if not correr:
                                 height=300,
                                 xaxis=dict(gridcolor="rgba(255,255,255,0.05)"),
                                 yaxis=dict(gridcolor="rgba(255,255,255,0.05)",
-                                           title="Reflectancia (0–1)"),
-                                title=dict(text=f"Firma espectral — ({_ps_lon:.4f}, {_ps_lat:.4f})",
+                                           title=f"{t('reflectancia', LANG)} (0–1)"),
+                                title=dict(text=f"{t('perfil_firma', LANG)} — ({_ps_lon:.4f}, {_ps_lat:.4f})",
                                            font=dict(size=11), x=0.5),
                                 showlegend=False
                             )
@@ -3878,8 +3867,8 @@ if not correr:
                             _ndvi_p = (_n-_r)/(_n+_r) if (_n+_r) > 0 else 0
                             _ndwi_p = (_g-_n)/(_g+_n) if (_g+_n) > 0 else 0
                             _mc1,_mc2 = st.columns(2)
-                            _mc1.metric("NDVI en el punto", f"{_ndvi_p:.4f}")
-                            _mc2.metric("NDWI en el punto", f"{_ndwi_p:.4f}")
+                            _mc1.metric(t("perfil_en_punto", LANG).format(idx="NDVI"), f"{_ndvi_p:.4f}")
+                            _mc2.metric(t("perfil_en_punto", LANG).format(idx="NDWI"), f"{_ndwi_p:.4f}")
                         else:
                             st.warning(t("msg_no_s2_punto", LANG))
                     st.markdown("</div>", unsafe_allow_html=True)
@@ -3888,10 +3877,9 @@ if not correr:
                 if GEE_OK and wmask_prev is not None:
                     st.markdown('<div class="map-panel" style="margin-top:.6rem">',
                                unsafe_allow_html=True)
-                    st.markdown('<div class="map-title">Mapa de Riesgo de Contaminación — MCDA</div>',
+                    st.markdown(f'<div class="map-title">{t("mcda_titulo", LANG)}</div>',
                                unsafe_allow_html=True)
-                    st.caption("Índice compuesto de riesgo = 0.30·NDCI + 0.25·NDTI + 0.25·CDOM + 0.20·AWEInsh⁻¹ "
-                               "(escala 0–1, donde 1 = mayor riesgo potencial de contaminación).")
+                    st.caption(t("mcda_caption", LANG))
                     _wr1, _wr2 = st.columns([3,1])
                     with _wr2:
                         _fecha_mcda = st.date_input(t("date_referencia", LANG), value=fecha_fin,
@@ -3901,7 +3889,7 @@ if not correr:
                         if st.button(t("btn_mcda", LANG), key="btn_mcda", type="primary",
                                      use_container_width=True):
                             _gj_mcda = wmask_prev.geometry.union_all().__geo_interface__
-                            with st.spinner("Calculando composite MCDA en GEE…"):
+                            with st.spinner(t("mcda_calculando", LANG)):
                                 _res_mcda = obtener_mapa_riesgo_gee(
                                     bbox_prev, _gj_mcda,
                                     _fecha_mcda.strftime("%Y-%m-%d"), _nubes_mcda
@@ -3914,12 +3902,12 @@ if not correr:
                                                   tiles="CartoDB.DarkMatter")
                                 _fl.TileLayer(
                                     tiles=_res_mcda["tile_url"],
-                                    name="Riesgo MCDA", attr="GEE/S2", opacity=0.85
+                                    name=t("mcda_capa", LANG), attr="GEE/S2", opacity=0.85
                                 ).add_to(_m_mcda)
                                 # Colorbar leyenda
                                 _fl.Marker(
                                     [_ctr_lat, _ctr_lon],
-                                    popup="Centro del área de estudio",
+                                    popup=t("mcda_centro", LANG),
                                     icon=_fl.Icon(color="red", icon="info-sign")
                                 ).add_to(_m_mcda)
                                 _fl.LayerControl().add_to(_m_mcda)
@@ -3928,11 +3916,11 @@ if not correr:
                                 _rm1, _rm2 = st.columns(2)
                                 _rm_mean = _res_mcda.get("mean") or 0
                                 _rm_max  = _res_mcda.get("max") or 0
-                                _rm_nivel = ("ALTO" if _rm_mean > 0.65
-                                             else "MEDIO" if _rm_mean > 0.35
-                                             else "BAJO")
-                                _rm1.metric("Riesgo medio zonal", f"{_rm_mean:.3f}", _rm_nivel)
-                                _rm2.metric("Riesgo máximo", f"{_rm_max:.3f}")
+                                _rm_nivel = t("nivel_alto" if _rm_mean > 0.65
+                                              else "nivel_medio" if _rm_mean > 0.35
+                                              else "nivel_bajo", LANG)
+                                _rm1.metric(t("mcda_riesgo_medio", LANG), f"{_rm_mean:.3f}", _rm_nivel)
+                                _rm2.metric(t("mcda_riesgo_max", LANG), f"{_rm_max:.3f}")
                                 st.info(t("msg_pesos_mcda", LANG))
                             else:
                                 st.warning(t("msg_no_s2_fecha", LANG))
@@ -4044,7 +4032,7 @@ if not correr:
                                     st.download_button(
                                         t("reporte_espectral_descargar", LANG),
                                         pdf_espectral_buf.getvalue(),
-                                        f"Reporte_Espectral_{fecha_ini.strftime('%Y%m%d')}_"
+                                        f"{t('archivo_rep_espectral', LANG)}_{fecha_ini.strftime('%Y%m%d')}_"
                                         f"{fecha_fin.strftime('%Y%m%d')}.pdf",
                                         "application/pdf", use_container_width=True,
                                         key="dl_rep_espectral"
@@ -4071,7 +4059,7 @@ if not correr:
                 st.markdown(f"""<div style="font-size:.76rem;color:#8EAAC8;line-height:1.9">
                   <b style="color:#fff">{t("s2_coleccion", LANG)}</b>: S2_SR_HARMONIZED<br>
                   <b style="color:#fff">RGB</b>: B4·B3·B2 (10m)<br>
-                  <b style="color:#fff">{t("s2_rango", LANG)}</b>: {dias} {t("sidebar_dias", LANG)} · Clouds&lt;{max_nubes}%
+                  <b style="color:#fff">{t("s2_rango", LANG)}</b>: {dias} {t("sidebar_dias", LANG)} · {t("gif_nubes", LANG)}&lt;{max_nubes}%
                 </div></div>""", unsafe_allow_html=True)
             with ci3:
                 st.markdown(f'<div class="info-panel"><div class="info-title">{t("parametros_titulo_corto", LANG)}</div>', unsafe_allow_html=True)
@@ -4160,43 +4148,46 @@ if not correr:
             with st.form("form_contribucion", clear_on_submit=True):
                 fc1, fc2 = st.columns(2)
                 with fc1:
-                    _rio      = st.text_input("Nombre del río *", placeholder="Ej. Río Bravo")
-                    _estado   = st.text_input("Estado / Municipio *", placeholder="Ej. Tamaulipas")
-                    _contrib  = st.text_input("Tu nombre *", placeholder="Ej. Juan Pérez")
-                    _inst     = st.text_input("Institución / Organización", placeholder="Ej. UANL, CONAGUA, IMTA")
+                    _rio      = st.text_input(t("form_rio", LANG), placeholder=t("form_rio_ph", LANG))
+                    _estado   = st.text_input(t("form_estado", LANG), placeholder=t("form_estado_ph", LANG))
+                    _contrib  = st.text_input(t("form_nombre", LANG), placeholder=t("form_nombre_ph", LANG))
+                    _inst     = st.text_input(t("form_inst", LANG), placeholder=t("form_inst_ph", LANG))
                 with fc2:
-                    _lat      = st.number_input("Latitud *", min_value=14.0, max_value=33.0, value=25.80, format="%.5f")
-                    _lon      = st.number_input("Longitud *", min_value=-118.0, max_value=-86.0, value=-100.20, format="%.5f")
+                    _lat      = st.number_input(t("form_lat", LANG), min_value=14.0, max_value=33.0, value=25.80, format="%.5f")
+                    _lon      = st.number_input(t("form_lon", LANG), min_value=-118.0, max_value=-86.0, value=-100.20, format="%.5f")
                     _fecha    = st.date_input(t("date_muestreo", LANG))
-                    _fuente   = st.selectbox("Fuente de los datos *",
-                        ["CONAGUA", "IMTA", "SEMARNAT", "Tesis/Artículo científico", "Reporte institucional", "Otra"])
+                    # Valores canónicos en español (se guardan así en la hoja); solo la etiqueta se traduce
+                    _fuente_lbl = {"Tesis/Artículo científico": t("fuente_tesis", LANG),
+                                   "Reporte institucional": t("fuente_reporte", LANG),
+                                   "Otra": t("fuente_otra", LANG)}
+                    _fuente   = st.selectbox(t("form_fuente", LANG),
+                        ["CONAGUA", "IMTA", "SEMARNAT", "Tesis/Artículo científico", "Reporte institucional", "Otra"],
+                        format_func=lambda f: _fuente_lbl.get(f, f))
 
-                st.markdown("**Parámetros fisicoquímicos** (al menos uno requerido)")
+                st.markdown(t("form_params", LANG))
                 pp1, pp2, pp3, pp4 = st.columns(4)
                 with pp1: _ptot  = st.number_input("P_TOT (mg/L)",  min_value=0.0, value=0.0, format="%.3f")
                 with pp2: _nnh3  = st.number_input("N_NH3 (mg/L)",  min_value=0.0, value=0.0, format="%.3f")
                 with pp3: _ntot  = st.number_input("N_TOT (mg/L)",  min_value=0.0, value=0.0, format="%.3f")
                 with pp4: _ntotk = st.number_input("N_TOTK (mg/L)", min_value=0.0, value=0.0, format="%.3f")
 
-                _url_ev = st.text_input("URL o referencia de la evidencia *",
-                    placeholder="https://... o cita bibliográfica completa")
-                _notas  = st.text_area("Notas adicionales (opcional)", height=70,
-                    placeholder="Método de análisis, condiciones del muestreo, etc.")
+                _url_ev = st.text_input(t("form_url", LANG), placeholder=t("form_url_ph", LANG))
+                _notas  = st.text_area(t("form_notas", LANG), height=70, placeholder=t("form_notas_ph", LANG))
 
-                _submitted = st.form_submit_button("📤  Enviar contribución", use_container_width=True, type="primary")
+                _submitted = st.form_submit_button(t("form_enviar", LANG), use_container_width=True, type="primary")
 
             if _submitted:
                 # Validaciones
                 _errores = []
-                if not _rio.strip():    _errores.append("Nombre del río")
-                if not _estado.strip(): _errores.append("Estado/Municipio")
-                if not _contrib.strip():_errores.append("Tu nombre")
-                if not _url_ev.strip(): _errores.append("URL/referencia de evidencia")
+                if not _rio.strip():    _errores.append(t("form_req_rio", LANG))
+                if not _estado.strip(): _errores.append(t("form_req_estado", LANG))
+                if not _contrib.strip():_errores.append(t("form_req_nombre", LANG))
+                if not _url_ev.strip(): _errores.append(t("form_req_url", LANG))
                 if _ptot == 0 and _nnh3 == 0 and _ntot == 0 and _ntotk == 0:
-                    _errores.append("Al menos un parámetro fisicoquímico (> 0)")
+                    _errores.append(t("form_req_param", LANG))
 
                 if _errores:
-                    st.error(f"Campos requeridos: {', '.join(_errores)}")
+                    st.error(f"{t('form_campos_req', LANG)} {', '.join(_errores)}")
                 else:
                     import requests as _req, datetime as _dt, json as _json
                     _payload = {
@@ -4222,9 +4213,9 @@ if not correr:
                         if _r.status_code == 200:
                             st.success(t("msg_contribucion_ok", LANG))
                         else:
-                            st.error(f"Error al enviar ({_r.status_code}). Intenta de nuevo.")
+                            st.error(t("form_error_envio", LANG).format(code=_r.status_code))
                     except Exception as _ex:
-                        st.error(f"Error de conexión: {_ex}")
+                        st.error(f'{t("form_error_conexion", LANG)} {_ex}')
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
     st.markdown(f'<div class="sec-t">{t("parametros_seccion_titulo", LANG)}</div>', unsafe_allow_html=True)
@@ -4259,7 +4250,7 @@ if not correr:
         _th = "".join(f'<th>{c}</th>' for c in ([t("hist_col_fecha", LANG), t("hist_col_punto", LANG)] + _param_cols))
         _rows_html = ""
         for _, row in _df_show.iterrows():
-            _cells = f'<td class="fecha-col">{row["target_date"]}</td><td class="punto-col">{row["nombre"]}</td>'
+            _cells = f'<td class="fecha-col">{row["target_date"]}</td><td class="punto-col">{_punto_lbl(row["nombre"])}</td>'
             for c in _param_cols:
                 v = row[c]
                 _nom_lim = NOM_LIMITS.get(c, {}).get("lim", None)
@@ -4285,7 +4276,7 @@ if not correr:
           </div></div>""", unsafe_allow_html=True)
         _csv_buf = _df_show.to_csv(index=False).encode("utf-8")
         st.download_button(t("hist_descargar_btn", LANG), _csv_buf,
-            "datos_campo_pesqueria.csv", "text/csv", use_container_width=True, key="dl_hist_csv")
+            f"{t('archivo_datos_campo', LANG)}.csv", "text/csv", use_container_width=True, key="dl_hist_csv")
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
@@ -4372,13 +4363,13 @@ if not correr:
                         _logo_geo_path_s = None
                     pdf_serie_buf = generar_pdf_serie_temporal(
                         resultados_por_fecha, params_sel, bounds_serie,
-                        len(puntos_uniq_s), PARAMS, logo_geo_path=_logo_geo_path_s
+                        len(puntos_uniq_s), PARAMS, logo_geo_path=_logo_geo_path_s, lang=LANG
                     )
                     st.success(f'{t("serie_exito", LANG)} {len(resultados_por_fecha)} {t("serie_fechas", LANG)}')
                     st.download_button(
                         t("serie_descargar_btn", LANG),
                         pdf_serie_buf.getvalue(),
-                        f"Reporte_SerieTemporal_Pesqueria_{date_cls.today().strftime('%Y%m%d')}.pdf",
+                        f"{t('archivo_rep_serie', LANG)}_{date_cls.today().strftime('%Y%m%d')}.pdf",
                         "application/pdf", use_container_width=True, type="primary"
                     )
                 else:
@@ -4405,9 +4396,9 @@ if not correr:
 
     st.markdown(f"""<div class="footer">
   <div class="footer-l">
-    <span>Departamento de Geomática · FIME · UANL</span>
+    <span>{t("footer_depto", LANG)}</span>
     <span style="color:rgba(255,255,255,.08)">|</span>
-    <span>Water Quality Mapping — Río Pesquería · NL · México</span>
+    <span>{t("footer_app", LANG)}</span>
   </div>
   <div class="footer-r">GEE · Sentinel-2 SR · RF v3 · {t("footer_texto", LANG)}</div>
 </div>""", unsafe_allow_html=True)
@@ -4431,7 +4422,7 @@ status.text(t("cargando_shapefile", LANG))
 with tempfile.TemporaryDirectory() as tmpdir:
     with zipfile.ZipFile(wmask_zip,"r") as z: z.extractall(tmpdir)
     shp=[f for f in os.listdir(tmpdir) if f.endswith(".shp")]
-    if not shp: st.error("No .shp"); st.stop()
+    if not shp: st.error(t("error_sin_shp", LANG)); st.stop()
     wmask = gpd.read_file(os.path.join(tmpdir, shp[0]))
     if wmask.crs is None or wmask.crs.to_epsg()!=4326: wmask=wmask.to_crs(4326)
     union_geom = wmask.geometry.unary_union
@@ -4530,15 +4521,16 @@ for i,(col,info) in enumerate(mapas.items()):
         if np.isfinite(vals_p[j]):
             ax.annotate(f" P{j+1}: {vals_p[j]:.1f}",(lon,lat),fontsize=7.5,color="white",fontweight="bold",zorder=6)
     cbar=plt.colorbar(im,ax=ax,fraction=0.03,pad=0.02,shrink=0.85)
-    cbar.set_label(f"{info['label']} ({info['unidad']})",color="white",fontsize=10)
+    _lbl = get_param_label(col, LANG)
+    cbar.set_label(f"{_lbl} ({info['unidad']})",color="white",fontsize=10)
     plt.setp(plt.getp(cbar.ax.axes,"yticklabels"),color="white",fontsize=8)
     d=data[np.isfinite(data)]
-    ax.set_title(info["label"],color="white",fontsize=11,fontweight="bold")
-    ax.text(0.01,0.99,f"Min:{d.min():.2f}\nMáx:{d.max():.2f}\nMedia:{d.mean():.2f}",
+    ax.set_title(_lbl,color="white",fontsize=11,fontweight="bold")
+    ax.text(0.01,0.99,f"{t('pdf_tabla_min', LANG)}:{d.min():.2f}\n{t('pdf_tabla_max', LANG)}:{d.max():.2f}\n{t('stat_media', LANG)}:{d.mean():.2f}",
             transform=ax.transAxes,fontsize=8,color="white",va="top",
             bbox=dict(boxstyle="round,pad=0.3",facecolor="#0D1117",alpha=0.7))
-    ax.set_xlabel("Longitud (°)",color="#8EAAC8",fontsize=8)
-    ax.set_ylabel("Latitud (°)",color="#8EAAC8",fontsize=8)
+    ax.set_xlabel(t("eje_longitud", LANG),color="#8EAAC8",fontsize=8)
+    ax.set_ylabel(t("eje_latitud", LANG),color="#8EAAC8",fontsize=8)
     ax.tick_params(colors="#8EAAC8",labelsize=7)
     for sp in ax.spines.values(): sp.set_edgecolor("#2E8B8B44")
 
@@ -4551,11 +4543,11 @@ for i,(col,info) in enumerate(mapas.items()):
         lon,lat=COORDS[p]; ai.scatter(lon,lat,c="white",s=80,zorder=5,edgecolors="#0D1117",linewidths=0.8)
         if np.isfinite(vals_p[j]): ai.annotate(f" P{j+1}: {vals_p[j]:.1f}",(lon,lat),fontsize=9,color="white",fontweight="bold",zorder=6)
     cb2=plt.colorbar(im2,ax=ai,fraction=0.025,pad=0.02,shrink=0.9)
-    cb2.set_label(f"{info['label']} ({info['unidad']})",color="white",fontsize=11)
+    cb2.set_label(f"{_lbl} ({info['unidad']})",color="white",fontsize=11)
     plt.setp(plt.getp(cb2.ax.axes,"yticklabels"),color="white",fontsize=9)
-    ai.set_title(f"{info['label']} | Río Pesquería | {fecha_campo_dt.strftime('%d/%m/%Y')}",
+    ai.set_title(f"{_lbl} | {t('rio_pesqueria', LANG)} | {fecha_campo_dt.strftime('%d/%m/%Y')}",
                 color="white",fontsize=11,fontweight="bold")
-    ai.text(0.99,0.01,"Kevin D. Rodríguez G. · UANL · Depto. Geomática",
+    ai.text(0.99,0.01,t("credito_mapa", LANG),
            transform=ai.transAxes,fontsize=7,color="#8EAAC8",ha="right",va="bottom")
     ai.tick_params(colors="#8EAAC8",labelsize=7)
     for sp in ai.spines.values(): sp.set_edgecolor("#2E8B8B44")
@@ -4565,8 +4557,8 @@ for i,(col,info) in enumerate(mapas.items()):
 
 for k in range(n,len(axes_flat)): axes_flat[k].set_visible(False)
 mes2=fecha_campo_dt.month
-temp="Temporada Seca 🌵" if mes2 in [11,12,1,2,3] else "Temporada Lluviosa 🌧️"
-fig.suptitle(f"Calidad de Agua — Río Pesquería\n{fecha_campo_dt.strftime('%d/%m/%Y')} | {temp} | UANL·FIC·Geomática",
+temp=t("temporada_seca", LANG) if mes2 in [11,12,1,2,3] else t("temporada_lluviosa", LANG)
+fig.suptitle(f"{t('titulo_calidad_rio', LANG)}\n{fecha_campo_dt.strftime('%d/%m/%Y')} | {temp} | UANL·FIC·{t('geomatica', LANG)}",
             fontsize=13,fontweight="bold",color="white",y=1.01)
 plt.tight_layout()
 buf_panel=io.BytesIO()
@@ -4576,25 +4568,25 @@ plt.close(fig); progress.progress(100); status.empty()
 st.markdown(f"""<div class="status-row" style="margin-bottom:.8rem">
   <div class="status-item"><span class="status-dot-ok"></span><b>{n} {t("mapas_generados", LANG)}</b></div>
   <div class="status-sep"></div>
-  <div class="status-item"><b>Fecha:</b> {fecha_campo_dt.strftime("%d/%m/%Y")}</div>
+  <div class="status-item"><b>{t("hist_col_fecha", LANG)}:</b> {fecha_campo_dt.strftime("%d/%m/%Y")}</div>
   <div class="status-sep"></div>
-  <div class="status-item"><b>Temporada:</b> {temp}</div>
+  <div class="status-item"><b>{t("pdf_temporada", LANG)}:</b> {temp}</div>
   <div class="status-badge">RF v3 · OOB ≥ 0.61</div>
 </div>""", unsafe_allow_html=True)
 st.image(buf_panel,caption=t("panel_caption", LANG),use_column_width=True)
 
 # ── NOM-001 ALERT TABLE ──────────────────────────────────────────────────────
-st.markdown('<div class="sec-t">Semáforo NOM-001-SEMARNAT-1996 · Valores por punto de muestreo</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="sec-t">{t("nom_titulo", LANG)}</div>', unsafe_allow_html=True)
 _nom_cols_active = [c for c in params_sel if c in mapas]
-_leg = '<div class="nom-legend"><div class="nom-leg-item"><div class="nom-leg-dot" style="background:rgba(16,185,129,.8)"></div>OK</div><div class="nom-leg-item"><div class="nom-leg-dot" style="background:rgba(245,158,11,.8)"></div>≥90% límite</div><div class="nom-leg-item"><div class="nom-leg-dot" style="background:rgba(239,68,68,.8)"></div>Excede NOM</div></div>'
-_nom_th = '<th>Punto</th><th>Coordenadas</th>' + "".join(
-    f'<th><span style="font-family:monospace;font-size:.7em;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:2px;margin-right:4px">{PARAMS[c]["icon"]}</span>{get_param_label(c, LANG)}<br><span style="font-weight:400;color:rgba(255,255,255,.3)">lím. {NOM_LIMITS[c]["lim"]} {PARAMS[c]["unidad"]}</span></th>'
+_leg = f'<div class="nom-legend"><div class="nom-leg-item"><div class="nom-leg-dot" style="background:rgba(16,185,129,.8)"></div>OK</div><div class="nom-leg-item"><div class="nom-leg-dot" style="background:rgba(245,158,11,.8)"></div>{t("hist_badge_warn", LANG)}</div><div class="nom-leg-item"><div class="nom-leg-dot" style="background:rgba(239,68,68,.8)"></div>{t("hist_badge_err", LANG)}</div></div>'
+_nom_th = f'<th>{t("hist_col_punto", LANG)}</th><th>{t("coordenadas", LANG)}</th>' + "".join(
+    f'<th><span style="font-family:monospace;font-size:.7em;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:2px;margin-right:4px">{PARAMS[c]["icon"]}</span>{get_param_label(c, LANG)}<br><span style="font-weight:400;color:rgba(255,255,255,.3)">{t("lim_abrev", LANG)} {NOM_LIMITS[c]["lim"]} {PARAMS[c]["unidad"]}</span></th>'
     for c in _nom_cols_active
 )
 _nom_rows = ""
 for j, punto in enumerate(puntos_uniq):
     lon_p, lat_p = COORDS[punto]
-    _cells = f'<td class="nom-point">P{j+1} · {punto.replace("_"," ")}</td><td style="font-family:var(--f-mono);font-size:.65rem;color:rgba(255,255,255,.35)">{lat_p:.4f}°N · {abs(lon_p):.4f}°W</td>'
+    _cells = f'<td class="nom-point">P{j+1} · {_punto_lbl(punto)}</td><td style="font-family:var(--f-mono);font-size:.65rem;color:rgba(255,255,255,.35)">{lat_p:.4f}°N · {abs(lon_p):.4f}°W</td>'
     _has_exc = False
     for c in _nom_cols_active:
         v = mapas[c]["vals_puntos"][j] if j < len(mapas[c]["vals_puntos"]) else float("nan")
@@ -4611,7 +4603,7 @@ for j, punto in enumerate(puntos_uniq):
     _nom_rows += f"<tr>{_cells}</tr>"
 
 st.markdown(f"""<div class="nom-wrap">
-  <div class="nom-header"><div class="nom-title">⚠ Norma Oficial Mexicana NOM-001-SEMARNAT-1996 · {fecha_campo_dt.strftime("%d/%m/%Y")}</div>{_leg}</div>
+  <div class="nom-header"><div class="nom-title">⚠ {t("nom_encabezado", LANG)} · {fecha_campo_dt.strftime("%d/%m/%Y")}</div>{_leg}</div>
   <table class="nom-table"><thead><tr>{_nom_th}</tr></thead><tbody>{_nom_rows}</tbody></table>
 </div>""", unsafe_allow_html=True)
 
@@ -4623,9 +4615,9 @@ with dl1:
 with dl2:
     bz=io.BytesIO()
     with zipfile.ZipFile(bz,"w") as zf:
-        for col,buf in buf_ind.items(): zf.writestr(f"mapa_{col}_{fecha_campo_dt.strftime('%Y%m%d')}.png",buf.getvalue())
+        for col,buf in buf_ind.items(): zf.writestr(f"{t('archivo_mapa', LANG)}_{col}_{fecha_campo_dt.strftime('%Y%m%d')}.png",buf.getvalue())
     st.download_button(t("descargar_mapas_zip", LANG),bz.getvalue(),
-        f"mapas_{fecha_campo_dt.strftime('%Y%m%d')}.zip","application/zip",use_container_width=True)
+        f"{t('archivo_mapas', LANG)}_{fecha_campo_dt.strftime('%Y%m%d')}.zip","application/zip",use_container_width=True)
 with dl3:
     with st.spinner(t("generando_pdf", LANG)):
         try:
@@ -4639,7 +4631,7 @@ with dl3:
                 lang=LANG, df_campo=df_global
             )
             st.download_button(t("descargar_pdf_btn", LANG), pdf_buf.getvalue(),
-                f"Reporte_CalidadAgua_{fecha_campo_dt.strftime('%Y%m%d')}.pdf",
+                f"{t('archivo_rep_calidad', LANG)}_{fecha_campo_dt.strftime('%Y%m%d')}.pdf",
                 "application/pdf", use_container_width=True, type="primary")
         except Exception as e:
             st.error(f'{t("error_pdf", LANG)} {e}')
@@ -4693,9 +4685,9 @@ st.markdown(f"""<div class="researcher-card">
 
 st.markdown(f"""<div class="footer">
   <div class="footer-l">
-    <span>Departamento de Geomática · FIME · UANL</span>
+    <span>{t("footer_depto", LANG)}</span>
     <span style="color:rgba(255,255,255,.08)">|</span>
-    <span>Water Quality Mapping — Río Pesquería · NL · México</span>
+    <span>{t("footer_app", LANG)}</span>
   </div>
   <div class="footer-r">GEE · Sentinel-2 SR · RF v3 · {t("footer_texto", LANG)}</div>
 </div>""", unsafe_allow_html=True)

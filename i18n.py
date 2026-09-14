@@ -3,6 +3,7 @@
 # Calidad de Agua — Río Pesquería
 # Idiomas: Español (es), Inglés (en), Portugués (pt)
 # =============================================================================
+import re
 
 IDIOMAS = {
     "es": "🇲🇽 Español",
@@ -1181,10 +1182,10 @@ T = {
         "pt": "3. Interpretação de Tendências",
     },
     "pdf_serie_tendencia_incremento": {
-        "es": "incremento", "en": "increase", "pt": "aumento",
+        "es": "incremento", "en": "increasing", "pt": "aumento",
     },
     "pdf_serie_tendencia_disminucion": {
-        "es": "disminución", "en": "decrease", "pt": "diminuição",
+        "es": "disminución", "en": "decreasing", "pt": "diminuição",
     },
     "pdf_serie_tendencia_texto": {
         "es": "se observa una tendencia de",
@@ -1592,6 +1593,694 @@ T = {
         "pt": "turbidez alta — forte carga de sedimentos ou matéria "
               "orgânica em suspensão",
     },
+
+    # ── LST (faltaba: se mostraba "LST_nombre") ───────────────────────────────
+    "LST_nombre": {"es": "🌡️ LST (Temperatura Superficial)", "en": "🌡️ LST (Surface Temperature)",
+                   "pt": "🌡️ LST (Temperatura de Superfície)"},
+    "LST_desc": {
+        "es": "Temperatura superficial en °C desde Landsat 8/9 (ST_B10), con downscaling a 10 m vía TsHARP usando NDVI Sentinel-2.",
+        "en": "Surface temperature in °C from Landsat 8/9 (ST_B10), downscaled to 10 m via TsHARP using Sentinel-2 NDVI.",
+        "pt": "Temperatura de superfície em °C do Landsat 8/9 (ST_B10), com downscaling para 10 m via TsHARP usando NDVI Sentinel-2.",
+    },
+
+    # ── Estado del sistema / pantalla inicial / genéricos ─────────────────────
+    "status_campanas": {"es": "campañas", "en": "campaigns", "pt": "campanhas"},
+    "status_puntos": {"es": "puntos", "en": "stations", "pt": "pontos"},
+    "status_sistema_activo": {"es": "SISTEMA ACTIVO", "en": "SYSTEM ONLINE", "pt": "SISTEMA ATIVO"},
+    "paso_label": {"es": "PASO", "en": "STEP", "pt": "PASSO"},
+    "error_generico": {"es": "Error", "en": "Error", "pt": "Erro"},
+    "error_sin_shp": {"es": "El ZIP no contiene un archivo .shp", "en": "The ZIP does not contain a .shp file",
+                      "pt": "O ZIP não contém um arquivo .shp"},
+    "temporada_seca": {"es": "Temporada seca", "en": "Dry season", "pt": "Estação seca"},
+    "temporada_lluviosa": {"es": "Temporada lluviosa", "en": "Rainy season", "pt": "Estação chuvosa"},
+    "meses": {"es": "meses", "en": "months", "pt": "meses"},
+    "anio": {"es": "Año", "en": "Year", "pt": "Ano"},
+    "mes": {"es": "Mes", "en": "Month", "pt": "Mês"},
+    "coordenadas": {"es": "Coordenadas", "en": "Coordinates", "pt": "Coordenadas"},
+
+    # ── Capas del mapa Folium ─────────────────────────────────────────────────
+    "capa_jrc": {"es": "JRC Ocurrencia de agua (histórico)", "en": "JRC Water occurrence (historical)",
+                 "pt": "JRC Ocorrência de água (histórico)"},
+    "capa_worldcover": {"es": "ESA WorldCover 2021 (Uso de suelo)", "en": "ESA WorldCover 2021 (Land cover)",
+                        "pt": "ESA WorldCover 2021 (Uso do solo)"},
+    "capa_esri": {"es": "Satélite Esri (referencia)", "en": "Esri satellite (reference)", "pt": "Satélite Esri (referência)"},
+    "capa_area_estudio": {"es": "Área de estudio", "en": "Study area", "pt": "Área de estudo"},
+    "capas_grupo_visualizacion": {"es": "Visualización", "en": "Display", "pt": "Visualização"},
+    "capas_grupo_analisis": {"es": "Capas de análisis", "en": "Analysis layers", "pt": "Camadas de análise"},
+
+    # ── Resultados: panel, semáforo NOM, pie de página, nombres de archivo ────
+    "titulo_calidad_rio": {"es": "Calidad de Agua — Río Pesquería", "en": "Water Quality — Pesquería River",
+                           "pt": "Qualidade da Água — Rio Pesquería"},
+    "rio_pesqueria": {"es": "Río Pesquería", "en": "Pesquería River", "pt": "Rio Pesquería"},
+    "geomatica": {"es": "Geomática", "en": "Geomatics", "pt": "Geomática"},
+    "eje_longitud": {"es": "Longitud (°)", "en": "Longitude (°)", "pt": "Longitude (°)"},
+    "eje_latitud": {"es": "Latitud (°)", "en": "Latitude (°)", "pt": "Latitude (°)"},
+    "credito_mapa": {"es": "Kevin D. Rodríguez G. · UANL · Depto. Geomática",
+                     "en": "Kevin D. Rodríguez G. · UANL · Geomatics Dept.",
+                     "pt": "Kevin D. Rodríguez G. · UANL · Depto. Geomática"},
+    "nom_titulo": {"es": "Semáforo NOM-001-SEMARNAT-1996 · Valores por punto de muestreo",
+                   "en": "NOM-001-SEMARNAT-1996 traffic light · Values by sampling station",
+                   "pt": "Semáforo NOM-001-SEMARNAT-1996 · Valores por ponto de amostragem"},
+    "nom_encabezado": {"es": "Norma Oficial Mexicana NOM-001-SEMARNAT-1996",
+                       "en": "Mexican Official Standard NOM-001-SEMARNAT-1996",
+                       "pt": "Norma Oficial Mexicana NOM-001-SEMARNAT-1996"},
+    "lim_abrev": {"es": "lím.", "en": "limit", "pt": "lim."},
+    "footer_depto": {"es": "Departamento de Geomática · FIC · UANL", "en": "Geomatics Department · FIC · UANL",
+                     "pt": "Departamento de Geomática · FIC · UANL"},
+    "footer_app": {"es": "Water Quality Mapping — Río Pesquería · NL · México",
+                   "en": "Water Quality Mapping — Pesquería River · NL · Mexico",
+                   "pt": "Water Quality Mapping — Rio Pesquería · NL · México"},
+    "archivo_rep_calidad": {"es": "Reporte_CalidadAgua", "en": "WaterQuality_Report", "pt": "Relatorio_QualidadeAgua"},
+    "archivo_rep_espectral": {"es": "Reporte_Espectral", "en": "Spectral_Report", "pt": "Relatorio_Espectral"},
+    "archivo_rep_serie": {"es": "Reporte_SerieTemporal_Pesqueria", "en": "TimeSeries_Report_Pesqueria",
+                          "pt": "Relatorio_SerieTemporal_Pesqueria"},
+    "archivo_mapas": {"es": "mapas", "en": "maps", "pt": "mapas"},
+    "archivo_mapa": {"es": "mapa", "en": "map", "pt": "mapa"},
+    "archivo_animacion": {"es": "Animacion_S2", "en": "Animation_S2", "pt": "Animacao_S2"},
+    "archivo_datos_campo": {"es": "datos_campo_pesqueria", "en": "field_data_pesqueria", "pt": "dados_campo_pesqueria"},
+    "archivo_serie_csv": {"es": "serie", "en": "series", "pt": "serie"},
+    "csv_fecha_valor": {"es": "fecha,valor", "en": "date,value", "pt": "data,valor"},
+
+    # ── Serie temporal de índices (panel GEE) ─────────────────────────────────
+    "ts_titulo": {"es": "📈 Serie temporal de índices (GEE)", "en": "📈 Index time series (GEE)",
+                  "pt": "📈 Série temporal de índices (GEE)"},
+    "ts_caption": {
+        "es": "Evolución temporal del índice seleccionado en tu área de estudio — cada punto representa la media zonal de una imagen Sentinel-2.",
+        "en": "Temporal evolution of the selected index over your study area — each point is the zonal mean of one Sentinel-2 image.",
+        "pt": "Evolução temporal do índice selecionado na sua área de estudo — cada ponto representa a média zonal de uma imagem Sentinel-2.",
+    },
+    "ts_indice": {"es": "Índice a graficar", "en": "Index to plot", "pt": "Índice a plotar"},
+    "ts_extrayendo": {"es": "Extrayendo {idx} desde GEE…", "en": "Extracting {idx} from GEE…", "pt": "Extraindo {idx} do GEE…"},
+    "ts_tendencia": {"es": "Tendencia", "en": "Trend", "pt": "Tendência"},
+    "ts_media_zonal": {"es": "media zonal", "en": "zonal mean", "pt": "média zonal"},
+    "ts_n_imagenes": {"es": "N imágenes", "en": "N images", "pt": "N imagens"},
+    "mk_ascendente": {"es": "↑ Ascendente", "en": "↑ Increasing", "pt": "↑ Crescente"},
+    "mk_descendente": {"es": "↓ Descendente", "en": "↓ Decreasing", "pt": "↓ Decrescente"},
+    "mk_significativa": {"es": "p<0.05 · Significativa", "en": "p<0.05 · Significant", "pt": "p<0.05 · Significativa"},
+    "mk_no_significativa": {"es": "p≥0.05 · No significativa", "en": "p≥0.05 · Not significant",
+                            "pt": "p≥0.05 · Não significativa"},
+
+    # ── Análisis de cuenca (JRC + WorldCover) ─────────────────────────────────
+    "cuenca_titulo": {"es": "Análisis de cuenca — JRC &amp; WorldCover", "en": "Watershed analysis — JRC &amp; WorldCover",
+                      "pt": "Análise de bacia — JRC &amp; WorldCover"},
+    "cuenca_caption": {
+        "es": "Análisis integrado de ocurrencia histórica de agua (JRC 1984–2021) y uso de suelo (ESA WorldCover 2021) en tu área de estudio.",
+        "en": "Combined analysis of historical water occurrence (JRC 1984–2021) and land cover (ESA WorldCover 2021) in your study area.",
+        "pt": "Análise integrada da ocorrência histórica de água (JRC 1984–2021) e do uso do solo (ESA WorldCover 2021) na sua área de estudo.",
+    },
+    "cuenca_consultando": {"es": "Consultando JRC Global Surface Water y ESA WorldCover en GEE…",
+                           "en": "Querying JRC Global Surface Water and ESA WorldCover in GEE…",
+                           "pt": "Consultando JRC Global Surface Water e ESA WorldCover no GEE…"},
+    "cuenca_occ_media": {"es": "Ocurrencia media", "en": "Mean occurrence", "pt": "Ocorrência média"},
+    "cuenca_occ_media_help": {"es": "% de tiempo con agua en el período 1984-2021", "en": "% of time with water during 1984–2021",
+                              "pt": "% do tempo com água no período 1984–2021"},
+    "cuenca_occ_max": {"es": "Ocurrencia máx.", "en": "Max. occurrence", "pt": "Ocorrência máx."},
+    "cuenca_occ_max_help": {"es": "Píxeles con presencia de agua permanente", "en": "Pixels with permanent water",
+                            "pt": "Pixels com presença de água permanente"},
+    "cuenca_estacionalidad": {"es": "Estacionalidad", "en": "Seasonality", "pt": "Sazonalidade"},
+    "cuenca_estacionalidad_help": {"es": "Meses promedio con agua por año", "en": "Average months with water per year",
+                                   "pt": "Média de meses com água por ano"},
+    "cuenca_lulc_titulo": {"es": "ESA WorldCover 2021 — Uso de suelo", "en": "ESA WorldCover 2021 — Land cover",
+                           "pt": "ESA WorldCover 2021 — Uso do solo"},
+    "wc_10": {"es": "Árboles", "en": "Trees", "pt": "Árvores"},
+    "wc_20": {"es": "Arbustos", "en": "Shrubland", "pt": "Arbustos"},
+    "wc_30": {"es": "Pastizal", "en": "Grassland", "pt": "Pastagem"},
+    "wc_40": {"es": "Cultivos", "en": "Cropland", "pt": "Agricultura"},
+    "wc_50": {"es": "Zona urbana", "en": "Built-up", "pt": "Área urbana"},
+    "wc_60": {"es": "Suelo desnudo", "en": "Bare ground", "pt": "Solo exposto"},
+    "wc_70": {"es": "Nieve/Hielo", "en": "Snow/Ice", "pt": "Neve/Gelo"},
+    "wc_80": {"es": "Agua permanente", "en": "Permanent water", "pt": "Água permanente"},
+    "wc_90": {"es": "Humedales", "en": "Wetlands", "pt": "Áreas úmidas"},
+    "wc_95": {"es": "Manglar", "en": "Mangroves", "pt": "Manguezal"},
+    "wc_100": {"es": "Musgo/Liquen", "en": "Moss/Lichen", "pt": "Musgo/Líquen"},
+    "wc_otro": {"es": "Clase {k}", "en": "Class {k}", "pt": "Classe {k}"},
+
+    # ── Perfil espectral ──────────────────────────────────────────────────────
+    "perfil_titulo": {"es": "Perfil espectral interactivo — Sentinel-2", "en": "Interactive spectral profile — Sentinel-2",
+                      "pt": "Perfil espectral interativo — Sentinel-2"},
+    "perfil_caption": {
+        "es": "Ingresa las coordenadas de un punto en tu área de estudio para extraer la reflectancia de todas las bandas Sentinel-2.",
+        "en": "Enter the coordinates of a point in your study area to extract the reflectance of every Sentinel-2 band.",
+        "pt": "Insira as coordenadas de um ponto na sua área de estudo para extrair a refletância de todas as bandas Sentinel-2.",
+    },
+    "perfil_consultando": {"es": "Consultando GEE para el perfil espectral…", "en": "Querying GEE for the spectral profile…",
+                           "pt": "Consultando o GEE para o perfil espectral…"},
+    "reflectancia": {"es": "Reflectancia", "en": "Reflectance", "pt": "Refletância"},
+    "perfil_firma": {"es": "Firma espectral", "en": "Spectral signature", "pt": "Assinatura espectral"},
+    "perfil_en_punto": {"es": "{idx} en el punto", "en": "{idx} at the point", "pt": "{idx} no ponto"},
+
+    # ── Mapa de riesgo MCDA ───────────────────────────────────────────────────
+    "mcda_titulo": {"es": "Mapa de riesgo de contaminación — MCDA", "en": "Pollution risk map — MCDA",
+                    "pt": "Mapa de risco de contaminação — MCDA"},
+    "mcda_caption": {
+        "es": "Índice compuesto de riesgo = 0.30·NDCI + 0.25·NDTI + 0.25·CDOM + 0.20·AWEInsh⁻¹ (escala 0–1, donde 1 = mayor riesgo potencial de contaminación).",
+        "en": "Composite risk index = 0.30·NDCI + 0.25·NDTI + 0.25·CDOM + 0.20·AWEInsh⁻¹ (0–1 scale, where 1 = highest potential pollution risk).",
+        "pt": "Índice composto de risco = 0.30·NDCI + 0.25·NDTI + 0.25·CDOM + 0.20·AWEInsh⁻¹ (escala 0–1, onde 1 = maior risco potencial de contaminação).",
+    },
+    "mcda_calculando": {"es": "Calculando composite MCDA en GEE…", "en": "Computing MCDA composite in GEE…",
+                        "pt": "Calculando composto MCDA no GEE…"},
+    "mcda_capa": {"es": "Riesgo MCDA", "en": "MCDA risk", "pt": "Risco MCDA"},
+    "mcda_centro": {"es": "Centro del área de estudio", "en": "Study area center", "pt": "Centro da área de estudo"},
+    "mcda_riesgo_medio": {"es": "Riesgo medio zonal", "en": "Mean zonal risk", "pt": "Risco médio zonal"},
+    "mcda_riesgo_max": {"es": "Riesgo máximo", "en": "Maximum risk", "pt": "Risco máximo"},
+    "nivel_alto": {"es": "ALTO", "en": "HIGH", "pt": "ALTO"},
+    "nivel_medio": {"es": "MEDIO", "en": "MEDIUM", "pt": "MÉDIO"},
+    "nivel_bajo": {"es": "BAJO", "en": "LOW", "pt": "BAIXO"},
+
+    # ── Formulario de contribución ────────────────────────────────────────────
+    "form_rio": {"es": "Nombre del río *", "en": "River name *", "pt": "Nome do rio *"},
+    "form_rio_ph": {"es": "Ej. Río Bravo", "en": "e.g. Rio Grande", "pt": "Ex. Rio Bravo"},
+    "form_estado": {"es": "Estado / Municipio *", "en": "State / Municipality *", "pt": "Estado / Município *"},
+    "form_estado_ph": {"es": "Ej. Tamaulipas", "en": "e.g. Tamaulipas", "pt": "Ex. Tamaulipas"},
+    "form_nombre": {"es": "Tu nombre *", "en": "Your name *", "pt": "Seu nome *"},
+    "form_nombre_ph": {"es": "Ej. Juan Pérez", "en": "e.g. Jane Smith", "pt": "Ex. João Silva"},
+    "form_inst": {"es": "Institución / Organización", "en": "Institution / Organization", "pt": "Instituição / Organização"},
+    "form_inst_ph": {"es": "Ej. UANL, CONAGUA, IMTA", "en": "e.g. UANL, CONAGUA, IMTA", "pt": "Ex. UANL, CONAGUA, IMTA"},
+    "form_lat": {"es": "Latitud *", "en": "Latitude *", "pt": "Latitude *"},
+    "form_lon": {"es": "Longitud *", "en": "Longitude *", "pt": "Longitude *"},
+    "form_fuente": {"es": "Fuente de los datos *", "en": "Data source *", "pt": "Fonte dos dados *"},
+    "fuente_tesis": {"es": "Tesis/Artículo científico", "en": "Thesis/Scientific paper", "pt": "Tese/Artigo científico"},
+    "fuente_reporte": {"es": "Reporte institucional", "en": "Institutional report", "pt": "Relatório institucional"},
+    "fuente_otra": {"es": "Otra", "en": "Other", "pt": "Outra"},
+    "form_params": {"es": "**Parámetros fisicoquímicos** (al menos uno requerido)",
+                    "en": "**Physicochemical parameters** (at least one required)",
+                    "pt": "**Parâmetros físico-químicos** (pelo menos um obrigatório)"},
+    "form_url": {"es": "URL o referencia de la evidencia *", "en": "Evidence URL or reference *",
+                 "pt": "URL ou referência da evidência *"},
+    "form_url_ph": {"es": "https://... o cita bibliográfica completa", "en": "https://... or full bibliographic citation",
+                    "pt": "https://... ou citação bibliográfica completa"},
+    "form_notas": {"es": "Notas adicionales (opcional)", "en": "Additional notes (optional)", "pt": "Notas adicionais (opcional)"},
+    "form_notas_ph": {"es": "Método de análisis, condiciones del muestreo, etc.",
+                      "en": "Analysis method, sampling conditions, etc.",
+                      "pt": "Método de análise, condições da amostragem, etc."},
+    "form_enviar": {"es": "📤  Enviar contribución", "en": "📤  Submit contribution", "pt": "📤  Enviar contribuição"},
+    "form_req_rio": {"es": "Nombre del río", "en": "River name", "pt": "Nome do rio"},
+    "form_req_estado": {"es": "Estado/Municipio", "en": "State/Municipality", "pt": "Estado/Município"},
+    "form_req_nombre": {"es": "Tu nombre", "en": "Your name", "pt": "Seu nome"},
+    "form_req_url": {"es": "URL/referencia de evidencia", "en": "Evidence URL/reference", "pt": "URL/referência da evidência"},
+    "form_req_param": {"es": "Al menos un parámetro fisicoquímico (> 0)", "en": "At least one physicochemical parameter (> 0)",
+                       "pt": "Pelo menos um parâmetro físico-químico (> 0)"},
+    "form_campos_req": {"es": "Campos requeridos:", "en": "Required fields:", "pt": "Campos obrigatórios:"},
+    "form_error_envio": {"es": "Error al enviar ({code}). Intenta de nuevo.", "en": "Submission failed ({code}). Please try again.",
+                         "pt": "Erro ao enviar ({code}). Tente novamente."},
+    "form_error_conexion": {"es": "Error de conexión:", "en": "Connection error:", "pt": "Erro de conexão:"},
+
+    # ── Sección ENSO (interfaz) ───────────────────────────────────────────────
+    "enso_titulo": {"es": "Variables climáticas oceánicas — ENSO · El Niño / La Niña",
+                    "en": "Ocean climate variables — ENSO · El Niño / La Niña",
+                    "pt": "Variáveis climáticas oceânicas — ENSO · El Niño / La Niña"},
+    "enso_intro": {
+        "es": "Análisis de la <b>Temperatura Superficial del Mar (SST)</b>, sus anomalías y la <b>Clorofila-a</b> "
+              "oceánica en la región <b>Niño 3.4</b> (5°N–5°S · 170°W–120°W). "
+              "Fuente: NOAA CDR OISST v2.1 · NASA MODIS-Aqua · Google Earth Engine. "
+              "La anomalía positiva (≥+0.5°C) indica {nino}; la negativa (≤−0.5°C) indica {nina}. "
+              "En años El Niño la clorofila disminuye; en La Niña aumenta por mayor surgencia.",
+        "en": "Analysis of <b>Sea Surface Temperature (SST)</b>, its anomalies and ocean <b>Chlorophyll-a</b> "
+              "in the <b>Niño 3.4</b> region (5°N–5°S · 170°W–120°W). "
+              "Source: NOAA CDR OISST v2.1 · NASA MODIS-Aqua · Google Earth Engine. "
+              "A positive anomaly (≥+0.5°C) indicates {nino}; a negative one (≤−0.5°C) indicates {nina}. "
+              "Chlorophyll decreases in El Niño years and increases in La Niña years due to stronger upwelling.",
+        "pt": "Análise da <b>Temperatura da Superfície do Mar (SST)</b>, suas anomalias e a <b>Clorofila-a</b> "
+              "oceânica na região <b>Niño 3.4</b> (5°N–5°S · 170°W–120°W). "
+              "Fonte: NOAA CDR OISST v2.1 · NASA MODIS-Aqua · Google Earth Engine. "
+              "A anomalia positiva (≥+0.5°C) indica {nino}; a negativa (≤−0.5°C) indica {nina}. "
+              "Em anos de El Niño a clorofila diminui; em La Niña aumenta devido à maior ressurgência.",
+    },
+    "enso_expander_mapa": {"es": "Mapa oceánico — SST / Anomalía / Clorofila-a", "en": "Ocean map — SST / Anomaly / Chlorophyll-a",
+                           "pt": "Mapa oceânico — SST / Anomalia / Clorofila-a"},
+    "enso_leg_anomalia": {"es": "Anomalía:", "en": "Anomaly:", "pt": "Anomalia:"},
+    "enso_leg_clorofila": {"es": "Clorofila:", "en": "Chlorophyll:", "pt": "Clorofila:"},
+    "enso_leg_chl_fuente": {"es": "(2002–hoy · MODIS-Aqua / VIIRS-Snpp)", "en": "(2002–present · MODIS-Aqua / VIIRS-Snpp)",
+                            "pt": "(2002–hoje · MODIS-Aqua / VIIRS-Snpp)"},
+    "enso_cargando": {"es": "Cargando {periodo} y eventos de referencia…", "en": "Loading {periodo} and reference events…",
+                      "pt": "Carregando {periodo} e eventos de referência…"},
+    "enso_capa_anomalia": {"es": "Anomalía SST", "en": "SST anomaly", "pt": "Anomalia SST"},
+    "clorofila_a": {"es": "Clorofila-a", "en": "Chlorophyll-a", "pt": "Clorofila-a"},
+    "enso_region": {"es": "Región Niño 3.4", "en": "Niño 3.4 region", "pt": "Região Niño 3.4"},
+    "enso_umbral_nino": {"es": "Umbral El Niño", "en": "El Niño threshold", "pt": "Limiar El Niño"},
+    "enso_neutral": {"es": "Neutral", "en": "Neutral", "pt": "Neutro"},
+    "enso_grupo_periodo": {"es": "Datos del período", "en": "Selected period", "pt": "Dados do período"},
+    "enso_grupo_referencia": {"es": "Capas de referencia", "en": "Reference layers", "pt": "Camadas de referência"},
+    "enso_mapa_nota": {
+        "es": "Panel de capas (arriba a la derecha) para activar/desactivar capas. Mapa base: Esri World Street Map · GEE · NOAA CDR OISST v2.1",
+        "en": "Use the layers panel (top right) to toggle layers. Basemap: Esri World Street Map · GEE · NOAA CDR OISST v2.1",
+        "pt": "Painel de camadas (canto superior direito) para ativar/desativar camadas. Mapa base: Esri World Street Map · GEE · NOAA CDR OISST v2.1",
+    },
+    "enso_pdf_preparar": {"es": "Preparar reporte PDF con mapa", "en": "Prepare PDF report with map",
+                          "pt": "Preparar relatório PDF com mapa"},
+    "enso_pdf_preparar_help": {"es": "Obtiene imágenes del mapa desde GEE (~20-30 s) y genera el reporte PDF.",
+                               "en": "Fetches map images from GEE (~20–30 s) and builds the PDF report.",
+                               "pt": "Obtém imagens do mapa do GEE (~20–30 s) e gera o relatório PDF."},
+    "enso_pdf_mapas_gen": {"es": "Generando imágenes del mapa desde GEE…", "en": "Generating map images from GEE…",
+                           "pt": "Gerando imagens do mapa a partir do GEE…"},
+    "enso_pdf_mapa_error": {"es": "No se pudo obtener el mapa desde GEE:", "en": "Could not fetch the map from GEE:",
+                            "pt": "Não foi possível obter o mapa do GEE:"},
+    "enso_pdf_descargar": {"es": "Descargar reporte PDF", "en": "Download PDF report", "pt": "Baixar relatório PDF"},
+    "enso_pdf_descargar_help": {
+        "es": "Reporte SST/ENSO con mapas, barras de color, tabla de umbrales y estadísticas históricas.",
+        "en": "SST/ENSO report with maps, color bars, threshold table and historical statistics.",
+        "pt": "Relatório SST/ENSO com mapas, barras de cores, tabela de limiares e estatísticas históricas.",
+    },
+    "enso_sin_tiles": {"es": "No se obtuvieron tiles GEE para el período seleccionado.",
+                       "en": "No GEE tiles were returned for the selected period.",
+                       "pt": "Nenhum tile do GEE foi obtido para o período selecionado."},
+    "enso_conecta_gee": {"es": "Conecta a Google Earth Engine para visualizar el mapa SST.",
+                         "en": "Connect to Google Earth Engine to view the SST map.",
+                         "pt": "Conecte-se ao Google Earth Engine para visualizar o mapa SST."},
+    "enso_expander_serie": {"es": "📈 Serie histórica Índice Niño 3.4 (1982–2025)", "en": "📈 Niño 3.4 index historical series (1982–2025)",
+                            "pt": "📈 Série histórica do índice Niño 3.4 (1982–2025)"},
+    "enso_serie_nota": {
+        "es": "El cálculo incluye ~528 imágenes mensuales. La primera carga puede tomar ~30–60 s; el resultado se almacena en caché 24 h.",
+        "en": "The calculation covers ~528 monthly images. The first load can take ~30–60 s; the result is cached for 24 h.",
+        "pt": "O cálculo inclui ~528 imagens mensais. O primeiro carregamento pode levar ~30–60 s; o resultado fica em cache por 24 h.",
+    },
+    "enso_btn_calcular": {"es": "Calcular Índice Niño 3.4", "en": "Compute Niño 3.4 index", "pt": "Calcular índice Niño 3.4"},
+    "enso_btn_calcular_help": {"es": "Conecta a GEE y calcula la serie 1982-2025", "en": "Connects to GEE and computes the 1982–2025 series",
+                               "pt": "Conecta ao GEE e calcula a série 1982–2025"},
+    "enso_calculando": {"es": "Calculando serie ENSO 1982–2025… puede tomar hasta 60 s.",
+                        "en": "Computing ENSO series 1982–2025… this can take up to 60 s.",
+                        "pt": "Calculando série ENSO 1982–2025… pode levar até 60 s."},
+    "enso_gee_no_disp": {"es": "GEE no disponible. Verifica las credenciales en los secretos de la app.",
+                         "en": "GEE not available. Check the credentials in the app secrets.",
+                         "pt": "GEE indisponível. Verifique as credenciais nos segredos do app."},
+    "enso_sin_datos": {"es": "No se pudieron obtener datos ENSO de GEE.", "en": "Could not retrieve ENSO data from GEE.",
+                       "pt": "Não foi possível obter dados ENSO do GEE."},
+    "enso_traza_anom": {"es": "Anomalía SST Niño 3.4", "en": "Niño 3.4 SST anomaly", "pt": "Anomalia SST Niño 3.4"},
+    "enso_fase": {"es": "Fase ENSO", "en": "ENSO phase", "pt": "Fase ENSO"},
+    "enso_mm3": {"es": "MM 3 meses", "en": "3-month MA", "pt": "MM 3 meses"},
+    "enso_mm3_corto": {"es": "MM 3m", "en": "3m MA", "pt": "MM 3m"},
+    "enso_eje_anom": {"es": "Anomalía SST (°C)", "en": "SST anomaly (°C)", "pt": "Anomalia SST (°C)"},
+    "enso_meses_nino": {"es": "meses El Niño (≥+0.5°C)", "en": "El Niño months (≥+0.5°C)", "pt": "meses El Niño (≥+0.5°C)"},
+    "enso_meses_nina": {"es": "meses La Niña (≤−0.5°C)", "en": "La Niña months (≤−0.5°C)", "pt": "meses La Niña (≤−0.5°C)"},
+    "enso_meses_neutral": {"es": "meses neutrales", "en": "neutral months", "pt": "meses neutros"},
+    "enso_pico": {"es": "Pico", "en": "Peak", "pt": "Pico"},
+    "enso_total": {"es": "Total analizado: {n} meses", "en": "Total analyzed: {n} months", "pt": "Total analisado: {n} meses"},
+
+    # ── PDF: elementos comunes ────────────────────────────────────────────────
+    "pdf_disenado_por": {"es": "Diseñado por Kevin Rodríguez González", "en": "Designed by Kevin Rodríguez González",
+                         "pt": "Desenvolvido por Kevin Rodríguez González"},
+    "pdf_credito_depto": {"es": "Departamento de Geomática · UANL · FIC", "en": "Geomatics Department · UANL · FIC",
+                          "pt": "Departamento de Geomática · UANL · FIC"},
+    "pdf_h_introduccion": {"es": "Introducción", "en": "Introduction", "pt": "Introdução"},
+    "pdf_h_resumen_ejecutivo": {"es": "Resumen Ejecutivo", "en": "Executive Summary", "pt": "Resumo Executivo"},
+    "pdf_h_metodologia": {"es": "Metodología", "en": "Methodology", "pt": "Metodologia"},
+    "pdf_h_area_estudio": {"es": "Área de Estudio", "en": "Study Area", "pt": "Área de Estudo"},
+    "pdf_h_estadisticas_param": {"es": "Estadísticas por Parámetro", "en": "Statistics by Parameter",
+                                 "pt": "Estatísticas por Parâmetro"},
+    "pdf_h_serie_campo": {"es": "Serie Temporal — Datos Históricos de Campo", "en": "Time Series — Historical Field Data",
+                          "pt": "Série Temporal — Dados Históricos de Campo"},
+    "pdf_h_serie_rf": {"es": "Serie Temporal — Predicción del Modelo RF", "en": "Time Series — RF Model Prediction",
+                       "pt": "Série Temporal — Previsão do Modelo RF"},
+    "pdf_h_desc_param": {"es": "Descripción de Parámetros", "en": "Parameter Description", "pt": "Descrição dos Parâmetros"},
+    "pdf_h_mapas_param": {"es": "Mapas Espaciales por Parámetro", "en": "Spatial Maps by Parameter",
+                          "pt": "Mapas Espaciais por Parâmetro"},
+    "pdf_h_conclusiones": {"es": "Conclusiones", "en": "Conclusions", "pt": "Conclusões"},
+    "pdf_h_evolucion_param": {"es": "Evolución Temporal por Parámetro", "en": "Temporal Evolution by Parameter",
+                              "pt": "Evolução Temporal por Parâmetro"},
+    "pdf_h_tabla_fecha": {"es": "Tabla Resumen por Fecha", "en": "Summary Table by Date", "pt": "Tabela-Resumo por Data"},
+    "pdf_h_interp_tendencias": {"es": "Interpretación y Tendencias", "en": "Interpretation and Trends",
+                                "pt": "Interpretação e Tendências"},
+    "pdf_tbl_componente": {"es": "Componente", "en": "Component", "pt": "Componente"},
+    "pdf_tbl_detalle": {"es": "Detalle", "en": "Detail", "pt": "Detalhe"},
+    "pdf_met_sensor": {"es": "Sensor", "en": "Sensor", "pt": "Sensor"},
+    "pdf_met_sensor_v": {"es": "Sentinel-2 MSI (ESA Copernicus), 10 m de resolución espacial",
+                         "en": "Sentinel-2 MSI (ESA Copernicus), 10 m spatial resolution",
+                         "pt": "Sentinel-2 MSI (ESA Copernicus), resolução espacial de 10 m"},
+    "pdf_met_coleccion": {"es": "Colección GEE", "en": "GEE collection", "pt": "Coleção GEE"},
+    "pdf_met_coleccion_v": {"es": "COPERNICUS/S2_SR_HARMONIZED (reflectancia de superficie)",
+                            "en": "COPERNICUS/S2_SR_HARMONIZED (surface reflectance)",
+                            "pt": "COPERNICUS/S2_SR_HARMONIZED (refletância de superfície)"},
+    "pdf_met_modelo": {"es": "Modelo ML", "en": "ML model", "pt": "Modelo ML"},
+    "pdf_met_modelo_v": {"es": "Random Forest v3 — 500 árboles, variables: B2, B3, B4, B5, B8, NDVI, NDWI",
+                         "en": "Random Forest v3 — 500 trees, features: B2, B3, B4, B5, B8, NDVI, NDWI",
+                         "pt": "Random Forest v3 — 500 árvores, variáveis: B2, B3, B4, B5, B8, NDVI, NDWI"},
+    "pdf_met_validacion": {"es": "Validación", "en": "Validation", "pt": "Validação"},
+    "pdf_met_validacion_v": {"es": "Out-Of-Bag (OOB) R² y RMSE con datos de campo 2016–2019 (7 estaciones)",
+                             "en": "Out-Of-Bag (OOB) R² and RMSE with 2016–2019 field data (7 stations)",
+                             "pt": "Out-Of-Bag (OOB) R² e RMSE com dados de campo 2016–2019 (7 estações)"},
+    "pdf_met_generado_con": {"es": "Generado con", "en": "Built with", "pt": "Gerado com"},
+    "pdf_met_plataforma_v": {"es": "Google Earth Engine · Python · Streamlit · Geomática UANL",
+                             "en": "Google Earth Engine · Python · Streamlit · UANL Geomatics",
+                             "pt": "Google Earth Engine · Python · Streamlit · Geomática UANL"},
+    "pdf_res_detalle2": {"es": "10 m (bandas visibles/NIR) · 20 m (SWIR/Red-Edge)",
+                         "en": "10 m (visible/NIR bands) · 20 m (SWIR/Red-Edge)",
+                         "pt": "10 m (bandas visíveis/NIR) · 20 m (SWIR/Red-Edge)"},
+    "pdf_intro_calidad": {
+        "es": "El monitoreo de la calidad del agua en cuerpos superficiales es fundamental para la gestión ambiental y la "
+              "protección de los recursos hídricos. Este reporte presenta los resultados del análisis de parámetros "
+              "fisicoquímicos y microbiológicos del Río Pesquería, Nuevo León, México, obtenidos mediante teledetección "
+              "satelital con Sentinel-2 y modelos de machine learning (Random Forest) calibrados con datos de campo del "
+              "período 2016–2019. La plataforma Water Quality Mapping, desarrollada por el Departamento de Geomática de la "
+              "UANL, integra imágenes Sentinel-2 SR a 10 m de resolución con algoritmos de estimación de calidad de agua "
+              "para producir mapas espacialmente continuos de los principales indicadores ambientales.",
+        "en": "Monitoring water quality in surface water bodies is essential for environmental management and the protection "
+              "of water resources. This report presents the results of the analysis of physicochemical and microbiological "
+              "parameters of the Pesquería River, Nuevo León, Mexico, obtained through Sentinel-2 satellite remote sensing "
+              "and machine learning models (Random Forest) calibrated with 2016–2019 field data. The Water Quality Mapping "
+              "platform, developed by the Department of Geomatics at UANL, combines 10 m Sentinel-2 SR imagery with water "
+              "quality estimation algorithms to produce spatially continuous maps of the main environmental indicators.",
+        "pt": "O monitoramento da qualidade da água em corpos hídricos superficiais é fundamental para a gestão ambiental e a "
+              "proteção dos recursos hídricos. Este relatório apresenta os resultados da análise de parâmetros "
+              "físico-químicos e microbiológicos do Rio Pesquería, Nuevo León, México, obtidos por sensoriamento remoto com "
+              "Sentinel-2 e modelos de machine learning (Random Forest) calibrados com dados de campo do período "
+              "2016–2019. A plataforma Water Quality Mapping, desenvolvida pelo Departamento de Geomática da UANL, integra "
+              "imagens Sentinel-2 SR com 10 m de resolução e algoritmos de estimativa da qualidade da água para produzir "
+              "mapas espacialmente contínuos dos principais indicadores ambientais.",
+    },
+    "pdf_serie_campo_texto": {
+        "es": "Los siguientes gráficos muestran la evolución temporal de los parámetros fisicoquímicos medidos directamente "
+              "en campo en las 7 estaciones de muestreo del Río Pesquería durante el período 2016–2019 (19 campañas). Cada "
+              "gráfico incluye la media espacial entre estaciones (línea azul), el máximo registrado (línea roja "
+              "discontinua), la tendencia lineal (línea dorada) y el resultado del test de Mann-Kendall (τ de Kendall, "
+              "α = 0.05) para detectar tendencias monótonas estadísticamente significativas.",
+        "en": "The following charts show the temporal evolution of the physicochemical parameters measured directly in the "
+              "field at the 7 sampling stations of the Pesquería River during 2016–2019 (19 campaigns). Each chart includes "
+              "the spatial mean across stations (blue line), the maximum recorded value (dashed red line), the linear trend "
+              "(gold line) and the Mann-Kendall test result (Kendall's τ, α = 0.05) to detect statistically significant "
+              "monotonic trends.",
+        "pt": "Os gráficos a seguir mostram a evolução temporal dos parâmetros físico-químicos medidos diretamente em campo "
+              "nas 7 estações de amostragem do Rio Pesquería durante o período 2016–2019 (19 campanhas). Cada gráfico inclui "
+              "a média espacial entre estações (linha azul), o máximo registrado (linha vermelha tracejada), a tendência "
+              "linear (linha dourada) e o resultado do teste de Mann-Kendall (τ de Kendall, α = 0.05) para detectar "
+              "tendências monotônicas estatisticamente significativas.",
+    },
+    "pdf_serie_rf_texto": {
+        "es": "La siguiente sección presenta la evolución temporal de los parámetros de calidad de agua estimados por el "
+              "modelo Random Forest a lo largo de las fechas de muestreo disponibles. Se incluye la media espacial entre "
+              "los puntos, el máximo registrado y la tendencia lineal con el resultado del test de Mann-Kendall (α = 0.05).",
+        "en": "This section presents the temporal evolution of the water quality parameters estimated by the Random Forest "
+              "model across the available sampling dates. It includes the spatial mean across points, the maximum "
+              "recorded value and the linear trend with the Mann-Kendall test result (α = 0.05).",
+        "pt": "A seção a seguir apresenta a evolução temporal dos parâmetros de qualidade da água estimados pelo modelo "
+              "Random Forest ao longo das datas de amostragem disponíveis. Inclui a média espacial entre os pontos, o "
+              "máximo registrado e a tendência linear com o resultado do teste de Mann-Kendall (α = 0.05).",
+    },
+    "pdf_cita_calidad": {
+        "es": "Rodríguez González, K.D. ({anio}). Water Quality Mapping — Río Pesquería [Aplicación web]. Universidad "
+              "Autónoma de Nuevo León, Facultad de Ingeniería Civil, Departamento de Geomática.",
+        "en": "Rodríguez González, K.D. ({anio}). Water Quality Mapping — Pesquería River [Web application]. Universidad "
+              "Autónoma de Nuevo León, Faculty of Civil Engineering, Department of Geomatics.",
+        "pt": "Rodríguez González, K.D. ({anio}). Water Quality Mapping — Rio Pesquería [Aplicação web]. Universidad "
+              "Autónoma de Nuevo León, Faculdade de Engenharia Civil, Departamento de Geomática.",
+    },
+    "pdf_graf_tendencia_lineal": {"es": "Tendencia lineal", "en": "Linear trend", "pt": "Tendência linear"},
+    "pdf_graf_evolucion": {"es": "Evolución temporal", "en": "Temporal evolution", "pt": "Evolução temporal"},
+    "pdf_graf_media_zonal": {"es": "Media zonal", "en": "Zonal mean", "pt": "Média zonal"},
+    "pdf_graf_serie_zonal": {"es": "Serie temporal (media zonal)", "en": "Time series (zonal mean)",
+                             "pt": "Série temporal (média zonal)"},
+    "pdf_tendencia_mk": {"es": "Tendencia MK", "en": "MK trend", "pt": "Tendência MK"},
+
+    # ── PDF: serie temporal ───────────────────────────────────────────────────
+    "pdf_serie_intro": {
+        "es": "Este reporte documenta la evolución temporal de los parámetros de calidad del agua en el Río Pesquería, "
+              "Nuevo León, México, a partir del análisis multitemporal de imágenes Sentinel-2 SR procesadas en Google Earth "
+              "Engine (GEE). La estimación de cada variable fisicoquímica se realiza mediante un modelo Random Forest "
+              "entrenado con datos de campo colectados en 7 estaciones de muestreo durante el período 2016–2019. El "
+              "análisis de tendencias incluye el test no paramétrico de Mann-Kendall (τ de Kendall) para detectar "
+              "tendencias monótonas estadísticamente significativas (α = 0.05), complementado con la pendiente de Sen "
+              "para estimar la magnitud del cambio.",
+        "en": "This report documents the temporal evolution of water quality parameters in the Pesquería River, Nuevo León, "
+              "Mexico, based on multitemporal analysis of Sentinel-2 SR imagery processed in Google Earth Engine (GEE). "
+              "Each physicochemical variable is estimated with a Random Forest model trained on field data collected at 7 "
+              "sampling stations during 2016–2019. The trend analysis includes the non-parametric Mann-Kendall test "
+              "(Kendall's τ) to detect statistically significant monotonic trends (α = 0.05), complemented by Sen's slope "
+              "to estimate the magnitude of change.",
+        "pt": "Este relatório documenta a evolução temporal dos parâmetros de qualidade da água no Rio Pesquería, Nuevo "
+              "León, México, a partir da análise multitemporal de imagens Sentinel-2 SR processadas no Google Earth Engine "
+              "(GEE). Cada variável físico-química é estimada por um modelo Random Forest treinado com dados de campo "
+              "coletados em 7 estações de amostragem durante o período 2016–2019. A análise de tendências inclui o teste "
+              "não paramétrico de Mann-Kendall (τ de Kendall) para detectar tendências monotônicas estatisticamente "
+              "significativas (α = 0.05), complementado pela inclinação de Sen para estimar a magnitude da mudança.",
+    },
+    "pdf_serie_metodologia": {
+        "es": "El flujo de trabajo comprende: (1) búsqueda y composición de mosaicos Sentinel-2 SR sin nubes para cada fecha "
+              "de muestreo mediante GEE; (2) extracción de reflectancias en los puntos de muestreo; (3) aplicación del "
+              "modelo Random Forest para estimar los parámetros fisicoquímicos; (4) cálculo de estadísticas zonales (media, "
+              "máximo, mínimo); y (5) análisis de tendencias mediante Mann-Kendall y regresión lineal. Los resultados se "
+              "presentan como gráficos de evolución temporal con bandas de incertidumbre.",
+        "en": "The workflow comprises: (1) search and compositing of cloud-free Sentinel-2 SR mosaics for each sampling date "
+              "in GEE; (2) reflectance extraction at the sampling points; (3) application of the Random Forest model to "
+              "estimate the physicochemical parameters; (4) computation of zonal statistics (mean, maximum, minimum); and "
+              "(5) trend analysis with Mann-Kendall and linear regression. Results are shown as temporal evolution charts "
+              "with uncertainty bands.",
+        "pt": "O fluxo de trabalho compreende: (1) busca e composição de mosaicos Sentinel-2 SR sem nuvens para cada data de "
+              "amostragem no GEE; (2) extração de refletâncias nos pontos de amostragem; (3) aplicação do modelo Random "
+              "Forest para estimar os parâmetros físico-químicos; (4) cálculo de estatísticas zonais (média, máximo, "
+              "mínimo); e (5) análise de tendências por Mann-Kendall e regressão linear. Os resultados são apresentados "
+              "como gráficos de evolução temporal com faixas de incerteza.",
+    },
+    "pdf_serie_evolucion_texto": {
+        "es": "Cada gráfico muestra la media espacial (línea azul), el máximo entre estaciones (línea roja discontinua) y la "
+              "tendencia lineal (línea dorada). El resultado del test de Mann-Kendall se indica en el recuadro superior "
+              "izquierdo de cada gráfico.",
+        "en": "Each chart shows the spatial mean (blue line), the maximum across stations (dashed red line) and the linear "
+              "trend (gold line). The Mann-Kendall test result is shown in the upper-left box of each chart.",
+        "pt": "Cada gráfico mostra a média espacial (linha azul), o máximo entre estações (linha vermelha tracejada) e a "
+              "tendência linear (linha dourada). O resultado do teste de Mann-Kendall é indicado no quadro superior "
+              "esquerdo de cada gráfico.",
+    },
+    "pdf_serie_interp": {
+        "es": "<b>{param}</b>: tendencia de {tendencia} {sig} (τ={tau}, p={p}), variación de {v0} a {v1} {unidad} (~{pct}% de cambio).",
+        "en": "<b>{param}</b>: {tendencia} trend, {sig} (τ={tau}, p={p}); change from {v0} to {v1} {unidad} (~{pct}% change).",
+        "pt": "<b>{param}</b>: tendência de {tendencia} {sig} (τ={tau}, p={p}), variação de {v0} a {v1} {unidad} (~{pct}% de mudança).",
+    },
+    "pdf_sig_si": {"es": "estadísticamente significativa (p<0.05)", "en": "statistically significant (p<0.05)",
+                   "pt": "estatisticamente significativa (p<0.05)"},
+    "pdf_sig_no": {"es": "no significativa estadísticamente", "en": "not statistically significant",
+                   "pt": "não significativa estatisticamente"},
+
+    # ── PDF: índices espectrales ──────────────────────────────────────────────
+    "pdf_h_resumen_interp": {"es": "Resumen Interpretativo", "en": "Interpretive Summary", "pt": "Resumo Interpretativo"},
+    "pdf_h_estadisticas_zonales": {"es": "Estadísticas Zonales por Índice", "en": "Zonal Statistics by Index",
+                                   "pt": "Estatísticas Zonais por Índice"},
+    "pdf_h_mapas_indice": {"es": "Mapas Espectrales por Índice", "en": "Spectral Maps by Index",
+                           "pt": "Mapas Espectrais por Índice"},
+    "pdf_h_series_gee": {"es": "Series Temporales (Google Earth Engine)", "en": "Time Series (Google Earth Engine)",
+                         "pt": "Séries Temporais (Google Earth Engine)"},
+    "pdf_h_resumen_mk": {"es": "Resumen de Tendencias (Mann-Kendall)", "en": "Trend Summary (Mann-Kendall)",
+                         "pt": "Resumo de Tendências (Mann-Kendall)"},
+    "pdf_h_aplicaciones": {"es": "Aplicaciones y Recomendaciones", "en": "Applications and Recommendations",
+                           "pt": "Aplicações e Recomendações"},
+    "pdf_h_formulas": {"es": "Fórmulas de los Índices Espectrales", "en": "Spectral Index Formulas",
+                       "pt": "Fórmulas dos Índices Espectrais"},
+    "pdf_indices": {"es": "Índices", "en": "Indices", "pt": "Índices"},
+    "pdf_formula": {"es": "Fórmula", "en": "Formula", "pt": "Fórmula"},
+    "pdf_referencia": {"es": "Referencia", "en": "Reference", "pt": "Referência"},
+    "pdf_area_estimada": {"es": "Área estimada", "en": "Estimated area", "pt": "Área estimada"},
+    "pdf_resolucion_espacial": {"es": "Resolución espacial", "en": "Spatial resolution", "pt": "Resolução espacial"},
+    "pdf_p50": {"es": "P50 (mediana)", "en": "P50 (median)", "pt": "P50 (mediana)"},
+    "pdf_titulo_corto_espectral": {"es": "Reporte de Índices Espectrales — Water Quality Mapping",
+                                   "en": "Spectral Indices Report — Water Quality Mapping",
+                                   "pt": "Relatório de Índices Espectrais — Water Quality Mapping"},
+    "pdf_met_sensor_v2": {"es": "Sentinel-2 MSI (ESA Copernicus), 10 m / 20 m de resolución espacial",
+                          "en": "Sentinel-2 MSI (ESA Copernicus), 10 m / 20 m spatial resolution",
+                          "pt": "Sentinel-2 MSI (ESA Copernicus), resolução espacial de 10 m / 20 m"},
+    "pdf_met_composicion": {"es": "Composición", "en": "Compositing", "pt": "Composição"},
+    "pdf_met_composicion_v": {"es": "Compuesto mediano con máscara de nubes QA60 píxel a píxel",
+                              "en": "Median composite with per-pixel QA60 cloud mask",
+                              "pt": "Composto mediano com máscara de nuvens QA60 pixel a pixel"},
+    "pdf_met_clip": {"es": "Clip espacial", "en": "Spatial clip", "pt": "Recorte espacial"},
+    "pdf_met_clip_v": {"es": "Recorte exacto al polígono del shapefile cargado (no rectangular)",
+                       "en": "Exact clip to the uploaded shapefile polygon (not rectangular)",
+                       "pt": "Recorte exato ao polígono do shapefile enviado (não retangular)"},
+    "pdf_met_estadisticas": {"es": "Estadísticas", "en": "Statistics", "pt": "Estatísticas"},
+    "pdf_met_estadisticas_v": {"es": "reduceRegion — media, desv. estándar, mín., máx., percentil 50 y 90",
+                               "en": "reduceRegion — mean, std. dev., min, max, 50th and 90th percentiles",
+                               "pt": "reduceRegion — média, desvio padrão, mín., máx., percentis 50 e 90"},
+    "pdf_met_tendencias": {"es": "Tendencias", "en": "Trends", "pt": "Tendências"},
+    "pdf_met_tendencias_v": {"es": "Mann-Kendall (τ de Kendall) + regresión lineal por mínimos cuadrados",
+                             "en": "Mann-Kendall (Kendall's τ) + least-squares linear regression",
+                             "pt": "Mann-Kendall (τ de Kendall) + regressão linear por mínimos quadrados"},
+    "pdf_met_plataforma": {"es": "Plataforma", "en": "Platform", "pt": "Plataforma"},
+    "pdf_intro_espectral": {
+        "es": "Los índices espectrales derivados de imágenes Sentinel-2 (ESA Copernicus) permiten caracterizar propiedades "
+              "biofísicas y ópticas del agua superficial de forma espacialmente continua y repetible. Este reporte presenta "
+              "los resultados del análisis multivariado de índices espectrales computados en Google Earth Engine (GEE) para "
+              "el área de estudio definida por el shapefile cargado en la plataforma Water Quality Mapping. Los índices "
+              "cubren aspectos de calidad del agua (NDCI, SABI, CDOM, NDTI), presencia de agua superficial (NDWI, MNDWI, "
+              "AWEInsh), vegetación (NDVI, EVI) y temperatura de superficie (LST). El análisis temporal incluye el test de "
+              "Mann-Kendall para detectar tendencias significativas en las series históricas.",
+        "en": "Spectral indices derived from Sentinel-2 imagery (ESA Copernicus) make it possible to characterize biophysical "
+              "and optical properties of surface water in a spatially continuous and repeatable way. This report presents "
+              "the results of the multivariate analysis of spectral indices computed in Google Earth Engine (GEE) for the "
+              "study area defined by the shapefile uploaded to the Water Quality Mapping platform. The indices cover water "
+              "quality (NDCI, SABI, CDOM, NDTI), surface water presence (NDWI, MNDWI, AWEInsh), vegetation (NDVI, EVI) and "
+              "surface temperature (LST). The temporal analysis includes the Mann-Kendall test to detect significant "
+              "trends in the historical series.",
+        "pt": "Os índices espectrais derivados de imagens Sentinel-2 (ESA Copernicus) permitem caracterizar propriedades "
+              "biofísicas e ópticas da água superficial de forma espacialmente contínua e repetível. Este relatório "
+              "apresenta os resultados da análise multivariada de índices espectrais calculados no Google Earth Engine "
+              "(GEE) para a área de estudo definida pelo shapefile carregado na plataforma Water Quality Mapping. Os "
+              "índices abrangem qualidade da água (NDCI, SABI, CDOM, NDTI), presença de água superficial (NDWI, MNDWI, "
+              "AWEInsh), vegetação (NDVI, EVI) e temperatura de superfície (LST). A análise temporal inclui o teste de "
+              "Mann-Kendall para detectar tendências significativas nas séries históricas.",
+    },
+    "pdf_series_gee_texto": {
+        "es": "Las series temporales se extrajeron de Google Earth Engine calculando la media zonal de cada índice sobre el "
+              "área de estudio para cada imagen Sentinel-2 disponible. Se presentan la evolución temporal, la línea de "
+              "tendencia lineal y el resultado del test de Mann-Kendall para evaluar la significancia estadística de la "
+              "tendencia (α = 0.05).",
+        "en": "The time series were extracted from Google Earth Engine by computing the zonal mean of each index over the "
+              "study area for every available Sentinel-2 image. The temporal evolution, the linear trend line and the "
+              "Mann-Kendall test result are shown to assess the statistical significance of the trend (α = 0.05).",
+        "pt": "As séries temporais foram extraídas do Google Earth Engine calculando a média zonal de cada índice sobre a "
+              "área de estudo para cada imagem Sentinel-2 disponível. São apresentadas a evolução temporal, a linha de "
+              "tendência linear e o resultado do teste de Mann-Kendall para avaliar a significância estatística da "
+              "tendência (α = 0.05).",
+    },
+    "pdf_cita_espectral": {
+        "es": "Rodríguez González, K.D. ({anio}). Water Quality &amp; Spectral Indices Mapping Tool. Universidad Autónoma de "
+              "Nuevo León, Facultad de Ingeniería Civil, Departamento de Geomática. https://waterqualitygeomaticauanl.streamlit.app/",
+        "en": "Rodríguez González, K.D. ({anio}). Water Quality &amp; Spectral Indices Mapping Tool. Universidad Autónoma de "
+              "Nuevo León, Faculty of Civil Engineering, Department of Geomatics. https://waterqualitygeomaticauanl.streamlit.app/",
+        "pt": "Rodríguez González, K.D. ({anio}). Water Quality &amp; Spectral Indices Mapping Tool. Universidad Autónoma de "
+              "Nuevo León, Faculdade de Engenharia Civil, Departamento de Geomática. https://waterqualitygeomaticauanl.streamlit.app/",
+    },
+    "pdf_ndci_alta": {"es": "alta concentración de clorofila-a — posible floración algal",
+                      "en": "high chlorophyll-a concentration — possible algal bloom",
+                      "pt": "alta concentração de clorofila-a — possível floração de algas"},
+    "pdf_ndci_moderada": {"es": "concentración moderada de clorofila-a", "en": "moderate chlorophyll-a concentration",
+                          "pt": "concentração moderada de clorofila-a"},
+    "pdf_ndci_baja": {"es": "baja clorofila-a — aguas con escasa productividad fitoplanctónica",
+                      "en": "low chlorophyll-a — waters with low phytoplankton productivity",
+                      "pt": "baixa clorofila-a — águas com pouca produtividade fitoplanctônica"},
+    "pdf_sabi_alta": {"es": "alta biomasa algal superficial detectada", "en": "high surface algal biomass detected",
+                      "pt": "alta biomassa algal superficial detectada"},
+    "pdf_sabi_moderada": {"es": "biomasa algal moderada", "en": "moderate algal biomass", "pt": "biomassa algal moderada"},
+    "pdf_sabi_baja": {"es": "baja biomasa algal — aguas con buena transparencia", "en": "low algal biomass — good water transparency",
+                      "pt": "baixa biomassa algal — águas com boa transparência"},
+    "pdf_cdom_alta": {"es": "alta concentración de CDOM — probable aporte de materia orgánica disuelta",
+                      "en": "high CDOM concentration — likely input of dissolved organic matter",
+                      "pt": "alta concentração de CDOM — provável aporte de matéria orgânica dissolvida"},
+    "pdf_cdom_moderada": {"es": "CDOM moderado", "en": "moderate CDOM", "pt": "CDOM moderado"},
+    "pdf_cdom_baja": {"es": "CDOM bajo — aguas con alta transparencia óptica", "en": "low CDOM — high optical transparency",
+                      "pt": "CDOM baixo — águas com alta transparência óptica"},
+    "pdf_awei_agua": {"es": "superficie acuática claramente diferenciada del suelo",
+                      "en": "water surface clearly distinguished from land",
+                      "pt": "superfície aquática claramente diferenciada do solo"},
+    "pdf_awei_transicion": {"es": "zona de transición agua-suelo o agua somera", "en": "water–land transition zone or shallow water",
+                            "pt": "zona de transição água-solo ou água rasa"},
+    "pdf_awei_tierra": {"es": "superficie terrestre o ausencia de agua libre", "en": "land surface or no open water",
+                        "pt": "superfície terrestre ou ausência de água livre"},
+    "pdf_evi_densa": {"es": "vegetación densa — alta actividad fotosintética ribereña",
+                      "en": "dense vegetation — high riparian photosynthetic activity",
+                      "pt": "vegetação densa — alta atividade fotossintética ribeirinha"},
+    "pdf_evi_moderada": {"es": "vegetación moderada en la zona de influencia del cauce",
+                         "en": "moderate vegetation in the river corridor",
+                         "pt": "vegetação moderada na zona de influência do canal"},
+    "pdf_evi_escasa": {"es": "vegetación escasa o suelo parcialmente cubierto", "en": "sparse vegetation or partially covered soil",
+                       "pt": "vegetação escassa ou solo parcialmente coberto"},
+    "pdf_evi_nula": {"es": "sin vegetación — agua, suelo desnudo o área urbana", "en": "no vegetation — water, bare soil or urban area",
+                     "pt": "sem vegetação — água, solo exposto ou área urbana"},
+
+    # ── PDF: SST / ENSO ───────────────────────────────────────────────────────
+    "pdf_enso_titulo": {"es": "Análisis SST / Fenómeno ENSO", "en": "SST / ENSO Analysis", "pt": "Análise SST / Fenômeno ENSO"},
+    "pdf_enso_subtitulo": {"es": "Temperatura Superficial del Mar · Anomalía · Región Niño 3.4",
+                           "en": "Sea Surface Temperature · Anomaly · Niño 3.4 Region",
+                           "pt": "Temperatura da Superfície do Mar · Anomalia · Região Niño 3.4"},
+    "pdf_enso_resolucion": {"es": "resolución", "en": "resolution", "pt": "resolução"},
+    "pdf_procesamiento": {"es": "Procesamiento", "en": "Processing", "pt": "Processamento"},
+    "pdf_enso_nota_auto": {"es": "Reporte generado automáticamente por la plataforma Water Quality Mapping.",
+                           "en": "Report automatically generated by the Water Quality Mapping platform.",
+                           "pt": "Relatório gerado automaticamente pela plataforma Water Quality Mapping."},
+    "pdf_enso_intro": {
+        "es": "El Fenómeno El Niño–Oscilación del Sur (ENSO) es el principal modo de variabilidad climática interanual del "
+              "planeta. Se manifiesta como variaciones anómalas de la Temperatura Superficial del Mar (SST) en el Océano "
+              "Pacífico Tropical, particularmente en la región Niño 3.4 (5°N–5°S · 170°W–120°W). Las anomalías positivas "
+              "≥+0.5°C (El Niño) y negativas ≤−0.5°C (La Niña) alteran los patrones de precipitación, temperatura y "
+              "productividad biológica oceánica a escala global. En México el ENSO afecta directamente la disponibilidad "
+              "hídrica, la frecuencia de eventos extremos y la calidad del agua en cuerpos continentales como el Río "
+              "Pesquería, Nuevo León.",
+        "en": "The El Niño–Southern Oscillation (ENSO) is the planet's dominant mode of interannual climate variability. It "
+              "appears as anomalous variations in Sea Surface Temperature (SST) across the tropical Pacific Ocean, "
+              "particularly in the Niño 3.4 region (5°N–5°S · 170°W–120°W). Positive anomalies ≥+0.5°C (El Niño) and "
+              "negative anomalies ≤−0.5°C (La Niña) alter precipitation, temperature and ocean biological productivity "
+              "patterns worldwide. In Mexico, ENSO directly affects water availability, the frequency of extreme events and "
+              "water quality in inland water bodies such as the Pesquería River, Nuevo León.",
+        "pt": "O fenômeno El Niño–Oscilação Sul (ENSO) é o principal modo de variabilidade climática interanual do planeta. "
+              "Manifesta-se como variações anômalas da Temperatura da Superfície do Mar (SST) no Oceano Pacífico Tropical, "
+              "particularmente na região Niño 3.4 (5°N–5°S · 170°W–120°W). As anomalias positivas ≥+0.5°C (El Niño) e "
+              "negativas ≤−0.5°C (La Niña) alteram os padrões de precipitação, temperatura e produtividade biológica "
+              "oceânica em escala global. No México, o ENSO afeta diretamente a disponibilidade hídrica, a frequência de "
+              "eventos extremos e a qualidade da água em corpos continentais como o Rio Pesquería, Nuevo León.",
+    },
+    "pdf_enso_h_sst": {"es": "Temperatura Superficial del Mar (SST)", "en": "Sea Surface Temperature (SST)",
+                       "pt": "Temperatura da Superfície do Mar (SST)"},
+    "pdf_enso_sst_texto": {
+        "es": "El mapa de SST para <b>{periodo}</b> proviene de la colección NOAA OISST v2.1 (Optimum Interpolation Sea "
+              "Surface Temperature), derivada de datos AVHRR con resolución espacial de 0.25° (~28 km). La escala de color "
+              "cubre el rango típico 10°C–32°C.",
+        "en": "The SST map for <b>{periodo}</b> comes from the NOAA OISST v2.1 collection (Optimum Interpolation Sea Surface "
+              "Temperature), derived from AVHRR data at 0.25° (~28 km) spatial resolution. The color scale covers the "
+              "typical 10°C–32°C range.",
+        "pt": "O mapa de SST para <b>{periodo}</b> provém da coleção NOAA OISST v2.1 (Optimum Interpolation Sea Surface "
+              "Temperature), derivada de dados AVHRR com resolução espacial de 0.25° (~28 km). A escala de cores cobre a "
+              "faixa típica de 10°C–32°C.",
+    },
+    "pdf_enso_cbar_sst": {"es": "SST (°C) — Escala RdYlBu · NOAA OISST v2.1", "en": "SST (°C) — RdYlBu scale · NOAA OISST v2.1",
+                          "pt": "SST (°C) — Escala RdYlBu · NOAA OISST v2.1"},
+    "pdf_enso_cbar_anom": {"es": "Anomalía SST (°C) — Divergente azul-rojo · NOAA OISST v2.1",
+                           "en": "SST anomaly (°C) — Diverging blue-red · NOAA OISST v2.1",
+                           "pt": "Anomalia SST (°C) — Divergente azul-vermelho · NOAA OISST v2.1"},
+    "pdf_enso_cap_sst": {"es": "Mapa SST — {periodo} · NOAA CDR OISST v2.1 · GEE", "en": "SST map — {periodo} · NOAA CDR OISST v2.1 · GEE",
+                         "pt": "Mapa SST — {periodo} · NOAA CDR OISST v2.1 · GEE"},
+    "pdf_enso_cap_anom": {"es": "Anomalía SST — {periodo} · Referencia climatológica 1982–2025 · GEE",
+                          "en": "SST anomaly — {periodo} · 1982–2025 climatological baseline · GEE",
+                          "pt": "Anomalia SST — {periodo} · Referência climatológica 1982–2025 · GEE"},
+    "pdf_enso_h_anom": {"es": "Anomalía SST — Región Niño 3.4", "en": "SST Anomaly — Niño 3.4 Region",
+                        "pt": "Anomalia SST — Região Niño 3.4"},
+    "pdf_enso_anom_texto": {
+        "es": "La anomalía es la diferencia entre la SST de <b>{periodo}</b> y la climatología mensual 1982–2025. Anomalía "
+              "positiva (cálida) en Niño 3.4 → El Niño; negativa (fría) → La Niña. Umbral operacional NOAA/CPC: ±0.5°C "
+              "durante cinco meses consecutivos. En El Niño la clorofila-a oceánica disminuye (menor surgencia); en La Niña "
+              "aumenta (mayor mezcla de aguas frías ricas en nutrientes).",
+        "en": "The anomaly is the difference between the SST of <b>{periodo}</b> and the 1982–2025 monthly climatology. A "
+              "positive (warm) anomaly in Niño 3.4 → El Niño; a negative (cold) one → La Niña. NOAA/CPC operational "
+              "threshold: ±0.5°C for five consecutive months. During El Niño ocean chlorophyll-a decreases (weaker "
+              "upwelling); during La Niña it increases (stronger mixing of cold, nutrient-rich water).",
+        "pt": "A anomalia é a diferença entre a SST de <b>{periodo}</b> e a climatologia mensal 1982–2025. Anomalia positiva "
+              "(quente) no Niño 3.4 → El Niño; negativa (fria) → La Niña. Limiar operacional NOAA/CPC: ±0.5°C durante "
+              "cinco meses consecutivos. No El Niño a clorofila-a oceânica diminui (menor ressurgência); na La Niña aumenta "
+              "(maior mistura de águas frias ricas em nutrientes).",
+    },
+    "pdf_enso_h_umbrales": {"es": "Clasificación ENSO — Umbrales operacionales (NOAA/CPC):",
+                            "en": "ENSO classification — Operational thresholds (NOAA/CPC):",
+                            "pt": "Classificação ENSO — Limiares operacionais (NOAA/CPC):"},
+    "pdf_enso_condicion": {"es": "Condición", "en": "Condition", "pt": "Condição"},
+    "pdf_enso_color_mapa": {"es": "Color en mapa", "en": "Map color", "pt": "Cor no mapa"},
+    "pdf_enso_impacto": {"es": "Impacto Clorofila-a oceánica", "en": "Ocean chlorophyll-a impact",
+                         "pt": "Impacto na clorofila-a oceânica"},
+    "pdf_color_rojo": {"es": "Rojo", "en": "Red", "pt": "Vermelho"},
+    "pdf_color_azul": {"es": "Azul", "en": "Blue", "pt": "Azul"},
+    "pdf_color_blanco": {"es": "Blanco/amarillo", "en": "White/yellow", "pt": "Branco/amarelo"},
+    "pdf_enso_imp_nino": {"es": "Disminuye — aguas más cálidas, menor surgencia", "en": "Decreases — warmer water, weaker upwelling",
+                          "pt": "Diminui — águas mais quentes, menor ressurgência"},
+    "pdf_enso_imp_nina": {"es": "Aumenta — mayor surgencia de aguas frías", "en": "Increases — stronger upwelling of cold water",
+                          "pt": "Aumenta — maior ressurgência de águas frias"},
+    "pdf_enso_imp_neutral": {"es": "Normal estacional", "en": "Seasonal normal", "pt": "Normal sazonal"},
+    "pdf_enso_h_hist": {"es": "Estadísticas Históricas ENSO — 1982–2025", "en": "Historical ENSO Statistics — 1982–2025",
+                        "pt": "Estatísticas Históricas ENSO — 1982–2025"},
+    "pdf_enso_hist_texto": {
+        "es": "La serie comprende <b>{total} meses</b> (1982–2025). Media anomalía Niño 3.4: <b>{media}°C</b> · Desviación estándar: <b>{std}°C</b>.",
+        "en": "The series covers <b>{total} months</b> (1982–2025). Mean Niño 3.4 anomaly: <b>{media}°C</b> · Standard deviation: <b>{std}°C</b>.",
+        "pt": "A série abrange <b>{total} meses</b> (1982–2025). Anomalia média Niño 3.4: <b>{media}°C</b> · Desvio padrão: <b>{std}°C</b>.",
+    },
+    "pdf_enso_n_meses": {"es": "N (meses)", "en": "N (months)", "pt": "N (meses)"},
+    "pdf_enso_pct": {"es": "% período", "en": "% of period", "pt": "% período"},
+    "pdf_enso_pico_anom": {"es": "Pico anomalía", "en": "Peak anomaly", "pt": "Pico de anomalia"},
+    "pdf_enso_fecha_pico": {"es": "Fecha pico", "en": "Peak date", "pt": "Data do pico"},
+    "pdf_enso_h_grafico": {"es": "Serie Temporal Anomalía SST Niño 3.4 (1982–2025):",
+                           "en": "Niño 3.4 SST Anomaly Time Series (1982–2025):",
+                           "pt": "Série Temporal da Anomalia SST Niño 3.4 (1982–2025):"},
+    "pdf_enso_graf_titulo": {"es": "Índice Niño 3.4 — NOAA OISST v2.1 · GEE", "en": "Niño 3.4 Index — NOAA OISST v2.1 · GEE",
+                             "pt": "Índice Niño 3.4 — NOAA OISST v2.1 · GEE"},
+    "pdf_enso_graf_nota": {
+        "es": "<i>Puntos rojos: El Niño (≥+0.5°C) · Azules: La Niña (≤−0.5°C) · Grises: Neutral · Línea azul: media móvil 3 meses.</i>",
+        "en": "<i>Red dots: El Niño (≥+0.5°C) · Blue: La Niña (≤−0.5°C) · Grey: Neutral · Blue line: 3-month moving average.</i>",
+        "pt": "<i>Pontos vermelhos: El Niño (≥+0.5°C) · Azuis: La Niña (≤−0.5°C) · Cinzas: Neutro · Linha azul: média móvel de 3 meses.</i>",
+    },
+    "pdf_enso_h_fuentes": {"es": "Fuentes de Datos y Referencias", "en": "Data Sources and References",
+                           "pt": "Fontes de Dados e Referências"},
 }
 
 
@@ -1612,9 +2301,41 @@ def get_param_desc(param_key, lang="es"):
     return t(f"{param_key}_desc", lang)
 
 
-def get_indice_nombre(idx_key, lang="es"):
-    return t(f"{idx_key}_nombre", lang)
+def get_indice_nombre(idx_key, lang="es", plain=False):
+    nombre = t(f"{idx_key}_nombre", lang)
+    # plain=True quita el emoji inicial (matplotlib y Leaflet no lo necesitan)
+    return re.sub(r"^\W+", "", nombre) if plain else nombre
 
 
 def get_indice_desc(idx_key, lang="es"):
     return t(f"{idx_key}_desc", lang)
+
+
+MESES = {
+    "es": ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio",
+           "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
+    "en": ["January", "February", "March", "April", "May", "June", "July",
+           "August", "September", "October", "November", "December"],
+    "pt": ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho",
+           "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"],
+}
+
+
+def mes_nombre(mes, lang="es"):
+    return MESES.get(lang, MESES["es"])[int(mes) - 1]
+
+
+def mes_abrev(mes, lang="es"):
+    return mes_nombre(mes, lang)[:3]
+
+
+def fecha_corta(d, lang="es", anio=True):
+    """'08 Oct 2018' con el mes abreviado en el idioma (strftime %b depende del locale del servidor)."""
+    s = f"{d.day:02d} {mes_abrev(d.month, lang)}"
+    return f"{s} {d.year}" if anio else s
+
+
+def fecha_larga(d, lang="es"):
+    if lang == "en":
+        return f"{mes_nombre(d.month, lang)} {d.day}, {d.year}"
+    return f"{d.day} de {mes_nombre(d.month, lang).lower()} de {d.year}"
